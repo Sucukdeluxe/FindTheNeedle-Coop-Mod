@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.5"
+const VERSION := "0.19.6-local.1"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -578,7 +578,7 @@ func send_world(id: int) -> void:
 	_rx_world_end.rpc_id(id)
 
 
-@rpc("authority", "call_remote", "reliable", 1)
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_world_begin(raw_size: int, packed_size: int, chunks: int) -> void:
 	_trace("world_begin")
 	_world_rx = {"raw": raw_size, "size": packed_size, "n": chunks, "parts": {}}
@@ -587,7 +587,7 @@ func _rx_world_begin(raw_size: int, packed_size: int, chunks: int) -> void:
 	ui.set_progress(0.0)
 
 
-@rpc("authority", "call_remote", "reliable", 1)
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_world_chunk(i: int, data: PackedByteArray) -> void:
 	_trace("world_chunk", data.size())
 	if _world_rx.is_empty():
@@ -596,7 +596,7 @@ func _rx_world_chunk(i: int, data: PackedByteArray) -> void:
 	ui.set_progress(float(_world_rx["parts"].size()) / maxf(1.0, float(_world_rx["n"])))
 
 
-@rpc("authority", "call_remote", "reliable", 1)
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_world_end() -> void:
 	_trace("world_end")
 	if _world_rx.is_empty():
@@ -666,13 +666,13 @@ func request_resync() -> void:
 
 # ---------------------------------------------------------------- in-world RPCs (forwarded to mp_world)
 
-@rpc("any_peer", "call_remote", "unreliable_ordered", 2)
+@rpc("any_peer", "call_remote", "unreliable_ordered", 0)
 func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int) -> void:
 	if world_sync != null:
 		world_sync.on_pose(multiplayer.get_remote_sender_id(), pos, yaw, pitch, tool, crouch, moving, hands)
 
 
-@rpc("any_peer", "call_remote", "reliable", 3)
+@rpc("any_peer", "call_remote", "reliable", 0)
 func _rx_hay(idx: PackedInt32Array, vals: PackedFloat32Array) -> void:
 	_trace("hay", idx.size())
 	if world_sync != null:
@@ -681,14 +681,14 @@ func _rx_hay(idx: PackedInt32Array, vals: PackedFloat32Array) -> void:
 
 # Host -> guest: a checksum per block of the pile, so a guest can find where it
 # drifted from the host and ask for just those blocks.
-@rpc("authority", "call_remote", "reliable", 3)
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_hay_sums(sums: PackedFloat32Array) -> void:
 	_trace("hay_sums", sums.size())
 	if world_sync != null:
 		world_sync.on_hay_sums(sums)
 
 
-@rpc("any_peer", "call_remote", "reliable", 3)
+@rpc("any_peer", "call_remote", "reliable", 0)
 func _rx_hay_want(blocks: PackedInt32Array) -> void:
 	_trace("hay_want", blocks.size())
 	if is_host and world_sync != null:
@@ -739,7 +739,7 @@ func _rx_new_pile_request(on_credit: bool) -> void:
 
 # Host -> everyone: what happened to a loose needle. The host decides who holds
 # it, so two players grabbing the same needle cannot both hand it in.
-@rpc("authority", "call_remote", "reliable", 3)
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int) -> void:
 	_trace("needle")
 	if world_sync != null:
@@ -747,7 +747,7 @@ func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int) -> void:
 
 
 # Guest -> host: a guest picked a needle up, put it down or used it up.
-@rpc("any_peer", "call_remote", "reliable", 3)
+@rpc("any_peer", "call_remote", "reliable", 0)
 func _rx_needle_req(kind: String, idx: int, pos: Vector3) -> void:
 	_trace("needle_req")
 	if is_host and world_sync != null:
@@ -782,7 +782,7 @@ func _rx_prop_del(ids: PackedInt64Array) -> void:
 	_trace("prop_del", ids.size())
 	var p := _props()
 	if p != null:
-		p.on_del(ids)
+		p.on_del(multiplayer.get_remote_sender_id(), ids)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
@@ -870,9 +870,8 @@ func _rx_machines(packed: PackedByteArray, raw_size: int) -> void:
 
 
 # The same, for batches too big for one packet (a lost fragment would drop the
-# whole batch on the unreliable channel) and the periodic full refresh. Channel
-# 1 only carries the world at join time, so this never holds up anything else.
-@rpc("authority", "call_remote", "reliable", 1)
+# whole batch on the unreliable channel) and the periodic full refresh.
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_machines_big(packed: PackedByteArray, raw_size: int) -> void:
 	_trace("machines_big", packed.size())
 	if world_sync == null or world_sync.machines_sync == null:
@@ -1056,3 +1055,39 @@ func steam_name() -> String:
 			_steam_name_cache = best
 			break
 	return _steam_name_cache
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_belt_pick(seq: int) -> void:
+	if is_host and is_instance_valid(world_sync):
+		world_sync.belts_sync.on_pick(multiplayer.get_remote_sender_id(), seq)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_belt_pick_result(owner: int, id: int) -> void:
+	if not is_host and is_instance_valid(world_sync):
+		world_sync.belts_sync.on_pick_result(owner, id)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_mission_done(completed: PackedStringArray) -> void:
+	if is_host and is_instance_valid(world_sync):
+		world_sync.on_mission_done(multiplayer.get_remote_sender_id(), completed)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_build_digest(digest: int) -> void:
+	if is_instance_valid(world_sync):
+		world_sync.on_build_digest(digest)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_build_repair_request(revision: int) -> void:
+	if is_host and is_instance_valid(world_sync) and not world_sync._applying_builds:
+		_rx_build_repair.rpc_id(multiplayer.get_remote_sender_id(), world_sync.builds.to_array(), revision)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_build_repair(buildings: Array, revision: int) -> void:
+	if is_instance_valid(world_sync):
+		world_sync.on_build_repair(buildings, revision)

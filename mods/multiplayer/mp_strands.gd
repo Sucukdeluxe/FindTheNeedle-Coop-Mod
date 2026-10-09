@@ -167,8 +167,6 @@ func _scan() -> void:
 	var seen := {}
 	if not watchers.is_empty():
 		for b in active:
-			if _mine.size() + adds.size() >= MINE_CAP:
-				break
 			if b == null or not is_instance_valid(b):
 				continue
 			if b.has_meta("mp_ghost") or b.has_meta("needle_index"):
@@ -184,6 +182,8 @@ func _scan() -> void:
 			if sid != 0 and _mine.get(sid) == b:
 				seen[sid] = true
 				continue
+			if _mine.size() >= MINE_CAP or adds.size() >= ADD_BUDGET:
+				continue
 			sid = _new_sid()
 			b.set_meta("mp_sid", sid)
 			_mine[sid] = b
@@ -192,8 +192,6 @@ func _scan() -> void:
 			_sent[sid] = body.global_transform
 			adds.append([sid, body.global_transform,
 				b.get_meta("tint", Color(1, 1, 1))])
-			if adds.size() >= ADD_BUDGET:
-				break
 	var drop := PackedInt64Array()
 	for sid in _mine.keys():
 		if seen.has(sid):

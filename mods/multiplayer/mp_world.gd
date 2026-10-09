@@ -7,6 +7,9 @@ var mp: Node
 var world: Node
 var field: Node
 var builds: Node
+var _build_script: Script
+var _mission_script: Script
+var _mission_reported_index := 0
 var player: Node
 
 const POSE_HZ := 20.0
@@ -15,6 +18,7 @@ const HAY_FULL_SCAN := 3.0
 const HAY_EPS := 0.002
 const HAY_BATCH := 6000
 const BUILD_TICK := 0.4
+const RECONCILE_TICK := 3.0
 const STATE_TICK := 0.25
 # The host sends a checksum per 16x16-vertex block of the pile this often. A
 # guest compares it with its own pile and asks for the blocks that drifted.
@@ -41,7 +45,7 @@ const BUILD_ARRAYS := ["conveyors", "corners", "water_mains", "water_splitters",
 	"pelletizers", "generators", "boreholes", "tube_launchers", "dump_hatches",
 	"hay_stairs", "hay_lifts", "splitters", "joiners", "cabinets", "needle_radars",
 	"paint_boards", "work_lamps", "hay_drones", "piston_rakes", "power_poles"]
-const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side"]
+const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried"]
 
 # Settings the game keeps in a save's meta and reads back when it loads one,
 # as { the name on Cfg: the name in the meta }. The guest builds its yard out
@@ -49,7 +53,7 @@ const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side"]
 # it as a default: shed_long_bays decides how long the warehouse is and where
 # the sell stand goes, and leaving it out put the two players' stands eleven
 # metres apart. Sent only when the game has it, so older builds are untouched.
-const CFG_META := {"shed_long_bays": "shed_bays"}
+const CFG_META := {"shed_long_bays": "shed_bays", "shed_grid": "shed_grid"}
 
 const ADD_F := ["money", "debt", "hay_total", "hay_dug", "hay_returned", "hay_sold",
 	"money_earned", "stacks_ordered", "needles_found", "pile_needles_found"]
@@ -79,6 +83,11 @@ var _bkeys := {}  # key -> building dict
 var _builds_dirty := false
 var _build_t := 0.0
 var _applying_builds := false
+var _reconcile_t := 0.0
+var _build_revision := 0
+var _last_build_change := 0
+var _mismatch_count := 0
+var _repair_requested_at := -10000
 
 var _st_base := {}
 var _st_pending: Array = []  # [seq, delta]
@@ -101,7 +110,17 @@ var _pile_seed := 0
 func _ready() -> void:
 	field = world.get("field")
 	builds = world.get("builds")
+	if is_instance_valid(builds):
+		_build_script = builds.get_script()
+		_replace_build_script(load(mp.base_dir + "/mp_builds.gd"))
+		builds.set("mp_world", self)
 	player = world.get("player")
+	var missions: Variant = world.get("missions")
+	if is_instance_valid(missions):
+		_mission_script = missions.get_script()
+		_replace_mission_script(load(mp.base_dir + "/mp_missions.gd"))
+		missions.set("mp_world", self)
+	_mission_reported_index = GameState.mission_index
 	_avatar_script = load(mp.base_dir + "/mp_avatar.gd")
 	_me = _avatar_script.new()
 	_me.setup_local(player, mp)
@@ -145,6 +164,10 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if _mission_script != null and is_instance_valid(world.get("missions")):
+		_replace_mission_script(_mission_script)
+	if is_instance_valid(builds) and _build_script != null:
+		_replace_build_script(_build_script)
 	if Tech.tech_changed.is_connected(_on_tech_changed):
 		Tech.tech_changed.disconnect(_on_tech_changed)
 	if GameState.pile_replaced.is_connected(_on_pile_replaced):
@@ -264,6 +287,14 @@ func _process(delta: float) -> void:
 		if full:
 			_hay_scan_t = 0.0
 		_hay_tick(full)
+	_reconcile_t += delta
+	if _reconcile_t >= RECONCILE_TICK:
+		_reconcile_t = 0.0
+		if mp.is_host and not _applying_builds and not _builds_dirty:
+			var digest := _build_digest()
+			for peer_id in mp.players:
+				if peer_id != 1 and mp.players[peer_id].get("state") == "world":
+					mp._rx_build_digest.rpc_id(peer_id, digest)
 	_build_t += delta
 	if _build_t >= BUILD_TICK:
 		_build_t = 0.0
@@ -275,6 +306,7 @@ func _process(delta: float) -> void:
 	_state_t += delta
 	if _state_t >= STATE_TICK:
 		_state_t = 0.0
+		_mission_tick()
 		_state_tick()
 	if mp.is_host:
 		_hay_sum_t += delta
@@ -524,6 +556,9 @@ func on_hay_want(pid: int, blocks: PackedInt32Array) -> void:
 func _on_builds_changed() -> void:
 	if not _applying_builds:
 		_builds_dirty = true
+		_build_revision += 1
+		_last_build_change = Time.get_ticks_msec()
+		_mismatch_count = 0
 	# a machine placed here would run on its own until the next build tick
 	if _is_client():
 		_freeze_client_machines.call_deferred()
@@ -535,7 +570,7 @@ func _bkey(d: Dictionary) -> String:
 		if d.has(k):
 			parts.append(_qv(d[k]))
 	if d.has("yaw"):
-		parts.append(str(snappedf(float(d["yaw"]), 0.05)))
+		parts.append("%.5f" % wrapf(float(d["yaw"]), -PI, PI))
 	for k in BUILD_SHAPE_KEYS:
 		if d.has(k):
 			parts.append("%s=%s" % [k, str(d[k])])
@@ -544,7 +579,7 @@ func _bkey(d: Dictionary) -> String:
 
 func _qv(v: Variant) -> String:
 	if v is Vector3:
-		return "%.1f,%.1f,%.1f" % [snappedf(v.x, 0.1), snappedf(v.y, 0.1), snappedf(v.z, 0.1)]
+		return "%.4f,%.4f,%.4f" % [v.x, v.y, v.z]
 	return str(v)
 
 
@@ -591,6 +626,11 @@ func on_builds(adds: Array, removes: Array) -> void:
 	if _builds_dirty:
 		_flush_builds()
 	_applying_builds = true
+	adds = adds.duplicate()
+	removes = removes.duplicate()
+	if builds.has_method("_clear_mirrored_records"):
+		builds._clear_mirrored_records()
+	_apply_reversals(adds, removes)
 	mp.trace.note("builds begin: %s added, %s removed" % [_types_of(adds), _types_of(removes)])
 	for d in removes:
 		if d is Dictionary:
@@ -599,12 +639,136 @@ func on_builds(adds: Array, removes: Array) -> void:
 				_demolish(n)
 	if not adds.is_empty():
 		await _add_buildings(adds)
+	builds.rebuild_junctions()
+	builds.rebuild_water_joints()
+	builds.fit_posts_to_decks()
+	builds.share_joints()
+	builds.changed.emit()
 	_bkeys = _scan_builds()
 	_builds_dirty = false
 	_applying_builds = false
 	mp.trace.note("builds end")
 	if _is_client():
 		_freeze_client_machines()
+
+
+func _replace_build_script(script: Script) -> void:
+	var values := {}
+	for property in builds.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = builds.get(property.name)
+	builds.set_script(script)
+	for key in values:
+		if key in builds:
+			builds.set(key, values[key])
+
+
+func _replace_mission_script(script: Script) -> void:
+	var missions: Node = world.get("missions")
+	var values := {}
+	for property in missions.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = missions.get(property.name)
+	missions.set_script(script)
+	for key in values:
+		if key in missions:
+			missions.set(key, values[key])
+
+
+func _mission_tick() -> void:
+	var reached := mini(GameState.mission_index, MissionBook.count())
+	if reached <= _mission_reported_index:
+		return
+	if _is_client():
+		var completed := PackedStringArray()
+		for index in range(_mission_reported_index, reached):
+			completed.append(MissionBook.id_at(index))
+		mp._rx_mission_done.rpc_id(1, completed)
+	_mission_reported_index = reached
+
+
+func on_mission_done(sender: int, completed: PackedStringArray) -> void:
+	if not mp.is_host or not mp.players.has(sender):
+		return
+	var missions: Variant = world.get("missions")
+	if not is_instance_valid(missions) or not ("remote_completed" in missions):
+		return
+	for id in completed:
+		var index := MissionBook.index_of(id)
+		if index >= GameState.mission_index and index < MissionBook.count():
+			missions.remote_completed[id] = true
+
+
+func _apply_reversals(adds: Array, removes: Array) -> void:
+	for before in removes.duplicate():
+		if not (before is Dictionary) or before.get("type") != "conveyor":
+			continue
+		for after in adds.duplicate():
+			if not (after is Dictionary) or after.get("type") != "conveyor":
+				continue
+			if before.get("a") != after.get("b") or before.get("b") != after.get("a"):
+				continue
+			var node := _find_building(before)
+			if node == null:
+				break
+			node.reverse()
+			node.line_id = int(after.get("line", 0))
+			if after.has("paid"):
+				node.paid_cost = float(after["paid"])
+			adds.erase(after)
+			removes.erase(before)
+			break
+
+
+func _build_digest() -> int:
+	var rows := PackedStringArray()
+	if not is_instance_valid(builds):
+		return 0
+	for data in builds.to_array():
+		rows.append(_bkey(data))
+	for path in builds.conveyors + builds.corners:
+		if not is_instance_valid(path) or not path.is_inside_tree():
+			continue
+		var points := PackedStringArray()
+		for point in path._line:
+			points.append(_qv(point))
+		rows.append("path:" + ";".join(points))
+	rows.sort()
+	return hash(rows)
+
+
+func on_build_digest(digest: int) -> void:
+	if not _is_client() or _frozen or _applying_builds or _builds_dirty:
+		return
+	if digest == _build_digest():
+		_mismatch_count = 0
+		return
+	_mismatch_count += 1
+	var now := Time.get_ticks_msec()
+	if _mismatch_count < 2 or now - _last_build_change < 2000 or now - _repair_requested_at < 5000:
+		return
+	_repair_requested_at = now
+	mp._rx_build_repair_request.rpc_id(1, _build_revision)
+
+
+func on_build_repair(host_builds: Array, revision: int) -> void:
+	if not _is_client() or _frozen or _applying_builds or _builds_dirty or revision != _build_revision:
+		return
+	var want := {}
+	for data in host_builds:
+		if data is Dictionary:
+			want[_bkey(data)] = data
+	var have := _scan_builds()
+	var adds: Array = []
+	var removes: Array = []
+	for key in want:
+		if not have.has(key):
+			adds.append(want[key])
+	for key in have:
+		if not want.has(key):
+			removes.append(have[key])
+	await on_builds(adds, removes)
+	_mismatch_count = 0
 
 
 func _types_of(dicts: Array) -> String:
@@ -618,25 +782,15 @@ func _types_of(dicts: Array) -> String:
 func _find_building(d: Dictionary) -> Node3D:
 	var want := str(d.get("type", ""))
 	var key := _bkey(d)
-	var best: Node3D = null
-	var best_err := 0.6
 	for n in builds.every_placed():
 		if not is_instance_valid(n) or n.is_queued_for_deletion() or not n.has_method("to_dict"):
 			continue
 		var nd: Dictionary = n.to_dict()
 		if str(nd.get("type", "")) != want:
 			continue
-		# the very building first: nearest-within-0.6 m could take a neighbour
 		if _bkey(nd) == key:
 			return n
-		var err := 0.0
-		for k in ["position", "a", "b"]:
-			if d.has(k) and nd.has(k) and d[k] is Vector3 and nd[k] is Vector3:
-				err += (d[k] as Vector3).distance_to(nd[k])
-		if err < best_err:
-			best_err = err
-			best = n
-	return best
+	return null
 
 
 # Taking down the other player's demolition. Pulling down a free building (a
@@ -646,10 +800,7 @@ func _find_building(d: Dictionary) -> Node3D:
 # gets it back; here it just goes.
 func _demolish(n: Node3D) -> void:
 	var gifts: Dictionary = GameState.gifts.duplicate()
-	if builds.has_method("demolish_blocked_reason") and str(builds.demolish_blocked_reason(n)) == "":
-		builds.demolish(n)
-	if is_instance_valid(n) and not n.is_queued_for_deletion():
-		builds._demolish_one(n)
+	builds._demolish_one(n)
 	if GameState.gifts != gifts:
 		GameState.gifts = gifts
 		GameState.gifts_changed.emit()
@@ -664,6 +815,30 @@ const BUILD_EXTRAS := ["demo_withheld"]
 
 
 func _add_buildings(dicts: Array) -> void:
+	var known := _scan_builds()
+	var normal: Array = []
+	var other: Array = []
+	for d in dicts:
+		if not (d is Dictionary) or known.has(_bkey(d)):
+			continue
+		known[_bkey(d)] = d
+		if d.get("type", "") == "conveyor" and d.get("a") is Vector3 and d.get("b") is Vector3:
+			normal.append(d)
+		else:
+			other.append(d)
+	if not other.is_empty():
+		await _restore_buildings(other)
+	for d in normal:
+		var belt: Node = builds.add_conveyor(d["a"], d["b"], int(d.get("line", 0)))
+		if belt != null and d.has("paid"):
+			belt.paid_cost = float(d["paid"])
+	if not normal.is_empty():
+		builds.rebuild_junctions()
+		builds.share_joints()
+		builds.changed.emit()
+
+
+func _restore_buildings(dicts: Array) -> void:
 	var parked := {}
 	for a in BUILD_ARRAYS + BUILD_EXTRAS:
 		var arr: Variant = builds.get(a)
@@ -807,6 +982,8 @@ func _state_tick() -> void:
 
 
 func on_state_delta(pid: int, seq: int, delta: Dictionary) -> void:
+	if seq <= int(_peer_ack.get(pid, 0)):
+		return
 	var before := _capture_state()
 	for f in ADD_F:
 		if delta.has(f):
@@ -902,6 +1079,8 @@ func on_state_snap(ack: int, snap: Dictionary) -> void:
 	for f in HOST_ABS:
 		if snap.has(f) and snap[f] != null:
 			GameState.set(f, snap[f])
+	if snap.has("mission_index"):
+		_mission_reported_index = maxi(_mission_reported_index, int(snap["mission_index"]))
 	for f in HOST_MAX:
 		if snap.has(f):
 			GameState.set(f, maxi(int(GameState.get(f)), int(snap[f])))

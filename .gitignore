@@ -5,3 +5,12 @@
 *.bak
 Thumbs.db
 desktop.ini
+
+/work/
+/local-tests/
+PROJECT_MEMORY.md
+*MEMORY*.md
+/dev/mp_test.gd
+/dev/mp_sync_test.gd
+.env
+.env.*

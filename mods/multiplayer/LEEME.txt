@@ -1,4 +1,4 @@
-MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.5
+MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-local.1
 =============================================
 
 Mod no oficial. Todos los jugadores necesitan el juego (la demo, gratis en

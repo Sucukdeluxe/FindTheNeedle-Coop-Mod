@@ -170,7 +170,7 @@ func _plate(accent: Color, mx := 12.0, my := 8.0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = COL_PLATE
 	sb.border_color = accent
-	sb.border_width_left = 3
+	sb.set_border_width_all(1)
 	sb.content_margin_left = mx
 	sb.content_margin_right = mx
 	sb.content_margin_top = my
@@ -225,7 +225,7 @@ func _button(text: String, cb: Callable, accent := false) -> Button:
 		var sb := StyleBoxFlat.new()
 		var base := Color(0.16, 0.14, 0.06) if accent else Color(0.1, 0.11, 0.14)
 		sb.bg_color = base.lightened(0.12) if st == "hover" else (base.darkened(0.3) if st == "disabled" else base)
-		sb.border_width_left = 4 if st == "hover" or accent else 0
+		sb.set_border_width_all(1 if st == "hover" or accent else 0)
 		sb.border_color = COL_TITLE
 		sb.content_margin_left = 12
 		sb.content_margin_right = 12
@@ -273,7 +273,7 @@ func _build_panel() -> void:
 	_panel = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = COL_BG
-	sb.border_width_left = 5
+	sb.set_border_width_all(1)
 	sb.border_color = COL_TITLE
 	sb.content_margin_left = 30
 	sb.content_margin_right = 30
@@ -542,7 +542,7 @@ func _build_wait() -> void:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0, 0, 0, 0)
 		sb.border_color = Color(COL_TITLE, 0)
-		sb.border_width_left = 3
+		sb.set_border_width_all(1)
 		sb.content_margin_left = 10
 		sb.content_margin_right = 8
 		sb.content_margin_top = 3

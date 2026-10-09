@@ -19,15 +19,28 @@ var world: Node
 var _t := 0.0
 var _since := 0.0
 var _last_hash := 0
+var _carry: Node
+var _carry_script: Script
+var _pick_pending := false
+var _pick_stack := false
 
 
 func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
+	var player: Variant = world.get("player")
+	if is_instance_valid(player):
+		_carry = player.get("carry")
+	if is_instance_valid(_carry):
+		_carry_script = _carry.get_script()
+		_replace_carry_script(load(mp.base_dir + "/mp_carry.gd"))
+		_carry.set("mp_belts", self)
 
 
 # Hand the belt ends back, in case the world outlives the session.
 func shutdown() -> void:
+	if is_instance_valid(_carry) and _carry_script != null:
+		_replace_carry_script(_carry_script)
 	for item in BeltPath._live:
 		if not is_instance_valid(item) or not item.is_inside_tree():
 			continue
@@ -57,16 +70,21 @@ func _process(delta: float) -> void:
 # Everyone, or one guest that just came in. Unchanged lists are skipped: an
 # idle yard used to send the whole ride list four times a second.
 func send_all(pid: int = 0) -> void:
-	var entries: Array = BeltPath.belts_to_array()
-	# the transform is only there for the "could not board it" fallback, which
-	# clients do not use: dropping it takes most of the packet away
-	for e in entries:
-		var rows: Array = e.get("records", [])
-		for row in rows:
-			if row is Dictionary:
-				row.erase("xform")
-				if row.get("state") is Dictionary and (row["state"] as Dictionary).is_empty():
-					row.erase("state")
+	var entries: Array = []
+	for path in BeltPath._live:
+		if not is_instance_valid(path) or not path.is_inside_tree() or path.run.count() == 0:
+			continue
+		var ends: PackedVector3Array = path.save_ends()
+		if ends.size() < 2:
+			continue
+		var rows: Array = []
+		for i in range(path.run.first(), path.run.first() + path.run.count()):
+			var row: Dictionary = path.run.record(i)
+			var state: Dictionary = row.get("state") if row.get("state") is Dictionary else {}
+			row["state"] = state.duplicate(true)
+			row["state"]["_mp_belt_seq"] = int(row["seq"])
+			rows.append(row)
+		entries.append({"a": ends[0], "b": ends[1], "records": rows})
 	var raw := var_to_bytes(entries)
 	if pid == 0:
 		var h := hash(raw)
@@ -107,3 +125,64 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 		for e in entries:
 			rows += (e.get("records", []) as Array).size()
 		print("[MPBELTS] %d paths, %d rows -> %s" % [entries.size(), rows, got])
+
+
+func _replace_carry_script(script: Script) -> void:
+	var values := {}
+	for property in _carry.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = _carry.get(property.name)
+	_carry.set_script(script)
+	for key in values:
+		if key in _carry:
+			_carry.set(key, values[key])
+
+
+func request_pick(record: Dictionary, onto_stack: bool) -> bool:
+	if _pick_pending:
+		return true
+	var state: Variant = record.get("state")
+	if not (state is Dictionary) or not state.has("_mp_belt_seq"):
+		return false
+	_pick_pending = true
+	_pick_stack = onto_stack
+	mp._rx_belt_pick.rpc_id(1, int(state["_mp_belt_seq"]))
+	return true
+
+
+func on_pick(sender: int, seq: int) -> void:
+	for path in BeltPath._live.duplicate():
+		if not is_instance_valid(path) or not path.is_inside_tree():
+			continue
+		for i in range(path.run.first(), path.run.first() + path.run.count()):
+			if path.run.seq_of(i) != seq:
+				continue
+			var item: Variant = path.materialize_record(i)
+			if not is_instance_valid(item):
+				mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
+				return
+			var id := int(item.get_meta("mp_id", 0))
+			if id == 0:
+				mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
+				return
+			mp.world_sync.props_sync.on_claim(sender, id)
+			mp._rx_belt_pick_result.rpc(sender, id)
+			send_all()
+			return
+	mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
+
+
+func on_pick_result(owner: int, id: int) -> void:
+	var sync: Node = mp.world_sync.props_sync
+	if id != 0:
+		sync.on_claim(owner, id)
+	if owner != multiplayer.get_unique_id():
+		return
+	_pick_pending = false
+	var item: Variant = sync._by_id.get(id)
+	if not is_instance_valid(item) or not is_instance_valid(_carry):
+		return
+	if _pick_stack and _carry.can_stack(item):
+		_carry.stack_on(item)
+	elif not _carry.is_carrying():
+		_carry.take(item)

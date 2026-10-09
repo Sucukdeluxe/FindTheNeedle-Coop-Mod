@@ -1,0 +1,37 @@
+FIND THE NEEDLE CO-OP – 0.19.6-local.1
+Private Korrekturfassung auf Basis der Mod 0.19.5 von AleDev11.
+
+INSTALLATION
+1. Spiel bei allen Spielern vollständig beenden.
+2. Den bisherigen Ordner mods/multiplayer außerhalb des Spielordners sichern.
+3. Den enthaltenen Ordner mods ins Spielverzeichnis kopieren und vorhandene
+   Dateien ersetzen. Host und Mitspieler benötigen genau diese Fassung.
+4. In override.cfg muss unter [autoload] folgende Zeile stehen:
+   MPMod="*mods/multiplayer/mp.gd"
+   Einen vorhandenen Eintrag beibehalten; andere Einstellungen nicht ersetzen.
+5. Alle Spieler starten das Spiel über Steam und verbinden sich neu.
+
+ÄNDERUNGEN
+- Normale Förderbänder: genauer Abgleich der Endpunkte, Erhalt der Linienkennung,
+  gezielter Segmentabriss und Schutz vor doppelten Bau-Nachrichten.
+- Automatischer Abgleich: Der Host prüft den Gebäudezustand alle drei Sekunden.
+  Wiederholte Abweichungen werden ohne Neuladen korrigiert. Laufende Bauaktionen
+  werden berücksichtigt. F8 bleibt eine manuelle Wiederherstellungsmöglichkeit.
+- Quest-Abschlüsse eines Gasts werden an den Host übertragen. Der Host verwendet
+  die vorhandene Quest- und Belohnungslogik; Belohnungen werden dort vergeben.
+- Bandentnahmen werden vom Host bestätigt. Beim Umdrehen und Entfernen von
+  Bändern erzeugt der Gast keine zweite Kopie der transportierten Ladung.
+- Alte Pakete früherer Gegenstandsbesitzer überschreiben keine neuere Übergabe.
+  Position und Zustand werden regelmäßig erneut übertragen.
+- Fehlende Filter- und Richtungseinstellungen der Verteiler werden abgeglichen.
+- Fremdes Heu im Einfüllbereich eines Host-Behälters wird an dessen Simulation
+  übergeben. Bereits erfasstes Stroh bleibt beim Erreichen des Sendelimits erhalten.
+- Nicht unterstützte Steam-Netzwerkkanäle und doppelte Zustandsbuchungen korrigiert.
+
+RÜCKKEHR ZUR ALTEN FASSUNG
+Spiel beenden, mods/multiplayer durch die zuvor gesicherte Version ersetzen.
+Spielstände sind nicht Bestandteil dieses Pakets und werden nicht überschrieben.
+
+Diese Fassung ist keine offizielle Veröffentlichung des ursprünglichen Autors.
+Die Prüfung erfolgt mit der lokal installierten Demo und isolierten Testprofilen.
+Ein Langzeittest mit zwei getrennten Steam-Konten bleibt erforderlich.

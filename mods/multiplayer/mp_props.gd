@@ -208,7 +208,7 @@ func _mine(id: int) -> bool:
 # its own tick, and the delete goes out like any other. This is how hay a guest
 # loads finally counts, and it still only counts once, here.
 func host_take(item: Variant) -> bool:
-	if not mp.is_host or item == null or not is_instance_valid(item):
+	if not mp.is_host or item == null or not is_instance_valid(item) or not item.is_inside_tree():
 		return false
 	var n := item as Node
 	if n == null or not n.has_meta("mp_id"):
@@ -434,7 +434,7 @@ func _hide_held_tools() -> void:
 	var avatars: Dictionary = ws.avatars if ws != null and is_instance_valid(ws) else {}
 	for id in _by_id:
 		var it: Variant = _by_id[id]
-		if it == null or not is_instance_valid(it):
+		if it == null or not is_instance_valid(it) or not it.is_inside_tree():
 			continue
 		var tool: int = TOOL_ITEMS.get(String(it.item_id), 0)
 		if tool == 0:
@@ -510,7 +510,7 @@ func _smooth(delta: float) -> void:
 	var done: Array = []
 	for id in _goal:
 		var it: Variant = _by_id.get(id)
-		if it == null or not is_instance_valid(it):
+		if it == null or not is_instance_valid(it) or not it.is_inside_tree():
 			done.append(id)
 			continue
 		if _pushed.has(id):
@@ -582,6 +582,8 @@ func _state_tick() -> void:
 
 
 func _census_tick() -> void:
+	_sent.clear()
+	_hash.clear()
 	var ids := PackedInt64Array()
 	for id in _by_id:
 		if _mine(id) and is_instance_valid(_by_id[id]):
@@ -594,7 +596,8 @@ func _census_tick() -> void:
 func on_add(sender: int, id: int, item_id: String, xf: Transform3D, state: Dictionary) -> void:
 	var have: Variant = _by_id.get(id)
 	if have != null and is_instance_valid(have):
-		_goal[id] = xf
+		if not _mine(id) and int(_owner.get(id, 0)) == sender:
+			_goal[id] = xf
 		return
 	if not ItemDb.has_item(item_id):
 		return
@@ -606,9 +609,9 @@ func on_add(sender: int, id: int, item_id: String, xf: Transform3D, state: Dicti
 		_note_held(id, state)
 
 
-func on_del(ids: PackedInt64Array) -> void:
+func on_del(sender: int, ids: PackedInt64Array) -> void:
 	for id in ids:
-		if _mine(id):
+		if _mine(id) or int(_owner.get(id, 0)) != sender:
 			continue
 		var it: Variant = _by_id.get(id)
 		_forget(id)
@@ -619,7 +622,7 @@ func on_del(ids: PackedInt64Array) -> void:
 
 
 func on_move(sender: int, ids: PackedInt64Array, xfs: Array) -> void:
-	for i in ids.size():
+	for i in mini(ids.size(), xfs.size()):
 		var id: int = ids[i]
 		if _mine(id):
 			continue
@@ -628,21 +631,22 @@ func on_move(sender: int, ids: PackedInt64Array, xfs: Array) -> void:
 			_want[id] = sender
 			continue
 		if int(_owner.get(id, 0)) != sender:
-			_owner[id] = sender
-			_puppet(it)
+			continue
 		if it.is_held():
 			continue
 		_goal[id] = xfs[i]
 
 
 func on_state(sender: int, ids: PackedInt64Array, states: Array) -> void:
-	for i in ids.size():
+	for i in mini(ids.size(), states.size()):
 		var id: int = ids[i]
 		if _mine(id):
 			continue
 		var it: Variant = _by_id.get(id)
 		if it == null or not is_instance_valid(it):
 			_want[id] = sender
+			continue
+		if int(_owner.get(id, 0)) != sender:
 			continue
 		var st: Dictionary = states[i]
 		it.from_state(st)
@@ -662,6 +666,7 @@ func on_claim(sender: int, id: int) -> void:
 	var it: Variant = _by_id.get(id)
 	_owner[id] = sender
 	_held.erase(id)
+	_hash.erase(id)
 	_sent.erase(id)
 	_goal.erase(id)
 	if it == null or not is_instance_valid(it):
@@ -669,6 +674,8 @@ func on_claim(sender: int, id: int) -> void:
 	if sender == _me():
 		_release(it)
 	else:
+		if it is RigidBody3D:
+			BeltPath.release(it)
 		_puppet(it)
 
 

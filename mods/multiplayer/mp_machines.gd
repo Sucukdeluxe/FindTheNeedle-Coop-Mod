@@ -35,7 +35,7 @@ const MAX_RAW := 4 << 20
 const FIELDS := {
 	"generators": ["fuel", "switched_off", "made_kw"],
 	"silos": ["switched_off", "stored", "queued"],
-	"splitters": ["forced_side", "priority_side", "next_side"],
+	"splitters": ["forced_side", "priority_side", "next_side", "filters", "entry", "manual", "closed_lane", "fed"],
 	"joiners": ["next_side"],
 	"tube_launchers": ["switched_off", "aim", "power", "stored"],
 	"piston_rakes": ["switched_off", "throw_distance"],
@@ -70,7 +70,7 @@ const MOUTH_TICK := 0.25
 const SETTINGS := {
 	"generators": ["switched_off"],
 	"silos": ["switched_off"],
-	"splitters": ["forced_side", "priority_side"],
+	"splitters": ["forced_side", "priority_side", "filters", "entry", "manual", "closed_lane"],
 	"tube_launchers": ["switched_off", "aim", "power"],
 	"piston_rakes": ["switched_off", "throw_distance"],
 	"pelletizers": ["switched_off", "throw_distance"],
@@ -518,9 +518,9 @@ func _send_fields() -> void:
 			var v: Variant = (n as Node).get(f)
 			if v == null:
 				continue
-			now[f] = v
+			now[f] = _copy_value(v)
 			if not was.has(f) or was[f] != v:
-				diff[f] = v
+				diff[f] = _copy_value(v)
 		_vals[key] = now
 		if not diff.is_empty():
 			batch[key] = diff
@@ -620,7 +620,7 @@ func on_fields(batch: Dictionary) -> void:
 		var known: Dictionary = _theirs.get(key, {})
 		for f in diff:
 			_apply_field(n as Node, String(f), diff[f])
-			known[String(f)] = diff[f]
+			known[String(f)] = _copy_value(diff[f])
 		_theirs[key] = known
 
 
@@ -652,7 +652,7 @@ func _send_edits() -> void:
 			if v == null or v == known[f]:
 				continue
 			diff[f] = v
-			known[f] = v
+			known[f] = _copy_value(v)
 		if not diff.is_empty():
 			batch[key] = diff
 	if batch.is_empty():
@@ -689,6 +689,19 @@ func _feed_mouths() -> void:
 				if not props.host_take(body) and straws != null and is_instance_valid(straws):
 					straws.host_take(body)
 
+	for id in props._by_id.keys():
+		var container: Variant = props._by_id.get(id)
+		if not props._mine(id) or not is_instance_valid(container) or not container.is_inside_tree():
+			continue
+		if not container.has_method("takes_loose") or not container.takes_loose():
+			continue
+		var interior: Variant = container.get("_interior")
+		if not (interior is Area3D) or not interior.is_inside_tree():
+			continue
+		for body in interior.get_overlapping_bodies():
+			if not props.host_take(body) and is_instance_valid(straws):
+				straws.host_take(body)
+
 
 # Host: a guest worked a panel. The machine is ours to run, so apply it here and
 # the next field tick hands it to everyone, the guest who asked included.
@@ -714,9 +727,20 @@ func on_edit(from: int, batch: Dictionary) -> void:
 		_vals[key] = was
 
 
-# Go through the machine's own setter when it has one: several of them repaint
-# lamps or dials from there.
+func _copy_value(value: Variant) -> Variant:
+	if value is Array or value is Dictionary or value is PackedInt32Array:
+		return value.duplicate(true) if value is Array or value is Dictionary else value.duplicate()
+	return value
+
+
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if f == "filters" and n.has_method("set_filter") and (v is Array or v is PackedInt32Array):
+		for side in mini(v.size(), 3):
+			n.set_filter(side, int(v[side]))
+		return
+	if f == "closed_lane" and n.has_method("set_closed"):
+		n.set_closed(int(v))
+		return
 	var setter := "set_switched_off" if f == "_off" else "set_" + f
 	if n.has_method(setter):
 		n.call(setter, v)

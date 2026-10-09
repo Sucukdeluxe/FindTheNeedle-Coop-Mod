@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.19.6-local.1 (maintenance fork)
+
+* Reconcile divergent conveyor layouts automatically without reloading the world.
+* Forward guest quest completions to the host’s native quest and reward logic.
+* Apply conveyor changes to the requested segment, deduplicate repeated additions,
+  preserve line identifiers and avoid coarse position-key collisions.
+* Keep direction changes on existing belts and prevent clients from spawning
+  duplicate cargo when mirrored belts are reversed or removed.
+* Let the host resolve belt-record pickup before handing the item to the guest.
+* Reject stale movement, state and deletion messages from former prop owners.
+* Refresh prop movement and state periodically, including stationary items.
+* Synchronize compact/T splitter settings and copy mutable setting snapshots.
+* Transfer guest hay entering a host-owned container to its local simulation.
+* Preserve tracked straw when the scan reaches its per-frame or overall limit.
+* Use supported Steam RPC channels and reject replayed shared-state deltas.
+
+
 ## v0.19.5
 
 * Hay tufts a guest drops on a belt go through splitters and on to the
