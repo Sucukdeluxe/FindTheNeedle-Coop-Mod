@@ -158,11 +158,14 @@ func on_result(token: String, seq: int, result: Dictionary) -> void:
 	if token != epoch or not pending.has(seq):
 		return
 	pending.erase(seq)
+	world_sync.tools_sync.accept_result(seq, result)
 	var tool: Node = world_sync.player.build
 	if is_instance_valid(tool) and tool.has_method("accept_result"):
 		tool.accept_result(seq, result)
 	if result.get("ok", false):
 		var id := str(result.get("id", ""))
+		if result.get("action") == "tool_pickup" and GameState.has_tool(id):
+			world_sync.player.equip_tool_id(id)
 		if result.get("action") == "buy" and GameState.has_tool(id):
 			var shop: Node = world_sync.world.shop_menu
 			if is_instance_valid(shop) and shop._can_hand_over():
@@ -258,7 +261,11 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return _failure("purchase_declined")
 	match action:
 		"buy":
-			return _buy(actor, args)
+			return _buy(peer, actor, args)
+		"tool_drop":
+			return _drop_tool(peer, actor, args)
+		"tool_pickup":
+			return _pickup_tool(peer, actor, args)
 		"sell":
 			return _sell(actor, args)
 		"arm_upgrade":
@@ -269,7 +276,7 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 			return _edit(actor, action, args)
 	return _failure("purchase_declined")
 
-func _buy(actor: Player, args: Dictionary) -> Dictionary:
+func _buy(peer: int, actor: Player, args: Dictionary) -> Dictionary:
 	var id := str(args.get("id", ""))
 	if not ItemDb.has_item(id) or not ItemDb.is_unlocked(id) or ItemDb.price(id) <= 0.0:
 		return _failure("purchase_declined")
@@ -279,15 +286,14 @@ func _buy(actor: Player, args: Dictionary) -> Dictionary:
 	var limit := float(args.get("max_price", -1.0))
 	if not is_finite(limit) or price > limit + 0.001:
 		return _failure("economy_price_changed")
-	if id in GameState.TOOL_IDS and GameState.has_tool(id):
+	if id in GameState.TOOL_IDS and world_sync.tools_sync.has_tool(peer, id):
 		return {"ok": true, "already_owned": true}
 	if not GameState.spend_money(price):
 		return _failure("economy_funds")
 	if id in GameState.TOOL_IDS:
-		if not GameState.grant_tool(id):
+		if not world_sync.tools_sync.grant(peer, id):
 			GameState.add_money(price)
 			return _failure("purchase_declined")
-		world_sync.tools_sync.on_request(1, [id])
 	else:
 		var item: Variant = world_sync.props_sync.props.spawn_at_feet(id, actor)
 		if not is_instance_valid(item):
@@ -445,3 +451,31 @@ func _edit(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	if action == "reverse" and is_instance_valid(tool.last_reversed):
 		result["reversed_target"] = tool.last_reversed.to_dict()
 	return result
+
+
+func _drop_tool(peer: int, actor: Player, args: Dictionary) -> Dictionary:
+	var id := str(args.get("id", ""))
+	if not world_sync.tools_sync.has_tool(peer, id) or not ToolProp.has_spec(id):
+		return _failure("tool_unavailable")
+	var spawned: bool = actor._throw_tool_object(id) if bool(args.get("throwing", false)) else actor._drop_tool_object(id)
+	if not spawned:
+		return _failure("purchase_declined")
+	world_sync.tools_sync.take(peer, id)
+	return {"ok": true}
+
+
+func _pickup_tool(peer: int, actor: Player, args: Dictionary) -> Dictionary:
+	var id := str(args.get("id", ""))
+	var item_id := int(args.get("item", 0))
+	var props: Node = world_sync.props_sync
+	var item: Variant = props._by_id.get(item_id)
+	if not is_instance_valid(item) or not (item is ToolProp or item is SandShovel) or item.item_id != id or props._held.has(item_id) or item.is_held():
+		return _failure("tool_unavailable")
+	var reach: float = Tech.carry_reach() + item.ride_box().size.length() * 0.5 + 1.0
+	if item.global_position.distance_to(actor.eye_position()) > reach:
+		return _failure("tool_unavailable")
+	if not world_sync.tools_sync.grant(peer, id):
+		return _failure("tool_capacity")
+	BeltPath.release(item)
+	props.props.remove(item)
+	return {"ok": true}

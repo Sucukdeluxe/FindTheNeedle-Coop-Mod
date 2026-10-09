@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-local.4"
+const VERSION := "0.19.6-local.5"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -36,6 +36,9 @@ var over_steam := false  # is the current session running through Steam?
 var trace: Node = null  # mp_trace.gd: what came in last, for crash reports
 
 var economy_sequence := 0
+var tools_sequence := 0
+var tool_profile := ""
+var _tool_identities := {}
 var _last_scene: Node = null
 var _world_rx := {}
 var _pending_world: Variant = null
@@ -49,6 +52,7 @@ var _steam_joining := false  # we asked to join someone else (Steam also
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	base_dir = get_script().resource_path.get_base_dir()
+	_install_game_state()
 	trace = load(base_dir + "/mp_trace.gd").new()
 	trace.name = "MPTrace"
 	add_child(trace)
@@ -82,7 +86,8 @@ func _ready() -> void:
 			"mp_machines.gd", "mp_strands.gd", "mp_contracts.gd", "mp_trace.gd", "mp_boards.gd",
 			"mp_belts.gd", "mp_carry.gd", "mp_builds.gd", "mp_missions.gd",
 			"mp_tools.gd", "mp_player.gd", "mp_tool_prop.gd", "mp_tech.gd",
-			"mp_economy.gd", "mp_shop.gd", "mp_build_tool.gd", "mp_build_actor.gd"]:
+			"mp_economy.gd", "mp_shop.gd", "mp_build_tool.gd", "mp_build_actor.gd",
+			"mp_game_state.gd", "mp_prop_manager.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
@@ -446,7 +451,7 @@ func _on_peer_disconnected(id: int) -> void:
 func _on_connected() -> void:
 	phase = Phase.LOBBY
 	ui.notify(t("connected_waiting"))
-	_rx_hello.rpc_id(1, my_name, VERSION)
+	_rx_hello.rpc_id(1, my_name, VERSION, tool_profile)
 	ui.refresh()
 
 
@@ -481,7 +486,7 @@ func player_color(id: int) -> Color:
 # ---------------------------------------------------------------- lobby RPCs
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rx_hello(pname: String, ver: String) -> void:
+func _rx_hello(pname: String, ver: String, profile: String) -> void:
 	_trace("hello")
 	if not is_host:
 		return
@@ -489,6 +494,19 @@ func _rx_hello(pname: String, ver: String) -> void:
 	if ver != VERSION:
 		_rx_kick.rpc_id(id, t("version_mismatch") % [VERSION, ver])
 		return
+	if profile.length() != 32 or not profile.is_valid_hex_number(false):
+		_rx_kick.rpc_id(id, t("connect_failed"))
+		return
+	var identity := "profile:" + profile
+	if over_steam and multiplayer.multiplayer_peer.has_method("get_steam_id_for_peer_id"):
+		var steam_id := int(multiplayer.multiplayer_peer.call("get_steam_id_for_peer_id", id))
+		if steam_id > 0:
+			identity = "steam:" + str(steam_id)
+	for connected in _tool_identities:
+		if connected != id and players.has(connected) and _tool_identities[connected] == identity:
+			_rx_kick.rpc_id(id, t("connect_failed"))
+			return
+	_tool_identities[id] = identity
 	var used := {}
 	for p in players.values():
 		used[p["color"]] = true
@@ -570,12 +588,12 @@ func send_chat(text: String) -> void:
 func send_world(id: int) -> void:
 	if world_sync == null:
 		return
+	if players.has(id):
+		players[id]["state"] = "loading"
 	var payload: Dictionary = world_sync.build_payload(id)
 	var raw := var_to_bytes(payload)
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	var n := int(ceil(float(packed.size()) / WORLD_CHUNK))
-	if players.has(id):
-		players[id]["state"] = "loading"
 	print("[MPMod] sending world to %d: %d KB (%d KB raw), %d chunks" % [id, packed.size() / 1024, raw.size() / 1024, n])
 	_rx_world_begin.rpc_id(id, raw.size(), packed.size(), n)
 	for i in n:
@@ -987,6 +1005,10 @@ func _load_settings() -> void:
 		_custom_name = str(c.get_value("mp", "custom_name", ""))
 		last_ip = str(c.get_value("mp", "ip", last_ip))
 		last_port = int(c.get_value("mp", "port", DEFAULT_PORT))
+		tool_profile = str(c.get_value("mp", "tool_profile", ""))
+	if tool_profile.length() != 32 or not tool_profile.is_valid_hex_number(false):
+		tool_profile = Crypto.new().generate_random_bytes(16).hex_encode()
+		_save_settings()
 	# the Steam persona replaces this once Steam is up (see _start_steam); the
 	# slower lookup in default_name() only runs when Steam is not available
 	var user := OS.get_environment("USERNAME").substr(0, 24)
@@ -998,6 +1020,7 @@ func _save_settings() -> void:
 	c.set_value("mp", "custom_name", _custom_name)
 	c.set_value("mp", "ip", last_ip)
 	c.set_value("mp", "port", last_port)
+	c.set_value("mp", "tool_profile", tool_profile)
 	c.save(SETTINGS_PATH)
 
 
@@ -1107,14 +1130,14 @@ func _rx_build_repair(buildings: Array, revision: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_tools_request(ids: Array) -> void:
+func _rx_tools_request(epoch: String, seq: int, added: Array, removed: Array) -> void:
 	if is_host and world_sync != null:
-		world_sync.tools_sync.on_request(multiplayer.get_remote_sender_id(), ids)
+		world_sync.tools_sync.on_request(multiplayer.get_remote_sender_id(), epoch, seq, added, removed)
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_tools_shared(ids: Array) -> void:
+func _rx_tools_inventory(epoch: String, revision: int, ack: int, ids: Array) -> void:
 	if world_sync != null:
-		world_sync.tools_sync.on_shared(ids)
+		world_sync.tools_sync.on_inventory(epoch, revision, ack, ids)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -1149,3 +1172,24 @@ func _rx_economy_result(epoch: String, seq: int, result: Dictionary) -> void:
 func _rx_economy_state(epoch: String, state: Dictionary) -> void:
 	if world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_state(epoch, state)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rx_prop_cleanup(policy: Dictionary) -> void:
+	if world_sync != null and is_instance_valid(world_sync.props_sync):
+		world_sync.props_sync.on_cleanup(policy)
+
+
+func _install_game_state() -> void:
+	var values := {}
+	for property in GameState.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = GameState.get(property.name)
+	GameState.set_script(load(base_dir + "/mp_game_state.gd"))
+	for key in values:
+		if key in GameState:
+			GameState.set(key, values[key])
+
+
+func tool_identity(pid: int) -> String:
+	return "host" if pid == 1 else str(_tool_identities.get(pid, "peer:" + str(pid)))

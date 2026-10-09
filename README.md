@@ -1,11 +1,16 @@
 # Find The Needle co-op mod
 
-Private maintenance fork, version `0.19.6-local.4`, based on upstream 0.19.5.
+Private maintenance fork, version `0.19.6-local.5`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 Normal shop and construction transactions are checked and executed by the host.
 Existing saves remain compatible; demolition and reversal work without first selecting
 a construction type, and host-confirmed platform cuts are replicated to guests.
+Loose floor hay is retained when the host disables automatic cleanup, including
+overflow cleanup; guests use the host policy without changing their saved preferences.
+Tools are personal: Q drops a physical tool and removes it from that player’s inventory.
+The host saves individual inventories and resolves competing purchases and pickups.
+Quest money and building gifts are granted only by the host, including after resync.
 See `mods/multiplayer/ANLEITUNG-DE.txt` for the patched installation notes.
 
 Adds co-op multiplayer to the Find The Needle demo. Several players dig the
@@ -49,8 +54,8 @@ If you would rather not edit the file, `tools/install-helper.bat` (also
 attached to each release) does that one step for you. It is not inside the
 download because Nexus quarantines uploads that contain scripts.
 
-To uninstall, delete that line and the `mods` folder, or run
-`tools/uninstall-helper.bat`. Nothing is ever written outside it.
+To uninstall, remove that line and the `mods/multiplayer` folder, or run
+`tools/uninstall-helper.bat`. Mod settings and personal inventory data remain in the game’s user directory.
 
 Game updates replace `override.cfg`, so add the lines again after each one.
 
@@ -104,7 +109,9 @@ translations, so they read the same as in the rest of the UI.
   Clients see them move, smoke and light up, and their settings match, but the
   work itself happens on one machine.
 * Remote shovel and fork loads use a visual model, not individual replicated strands.
-* Equipment and money are shared. Shared equipment cannot be sold away from the team.
+* Money, research and buildings are shared. Tool inventories are personal.
+  A physical tool must be dropped before another player can pick it up or sell it.
+  Existing shared equipment seeds each player’s personal inventory once.
 * Only the host saves. Clients never write to their own save files.
 * The online leaderboard is disabled while the mod is loaded.
 * Shop and building transactions wait for host confirmation. A changed price
@@ -175,8 +182,6 @@ mods/multiplayer/     what ships in the release
   tool_poses.cfg      hand-placed held tools (optional, made with tool_poser)
   models/             farmer model (CC0)
   steam/              GodotSteam GDExtension (prebuilt)
-dev/mp_test.gd        test harness, not shipped
-dev/mp_sync_test.gd   two-player sync checks, not shipped
 dev/avatar_calib.gd   live avatar height tuning, not shipped
 dev/tool_poser.gd     place held tools on the farmer by hand, not shipped
 dev/tool_poser.bat    starts the game with the tool poser
@@ -200,15 +205,8 @@ away from the hand. Set `flip_tool` on an avatar to turn a model 180 degrees
 while testing a new one. A tool with an entry in `tool_poses.cfg` skips that
 guess and uses the saved position, rotation and length instead.
 
-To use the test harness, copy `dev/mp_test.gd` next to `mp.gd` and start the
-game with `MP_TEST_AVATAR=user://saves/slot_1.dat` set, plus `MP_TEST_TOOL=1`
-for the spade. It drops two puppets holding that tool, one of them flipped, and
-writes a screenshot.
-
-`dev/mp_sync_test.gd` runs a host and a guest on one PC over the IP
-connection and checks that the pile, money, missions, tech, needles and
-buildings agree. Copy it next to `mp.gd` as `mp_test.gd`; how to start both
-is at the top of the file.
+Regression and network test harnesses are kept locally and are not included in
+the repository or distribution packages.
 
 `dev/avatar_calib.gd` puts a farmer in front of you that copies your look and
 crouch, so you can tune `MODEL_HEIGHT` and `CROUCH_DROP` with the arrow keys

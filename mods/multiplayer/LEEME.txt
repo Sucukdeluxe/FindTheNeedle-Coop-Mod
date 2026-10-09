@@ -1,4 +1,4 @@
-MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-local.2
+MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-local.5
 =============================================
 
 Mod no oficial. Todos los jugadores necesitan el juego (la demo, gratis en
@@ -9,7 +9,7 @@ invita desde la lista de amigos de Steam.
 
 INSTALACION (dos pasos, no hay instalador que ejecutar)
 --------------------------------------------------------
-1. Copia la carpeta "mods" junto a FindTheNeedle.exe.
+1. Cierra el juego y guarda una copia del mod y las partidas. Copia la carpeta "mods" junto a FindTheNeedle.exe.
    En Steam: clic derecho en el juego, Administrar, Ver archivos locales.
 
 2. Abre "override.cfg" (en la misma carpeta que FindTheNeedle.exe) con el
@@ -24,7 +24,7 @@ MPMod="*mods/multiplayer/mp.gd"
 3. Abre el juego DESDE STEAM. En el menu principal aparece MULTIPLAYER.
 
 Para desinstalar: borra la linea MPMod de override.cfg y borra la carpeta
-mods. No se ha tocado nada mas.
+mods/multiplayer. Los inventarios personales permanecen guardados en la partida del anfitrión.
 
 Las actualizaciones del juego reemplazan override.cfg, asi que hay que volver
 a anadir las dos lineas despues de cada una.
@@ -53,7 +53,8 @@ QUE SE COMPARTE
   - Las construcciones, al colocarlas y al derribarlas.
   - Dinero, deuda, paja vendida, agujas encontradas y coleccion.
   - El arbol de mejoras; el anfitrion valida y cobra las compras.
-  - Las herramientas recogidas estan disponibles para todos.
+  - El progreso de las misiones es común; el anfitrión entrega cada recompensa una vez.
+  - Las herramientas son personales. Q deja el objeto y lo retira del inventario.
   - Las agujas destapadas. Las ve todo el mundo y cuentan una vez.
   - Las cargas nuevas de paja, que resincronizan a todos.
   - Posicion, nombre y herramienta de cada jugador.
@@ -70,11 +71,13 @@ LIMITACIONES CONOCIDAS
     cuente dos veces. Los demas las ven moverse, echar humo y encender luces,
     y sus ajustes coinciden, pero el trabajo lo hace una sola maquina.
   - La carga de palas y horcas se representa visualmente; no se copia cada paja.
-  - Soltar una herramienta compartida la guarda sin crear otra copia fisica.
+  - El anfitrión confirma la recogida y entrega de herramientas. Cada objeto tiene un dueño.
+    El equipo compartido anterior se copia una vez al inventario inicial de cada jugador.
   - Solo guarda el anfitrion. Los clientes no escriben en sus partidas.
   - La tabla de clasificacion online se desactiva con el mod cargado.
-  - Las mejoras se compran a traves del anfitrion. Otras compras y costes de
-    construccion siguen usando el sistema original de diferencias compartidas.
+  - El anfitrión valida las compras, mejoras y construcciones. Otros movimientos
+    de dinero conservan la sincronización incremental.
+  - La paja del suelo se conserva si el anfitrión desactiva la limpieza automática.
   - Quien tiene una aguja suelta es comun; donde esta tirada puede variar un
     poco entre jugadores hasta que alguien la coge.
 

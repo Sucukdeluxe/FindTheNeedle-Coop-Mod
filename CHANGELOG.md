@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.19.6-local.5 (maintenance fork)
+
+* Replace permanent shared equipment with personal tool inventories. Native drop
+  and throw actions remove the owner’s tool and produce one physical item.
+* Resolve tool purchases and competing pickups on the host; retain separate
+  inventories in the host save across resync and rejoining. Seed old shared
+  equipment once per player when migrating an existing world.
+* Avoid saving an equipped remote toy shovel as extra loot, and discard stale
+  prop creation from a guest world while that guest is reloading.
+* Match pickup range to native reach upgrades.
+* Restrict native quest money and gift creation to the host directly, preventing
+  guest reward reactivation when authoritative gift state replaces a snapshot.
+* Keep loose floor hay when automatic cleanup is disabled, including the native
+  tuft-count and prop-count overflow passes that previously bypassed that option.
+* Use the host's cleanup setting and timer for every owner in a co-op session,
+  including late joiners and live setting changes.
+* Preserve each guest's local preferences and restore the native prop-manager
+  script when multiplayer ends. Manual cleanup and explicit item consumption
+  continue through the game's native logic.
+
 ## v0.19.6-local.4 (maintenance fork)
 
 * Fix demolition and conveyor reversal immediately after loading an existing save,

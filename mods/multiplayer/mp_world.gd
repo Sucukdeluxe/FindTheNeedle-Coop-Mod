@@ -255,7 +255,6 @@ func apply_session_rules() -> void:
 	if props_sync != null and is_instance_valid(props_sync):
 		props_sync.session_started()
 	if not mp.is_host:
-		_leave_missions_to_host()
 		SaveManager.block_save = true
 		if "autosave_enabled" in world:
 			world.autosave_enabled = false
@@ -265,19 +264,6 @@ func apply_session_rules() -> void:
 		if live != null and "expose_uncovered" in live:
 			live.expose_uncovered = false
 		_freeze_client_machines()
-
-
-# Missions run on every player so the quest board keeps up, but only the host
-# pays for them: a guest that finished one first paid it here, the payment
-# reached the host as more money, and the host paid it again when it got
-# there. Marking every step as paid and rewarded on the guest makes its
-# director skip the money, the free building and the card; the host's payout
-# arrives with the shared money like anything else.
-func _leave_missions_to_host() -> void:
-	for i in MissionBook.count():
-		var id := String(MissionBook.id_at(i))
-		GameState.missions_paid[id] = true
-		GameState.gifts_given[id] = true
 
 
 func _is_client() -> bool:
@@ -1191,7 +1177,9 @@ func on_tech(sender: int, id: String, rank: int, paid: bool = false) -> void:
 
 # The host's world in the same shape SaveManager writes to disk, so a client
 # can drop it into a scratch slot and load it with the game's own loader.
-func build_payload(_pid: int) -> Dictionary:
+func build_payload(pid: int) -> Dictionary:
+	if pid != 1:
+		props_sync.retire_equipped_tools(pid)
 	var xf: Transform3D = player.global_transform
 	xf.origin += xf.basis.x * 1.2 + Vector3.UP * 0.2
 	var props_arr: Array = []
@@ -1227,6 +1215,8 @@ func build_payload(_pid: int) -> Dictionary:
 			"money_earned": GameState.money_earned,
 		},
 	}
+	out.state["owned_tools"] = tools_sync.inventory_for(pid).keys()
+	out.state.erase("mp_personal_tools")
 	# the pile's starting shape: without it the guest re-shapes the dome from
 	# the seed, which is slow and not what the host's pile was dug from
 	var dome: Variant = field.get("dome")

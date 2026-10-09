@@ -31,3 +31,19 @@ func _needs_claim(item: Carryable) -> bool:
 	if not item.has_meta("mp_id"):
 		return false
 	return not mp_belts.mp.world_sync.props_sync._mine(int(item.get_meta("mp_id")))
+
+
+func _claim_toy(toy: SandShovel) -> bool:
+	if not is_instance_valid(mp_belts) or not mp_belts.mp.active():
+		return super._claim_toy(toy)
+	mp_belts.mp.world_sync.tools_sync.request_pickup(toy)
+	_set_target(null)
+	return true
+
+
+func _reclaim(prop: ToolProp) -> bool:
+	if not is_instance_valid(mp_belts) or not mp_belts.mp.active():
+		return super._reclaim(prop)
+	mp_belts.mp.world_sync.tools_sync.request_pickup(prop)
+	_set_target(null)
+	return true

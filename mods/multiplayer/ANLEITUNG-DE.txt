@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-local.4
+FIND THE NEEDLE CO-OP – 0.19.6-local.5
 
 Private Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -29,19 +29,41 @@ KAUFEN UND BAUEN
 - Wiederholte Übertragung derselben Anfrage erzeugt keine zweite Abbuchung.
 - Steigt ein Baupreis zwischen Vorschau und Ausführung, wird die Anfrage abgelehnt.
   Die aktuelle Vorschau prüfen und die Aktion erneut ausführen.
-- Geteilte Werkzeuge werden nur einmal bezahlt und bleiben allen verfügbar.
-  Gemeinsam verfügbare Ausrüstung wird nicht über den Shop verkauft.
-  Ein zusätzliches physisches Exemplar kann weiterhin verkauft werden.
+- Werkzeuge werden pro Spieler gekauft. Derselbe Spieler bezahlt ein bereits
+  vorhandenes Werkzeug nicht erneut. Verschiedene Spieler kaufen eigene Exemplare.
+- Zum Verkaufen ein Werkzeug zuerst ablegen.
 - Gratisbauten und Kaufhistorie werden vom Host an alle Spieler übertragen.
 
+BODENHEU UND AUFRÄUMEN
+- Ist beim Host „Automatisch aufräumen“ ausgeschaltet, bleibt abgelegtes Bodenheu
+  auch beim Überschreiten der Haufen- und Gegenstandsbegrenzungen erhalten.
+- Im Co-op gelten die Aufräumeinstellung und die Wartezeit des Hosts für alle
+  Spieler. Änderungen werden auch während der Sitzung übertragen.
+- Persönliche Einstellungen der Gäste werden dafür nicht dauerhaft geändert.
+- Bei eingeschaltetem Aufräumen bleiben die nativen Aufräumregeln aktiv.
+- Manuelles Aufräumen, Aufheben und Verarbeitung von Heu bleiben möglich.
+- Das Spiel stellt entfernte Heuhaufen mit einfacheren Modellen dar. Dadurch
+  kann die sichtbare Dichte wechseln; die Heumenge ändert sich dabei nicht.
+  Nahe Haufen können sich durch die native Heulogik zusammenfügen.
+
+PERSÖNLICHE WERKZEUGE
+- Q legt das eigene Werkzeug tatsächlich ab und entfernt es aus dem Inventar.
+  Ein anderer Spieler kann es danach aufnehmen. Der Host bestätigt die Aktion.
+- F8 und erneutes Beitreten stellen abgelegte Werkzeuge nicht wieder her.
+- Der Host speichert die persönliche Ausstattung im gemeinsamen Spielstand.
+- Beim ersten Umstieg erhält jeder Spieler die bisher gemeinsam vorhandene
+  Ausstattung einmal als persönlichen Anfangsbestand. Danach bleiben die Bestände getrennt.
+- Die persönliche Kennung liegt in mp_settings.cfg im Godot-Benutzerverzeichnis.
+  Diese Datei nicht durch die eines Mitspielers ersetzen. Steam-Verbindungen
+  verwenden die Steam-Kennung, soweit sie vom Transport bereitgestellt wird.
+
 WEITERE SYNCHRONISIERUNG
-- Eingesammelte Werkzeuge stehen allen gemeinsam zur Verfügung.
-- Ablegen/Werfen eines bereits gemeinsam verfügbaren Werkzeugs steckt es weg.
-  Dabei wird keine weitere physische Werkzeugkopie erzeugt.
 - Der Host bestätigt Gegenstandsübernahmen und Tech-Käufe.
 - F8 gleicht die laufende Welt ab. Die Gastwelt wird dadurch nicht neu geladen.
 - Abweichende Förderbandlayouts werden automatisch abgeglichen.
-- Quests, Werkzeuge, Einstellungen, Tafeln und Gegenstände werden synchronisiert.
+- Questabschlüsse werden gemeinsam übernommen. Questgeld und Gratisbauten
+  werden ausschließlich vom Host vergeben, auch nach einem erneuten Abgleich.
+- Einstellungen, Tafeln und Gegenstände werden synchronisiert.
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
 PRÜFUMFANG

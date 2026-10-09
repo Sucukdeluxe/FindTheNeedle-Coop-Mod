@@ -18,3 +18,15 @@ func _has_been_read(index: int) -> bool:
 
 func _completed_remotely(id: String) -> bool:
 	return is_instance_valid(mp_world) and mp_world.mp.active() and mp_world.mp.is_host and remote_completed.has(id)
+
+
+func _pay(id: String) -> float:
+	if is_instance_valid(mp_world) and mp_world._is_client():
+		return 0.0
+	return super._pay(id)
+
+
+func _give_reward(index: int) -> void:
+	if is_instance_valid(mp_world) and mp_world._is_client():
+		return
+	super._give_reward(index)

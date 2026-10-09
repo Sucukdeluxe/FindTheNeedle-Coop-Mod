@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-local.2
+FIND THE NEEDLE CO-OP MOD  v0.19.6-local.5
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -9,7 +9,7 @@ addresses. The host invites from the Steam friends list.
 
 INSTALL (two steps, no installer to run)
 ----------------------------------------
-1. Copy the "mods" folder next to FindTheNeedle.exe.
+1. Close the game and back up the existing mod and saves. Copy the "mods" folder next to FindTheNeedle.exe.
    In Steam: right-click the game, Manage, Browse local files.
 
 2. Open "override.cfg" (same folder as FindTheNeedle.exe) with Notepad and
@@ -23,8 +23,8 @@ MPMod="*mods/multiplayer/mp.gd"
 
 3. Start the game FROM STEAM. The main menu now has MULTIPLAYER.
 
-To uninstall: delete the MPMod line from override.cfg, and delete the mods
-folder. Nothing else was ever changed.
+To uninstall: delete the MPMod line from override.cfg, and delete the mods/multiplayer
+folder. Personal inventory metadata remains in the host save.
 
 Game updates replace override.cfg, so add the two lines again after each one.
 
@@ -52,7 +52,8 @@ WHAT IS SHARED
   - Buildings, placed and demolished.
   - Money, debt, hay sold, needles found, the collection.
   - The tech tree; upgrade purchases are validated and charged by the host.
-  - Collected tools: shared equipment for every player in the session.
+  - Shared quest progression; the host grants quest money and gifts once.
+  - Personal tools saved per player. Q drops the tool and removes it from that inventory.
   - Uncovered needles. Everyone sees them, and they count once.
   - New hay loads, which resync every client.
   - Player positions, names and the tool in hand.
@@ -70,12 +71,13 @@ KNOWN LIMITATIONS
     the work itself happens on one machine.
   - Remote shovel and pitchfork loads use a visual representation, not an exact
     copy of every physical strand.
-  - Shared tools are put away instead of spawning another physical tool when
-    dropped or thrown. Their collected inventory remains available.
+  - Tool pickup and drop wait for host confirmation. One physical tool has one owner.
+    Existing shared equipment seeds each player’s personal inventory once.
   - Only the host saves. Clients never write to their own saves.
   - The online leaderboard is disabled while the mod is loaded.
-  - Upgrade purchases are serialized by the host. Other native purchases and
-    building expenses still use the original shared-delta system.
+  - Shop, upgrade and building transactions are checked by the host. Other money
+    events retain the existing state-delta synchronization.
+  - Loose floor hay is retained when the host disables automatic cleanup.
   - Who holds a loose needle is shared; where it lies can differ a little
     between players until someone picks it up.
 

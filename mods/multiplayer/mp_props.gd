@@ -36,6 +36,9 @@ var _sent := {}      # mp id -> last transform we broadcast
 var _hash := {}      # mp id -> hash of the last state we broadcast
 var _goal := {}      # mp id -> transform a remote copy is easing towards
 var _want := {}      # mp id -> peer we expect it from
+var _manager_script: Script
+var _cleanup_state := {"auto_clean": false, "prop_decay": false, "auto_clean_seconds": 60.0}
+var _published_cleanup := {}
 var _original_tools := {}
 var _epoch := {}
 var _deleted := {}
@@ -64,6 +67,9 @@ func start(mp_node: Node, world_node: Node) -> void:
 	props = world.get("props")
 	if props == null or not is_instance_valid(props):
 		return
+	_manager_script = props.get_script()
+	_replace_script(props, load(mp.base_dir + "/mp_prop_manager.gd"))
+	props.set("mp_props", self)
 	props.item_added.connect(_on_added)
 	props.item_removed.connect(_on_removed)
 	var carry: Variant = _carry_tool()
@@ -82,10 +88,12 @@ func session_started() -> void:
 func shutdown() -> void:
 	for item in _original_tools:
 		if is_instance_valid(item):
-			_replace_tool_script(item, _original_tools[item])
+			_replace_script(item, _original_tools[item])
 	_original_tools.clear()
 	if props == null or not is_instance_valid(props):
 		return
+	if _manager_script != null:
+		_replace_script(props, _manager_script)
 	if props.item_added.is_connected(_on_added):
 		props.item_added.disconnect(_on_added)
 	if props.item_removed.is_connected(_on_removed):
@@ -149,7 +157,7 @@ func _adopt(item: Node, id: int, owner: int) -> void:
 	if mp != null and mp.active() and item.has_method("claim") and String(item.item_id) in TOOL_ITEMS:
 		if not _original_tools.has(item):
 			_original_tools[item] = item.get_script()
-			_replace_tool_script(item, load(mp.base_dir + "/mp_tool_prop.gd"))
+			_replace_script(item, load(mp.base_dir + "/mp_tool_prop.gd"))
 			item.set("mp_props", self)
 	item.set_meta("mp_id", id)
 	_by_id[id] = item
@@ -427,6 +435,7 @@ func _process(delta: float) -> void:
 	if _state_t >= STATE_TICK:
 		_state_t = 0.0
 		_state_tick()
+		_publish_cleanup()
 		_feed_containers()
 	_census_t += delta
 	if _census_t >= CENSUS_TICK:
@@ -615,6 +624,8 @@ func _census_tick() -> void:
 # ------------------------------------------------------------------ from the net
 
 func on_add(sender: int, id: int, item_id: String, xf: Transform3D, state: Dictionary) -> void:
+	if mp != null and mp.is_host and sender != 1 and mp.players.get(sender, {}).get("state", "world") != "world":
+		return
 	if _deleted.has(id):
 		return
 	var have: Variant = _by_id.get(id)
@@ -798,6 +809,7 @@ func on_census(sender: int, ids: PackedInt64Array) -> void:
 # Host side: hand a client the whole yard, in batches so no single packet gets
 # out of hand. Sent right after the client reports it is in the world.
 func send_all(pid: int) -> void:
+	_publish_cleanup(pid)
 	var ids := PackedInt64Array()
 	var owners := PackedInt32Array()
 	var entries: Array = []
@@ -888,6 +900,7 @@ func on_reset_end() -> void:
 
 # A peer left: the host keeps their things and takes over sending them.
 func peer_gone(pid: int) -> void:
+	retire_equipped_tools(pid)
 	for id in _owner.keys():
 		if int(_owner[id]) != pid:
 			continue
@@ -902,7 +915,7 @@ func peer_gone(pid: int) -> void:
 			_sent.erase(id)
 
 
-func _replace_tool_script(item: Node, script: Script) -> void:
+func _replace_script(item: Node, script: Script) -> void:
 	var values := {}
 	for property in item.get_property_list():
 		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
@@ -929,3 +942,48 @@ func _feed_containers() -> void:
 			var other := int(body.get_meta("mp_id"))
 			if not _mine(other) and not _held.has(other):
 				request_claim(other)
+
+
+func cleanup_policy() -> Dictionary:
+	if not mp.is_host:
+		return _cleanup_state
+	return {"auto_clean": Cfg.auto_clean, "prop_decay": Cfg.prop_decay,
+		"auto_clean_seconds": Cfg.auto_clean_seconds}
+
+func _publish_cleanup(pid: int = 0) -> void:
+	if not mp.is_host:
+		return
+	var policy := cleanup_policy()
+	if pid != 0:
+		mp._rx_prop_cleanup.rpc_id(pid, policy)
+	elif policy != _published_cleanup:
+		_published_cleanup = policy.duplicate()
+		mp._rx_prop_cleanup.rpc(policy)
+
+func on_cleanup(policy: Dictionary) -> void:
+	if mp.is_host or not (policy.get("auto_clean") is bool) or not (policy.get("prop_decay") is bool):
+		return
+	var seconds: Variant = policy.get("auto_clean_seconds")
+	if typeof(seconds) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(seconds)) or float(seconds) <= 0.0:
+		return
+	_cleanup_state = {"auto_clean": policy.auto_clean, "prop_decay": policy.prop_decay,
+		"auto_clean_seconds": float(seconds)}
+
+
+func is_personal_tool_body(item: Node) -> bool:
+	if mp == null or not mp.is_host or not (item is SandShovel) or not item.has_meta("mp_id"):
+		return false
+	var id := int(item.get_meta("mp_id"))
+	if not item.is_held() and not bool(_held.get(id, false)):
+		return false
+	var sync: Node = mp.world_sync.tools_sync if is_instance_valid(mp.world_sync) else null
+	return is_instance_valid(sync) and sync.has_tool(int(_owner.get(id, 1)), "sand_shovel")
+
+
+func retire_equipped_tools(pid: int) -> void:
+	if mp == null or not mp.is_host:
+		return
+	for id in _by_id.keys():
+		var item: Variant = _by_id[id]
+		if int(_owner.get(id, 0)) == pid and is_instance_valid(item) and is_personal_tool_body(item):
+			props.remove(item)
