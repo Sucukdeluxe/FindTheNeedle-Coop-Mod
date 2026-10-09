@@ -299,6 +299,10 @@ func _on_carry_changed(item: Variant) -> void:
 	# picked up or let go: tell the others now, not in a second
 	_state_t = STATE_TICK
 	if item == null or not is_instance_valid(item) or not item.has_meta("mp_id"):
+		for stale_id in _held.keys():
+			var stale_item: Variant = _by_id.get(stale_id)
+			if stale_item == null or not is_instance_valid(stale_item) or not stale_item.is_held():
+				_held.erase(stale_id)
 		return
 	var id := int(item.get_meta("mp_id"))
 	if _mine(id):
@@ -593,10 +597,14 @@ func _state_tick() -> void:
 		var id: int = keys[index]
 		_state_cursor = (index + 1) % keys.size()
 		var it: Variant = _by_id[id]
-		if it == null or not is_instance_valid(it) or not _mine(id):
+		if it == null or not is_instance_valid(it):
 			continue
 		var st := _state_of(it)
 		var h := st.hash()
+		if mp.is_host and not _mine(id) and _hash.has(id) and it.has_method("put_in") and it.has_method("take_out") and int(_hash.get(id, 0)) != h:
+			_assign_owner(id, 1, false)
+		if not _mine(id):
+			continue
 		if int(_hash.get(id, 0)) == h:
 			continue
 		_hash[id] = h
@@ -641,6 +649,8 @@ func on_add(sender: int, id: int, item_id: String, xf: Transform3D, state: Dicti
 	if it != null:
 		_adopt(it, id, int(_owner.get(id, sender)))
 		_note_held(id, state)
+		if not _mine(id):
+			_hash[id] = _state_of(it).hash()
 
 
 func on_del(sender: int, ids: PackedInt64Array) -> void:
@@ -687,6 +697,7 @@ func on_state(sender: int, ids: PackedInt64Array, states: Array) -> void:
 		it.from_state(st)
 		it.needle_index = int(st.get("needle", -1))
 		_note_held(id, st)
+		_hash[id] = _state_of(it).hash()
 
 
 # older versions never send "held", so their items just look loose
@@ -781,6 +792,8 @@ func on_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
 		if it is RigidBody3D:
 			BeltPath.release(it)
 		_puppet(it)
+		if not holding:
+			_hash[id] = _state_of(it).hash()
 
 
 func on_want(sender: int, ids: PackedInt64Array) -> void:

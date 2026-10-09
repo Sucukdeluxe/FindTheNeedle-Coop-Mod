@@ -1,3 +1,9 @@
+## v0.19.6-local.6 (maintenance fork)
+
+- Corrected stale carried-state bookkeeping after a real Q drop, so released tools and wheelbarrows are no longer left marked as held.
+- Added host authority promotion for host-side wheelbarrow/container mutations and baseline tracking for remote container states.
+- Verified guest and host wheelbarrow fill/empty, carry handoff, conveyor pickup, splitter stress and full source regressions under packet loss, duplication and delay.
+
 # Changelog
 
 ## v0.19.6-local.5 (maintenance fork)
