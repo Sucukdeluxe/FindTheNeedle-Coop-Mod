@@ -33,3 +33,9 @@ func upgrade_arm(arm: RoboticArm) -> bool:
 	return mp_world.economy.request("arm_upgrade", {"target": arm.to_dict(),
 		"tier": arm.tier_index, "max_price": arm_upgrade_price(arm),
 		"body": actor.global_transform, "camera": actor.camera.global_transform}) != 0
+
+
+func demolish_blocked_reason(building: Node3D) -> String:
+	if is_instance_valid(mp_world) and mp_world._is_client() and mp_world._applying_builds:
+		return ""
+	return super.demolish_blocked_reason(building)

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.19.6-local.4 (maintenance fork)
+
+* Fix demolition and conveyor reversal immediately after loading an existing save,
+  when no construction type is selected or a previously selected type is unavailable.
+* Validate edits against their actual target and native demolition restrictions,
+  independently of construction previews, unlocks and placement costs.
+* Preserve unrelated in-progress construction previews and return edit-specific
+  failure messages instead of reporting a failed purchase.
+* Apply host-confirmed platform replacements on guests even while supported objects
+  remain in place; keep occupancy checks on new demolition requests.
+* Keep native save data and stored construction refunds compatible without migration.
+
 ## v0.19.6-local.3 (maintenance fork)
 
 * Validate normal shop purchases, physical-item sales, construction, demolition

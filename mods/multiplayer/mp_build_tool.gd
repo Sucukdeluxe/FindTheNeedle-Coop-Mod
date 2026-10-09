@@ -72,8 +72,9 @@ func capture_inputs() -> Dictionary:
 func _request(action: String, args: Dictionary) -> void:
 	if request_id != 0:
 		return
-	args["build_id"] = player.build_id
-	args["inputs"] = capture_inputs()
+	if action == "place":
+		args["build_id"] = player.build_id
+		args["inputs"] = capture_inputs()
 	args["body"] = player.global_transform
 	args["camera"] = player.camera.global_transform
 	sent_revision = input_revision

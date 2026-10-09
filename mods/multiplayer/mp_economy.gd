@@ -263,8 +263,10 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 			return _sell(actor, args)
 		"arm_upgrade":
 			return _upgrade_arm(args)
-		"place", "demolish", "demolish_tile", "reverse":
+		"place":
 			return _build(actor, action, args)
+		"demolish", "demolish_tile", "reverse":
+			return _edit(actor, action, args)
 	return _failure("purchase_declined")
 
 func _buy(actor: Player, args: Dictionary) -> Dictionary:
@@ -332,16 +334,7 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 		return _failure("purchase_declined")
 	if action == "place" and (not BuildCatalog.is_unlocked(id) or BuildCatalog.is_withheld(id)):
 		return _failure("purchase_declined")
-	var tool: Node = actor.build
-	if not is_instance_valid(tool):
-		tool = load(mp.base_dir + "/mp_build_tool.gd").new()
-		tool.player = actor
-		tool.builds = world_sync.builds
-		actor.build = tool
-		actor.add_child(tool)
-		tool.set_process(false)
-		tool.set_physics_process(false)
-		tool.set_process_unhandled_input(false)
+	var tool := _build_tool(actor)
 	actor.build_id = id
 	tool.set_mode(BuildCatalog.mode_of(id))
 	tool._follow_tech()
@@ -370,35 +363,25 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	tool._active = true
 	actor.show()
 	tool._sync_ghosts()
-	var target: Node3D
-	if action != "place":
-		target = world_sync._find_building(args.get("target", {}))
-		if not is_instance_valid(target):
-			actor.hide()
-			return _failure("purchase_declined")
-		if action == "demolish_tile" and not (target is Platform):
-			actor.hide()
-			return _failure("purchase_declined")
-	else:
-		world_sync.builds.ghost_reading = true
-		tool._update_ghost(0.0)
-		world_sync.builds.ghost_reading = false
-		tool._eval_pick = tool._pick
-		var status: Dictionary = tool.status()
-		var limit := float(args.get("max_price", -1.0))
-		if not is_finite(limit) or limit < 0.0 or float(status.get("cost", 0.0)) > limit + 0.001:
-			actor.hide()
-			return _failure("economy_price_changed")
-		tool.price_limit = limit
-		if not status.get("ok", false) and not status.get("done", false):
-			actor.hide()
-			return {"ok": false, "message": str(status.get("reason", mp.t("purchase_declined")))}
+	world_sync.builds.ghost_reading = true
+	tool._update_ghost(0.0)
+	world_sync.builds.ghost_reading = false
+	tool._eval_pick = tool._pick
+	var status: Dictionary = tool.status()
+	var limit := float(args.get("max_price", -1.0))
+	if not is_finite(limit) or limit < 0.0 or float(status.get("cost", 0.0)) > limit + 0.001:
+		actor.hide()
+		return _failure("economy_price_changed")
+	tool.price_limit = limit
+	if not status.get("ok", false) and not status.get("done", false):
+		actor.hide()
+		return {"ok": false, "message": str(status.get("reason", mp.t("purchase_declined")))}
 	var before: Dictionary = world_sync._scan_builds()
 	var old_inputs: Dictionary = tool.capture_inputs()
 	var counters := {}
 	for key in tool.COUNTER_FIELDS:
 		counters[key] = int(tool.get(key))
-	tool.execute_native(action, target, args)
+	tool.execute_native(action, null, args)
 	actor.hide()
 	var after: Dictionary = world_sync._scan_builds()
 	var new_inputs: Dictionary = tool.capture_inputs()
@@ -408,6 +391,57 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var result := {"ok": changed, "inputs": new_inputs, "counters": counters, "build_id": id,
 		"placed": action == "place" and before != after,
 		"message": "" if changed else mp.t("purchase_declined")}
+	return result
+
+func _build_tool(actor: Player) -> Node:
+	var tool: Node = actor.build
+	if not is_instance_valid(tool):
+		tool = load(mp.base_dir + "/mp_build_tool.gd").new()
+		tool.player = actor
+		tool.builds = world_sync.builds
+		actor.build = tool
+		actor.add_child(tool)
+		tool.set_process(false)
+		tool.set_physics_process(false)
+		tool.set_process_unhandled_input(false)
+	return tool
+
+func _edit(actor: Player, action: String, args: Dictionary) -> Dictionary:
+	var target: Node3D = world_sync._find_building(args.get("target", {}))
+	if not is_instance_valid(target):
+		return _failure("building_missing")
+	var blocked := ""
+	match action:
+		"demolish":
+			blocked = world_sync.builds.demolish_blocked_reason(target)
+		"demolish_tile":
+			if not (target is Platform):
+				return _failure("building_invalid")
+			var tile: Rect2 = args.tile
+			if not tile.position.is_finite() or not tile.size.is_finite() or tile.size.x <= 0.0 or tile.size.y <= 0.0:
+				return _failure("building_invalid")
+			var center := tile.get_center()
+			var canonical := BuildManager.deck_tile_at(target, Vector3(center.x, target.top_y(), center.y))
+			if not tile.is_equal_approx(canonical):
+				return _failure("building_invalid")
+			blocked = world_sync.builds.tile_blocked_reason(target, tile)
+		"reverse":
+			if not (target is Conveyor):
+				return _failure("building_invalid")
+			blocked = world_sync.builds.reverse_blocked_reason(target)
+	if blocked != "":
+		return {"ok": false, "message": blocked}
+	var tool := _build_tool(actor)
+	var counters := {}
+	for key in tool.COUNTER_FIELDS:
+		counters[key] = int(tool.get(key))
+	var before: Dictionary = world_sync._scan_builds()
+	tool.execute_native(action, target, args)
+	var changed: bool = before != world_sync._scan_builds()
+	for key in counters:
+		counters[key] = maxi(0, int(tool.get(key)) - int(counters[key]))
+	var result := {"ok": changed, "counters": counters,
+		"message": "" if changed else mp.t("building_invalid")}
 	if action == "reverse" and is_instance_valid(tool.last_reversed):
 		result["reversed_target"] = tool.last_reversed.to_dict()
 	return result

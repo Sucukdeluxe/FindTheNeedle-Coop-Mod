@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-local.3
+FIND THE NEEDLE CO-OP – 0.19.6-local.4
 
 Private Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -11,6 +11,15 @@ INSTALLATION AUF WEITEREN RECHNERN
    MPMod="*mods/multiplayer/mp.gd"
    Vorhandene andere Einstellungen beibehalten.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+BESTEHENDE SPIELSTÄNDE
+- Den vorhandenen Spielstand normal laden. Ein neuer Spielstand oder Zurücksetzen
+  ist für diese Korrektur nicht erforderlich.
+- Abreißen und Richtungswechsel benötigen keine zuvor ausgewählte Bauart.
+- Gespeicherte Förderbandstrecken behalten ihre native Erstattung. Beim Abreißen
+  einer zusammenhängend gebauten Strecke entfernt das Spiel die ganze Strecke.
+- Freie Plattformteile können entfernt werden, während auf anderen Teilen noch
+  Objekte stehen. Das vollständige Abreißen einer belegten Plattform bleibt gesperrt.
 
 KAUFEN UND BAUEN
 - Normale Shopkäufe, Verkäufe, Bauvorgänge, Abriss und Arm-Upgrades werden

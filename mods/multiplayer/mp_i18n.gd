@@ -10,6 +10,8 @@ const FALLBACK := "en"
 
 const STRINGS := {
 "en": {
+	"building_missing": "The building is no longer present on the host. Wait for synchronization and try again.",
+	"building_invalid": "This building action could not be performed. Check the target and try again.",
 	"economy_wait": "Waiting for the host to process transactions.",
 	"economy_expired": "This transaction was already processed. Check the current state.",
 	"economy_shop_distance": "Move closer to the shop.",
@@ -205,6 +207,8 @@ const STRINGS := {
 	"no_debug_menu": "Esta versión no tiene menú de depuración.",
 },
 "de": {
+	"building_missing": "Das Gebäude ist beim Host nicht mehr vorhanden. Synchronisierung abwarten und erneut versuchen.",
+	"building_invalid": "Diese Gebäudeaktion konnte nicht ausgeführt werden. Ziel prüfen und erneut versuchen.",
 	"economy_wait": "Warte auf die Transaktionsverarbeitung des Hosts.",
 	"economy_expired": "Diese Transaktion wurde bereits verarbeitet. Aktuellen Stand prüfen.",
 	"economy_shop_distance": "Gehe näher an den Laden.",
