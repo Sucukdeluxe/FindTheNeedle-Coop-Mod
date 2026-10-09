@@ -165,7 +165,7 @@ func on_pick(sender: int, seq: int) -> void:
 			if id == 0:
 				mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
 				return
-			mp.world_sync.props_sync.on_claim(sender, id)
+			mp.world_sync.props_sync._assign_owner(id, sender, true)
 			mp._rx_belt_pick_result.rpc(sender, id)
 			send_all()
 			return
@@ -174,8 +174,6 @@ func on_pick(sender: int, seq: int) -> void:
 
 func on_pick_result(owner: int, id: int) -> void:
 	var sync: Node = mp.world_sync.props_sync
-	if id != 0:
-		sync.on_claim(owner, id)
 	if owner != multiplayer.get_unique_id():
 		return
 	_pick_pending = false

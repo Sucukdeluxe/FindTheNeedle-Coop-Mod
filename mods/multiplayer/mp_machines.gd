@@ -39,8 +39,9 @@ const FIELDS := {
 	"joiners": ["next_side"],
 	"tube_launchers": ["switched_off", "aim", "power", "stored"],
 	"piston_rakes": ["switched_off", "throw_distance"],
+	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop"],
 	"pelletizers": ["switched_off", "throw_distance", "stored"],
-	"robotic_arms": ["switched_off", "accept_mask", "tier_index"],
+	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "pick_order", "mp_links"],
 	"scanners": ["switched_off", "tier_index", "banked", "stored"],
 	"compressors": ["switched_off", "stored"],
 	"pulpers": ["switched_off", "stored"],
@@ -73,8 +74,9 @@ const SETTINGS := {
 	"splitters": ["forced_side", "priority_side", "filters", "entry", "manual", "closed_lane"],
 	"tube_launchers": ["switched_off", "aim", "power"],
 	"piston_rakes": ["switched_off", "throw_distance"],
+	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop"],
 	"pelletizers": ["switched_off", "throw_distance"],
-	"robotic_arms": ["switched_off", "accept_mask", "tier_index"],
+	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "pick_order", "mp_links"],
 	"scanners": ["switched_off", "tier_index"],
 	"compressors": ["switched_off"],
 	"pulpers": ["switched_off"],
@@ -108,6 +110,7 @@ var _t := 0.0
 var _field_t := 0.0
 var _edit_t := 0.0
 var _mouth_t := 0.0
+var _pending_settings := {}
 var _theirs := {}   # guest: key -> the settings as the host last stated them
 var _alias := {}    # a key from the host -> our key for the same machine
 var _rescan_at := -100000  # msec, last rescan forced by a key we did not know
@@ -126,6 +129,7 @@ func start(mp_node: Node, world_node: Node) -> void:
 
 
 func shutdown() -> void:
+	_pending_settings.clear()
 	_parts.clear()
 	_fx.clear()
 	_ids.clear()
@@ -148,6 +152,9 @@ func shutdown() -> void:
 # Every machine worth sending, under a key both sides work out the same way:
 # the array it lives in and where it stands.
 func _rescan() -> void:
+	for key in _pending_settings.keys():
+		if Time.get_ticks_msec() - int(_pending_settings[key].time) > 10000:
+			_pending_settings.erase(key)
 	if builds == null or not is_instance_valid(builds):
 		return
 	var ws: Node = mp.world_sync
@@ -196,34 +203,12 @@ func _local_key(key: String) -> String:
 		_rescan()
 		if _nodes.has(key):
 			return key
-	var bar := key.find("|")
-	if bar < 0:
-		return ""
-	var group := key.substr(0, bar)
-	var xyz := key.substr(bar + 1).split(",")
-	if xyz.size() != 3:
-		return ""
-	var at := Vector3(float(xyz[0]), float(xyz[1]), float(xyz[2]))
-	var best := ""
-	var best_d := KEY_SLACK * KEY_SLACK
-	for k in _nodes:
-		if _group.get(k, "") != group:
-			continue
-		var n: Variant = _nodes[k]
-		if n == null or not is_instance_valid(n):
-			continue
-		var d := (n as Node3D).global_position.distance_squared_to(at)
-		if d < best_d:
-			best_d = d
-			best = k
-	if best != "":
-		_alias[key] = best
-	return best
+	return ""
 
 
 func _key(group: String, n: Node3D) -> String:
 	var p := n.global_position
-	return "%s|%.2f,%.2f,%.2f" % [group, p.x, p.y, p.z]
+	return "%s|%.4f,%.4f,%.4f|%.5f" % [group, p.x, p.y, p.z, wrapf(n.rotation.y, -PI, PI)]
 
 
 # The model's own nodes, in tree order. Both sides build the machine from the
@@ -310,6 +295,7 @@ func _process(delta: float) -> void:
 		_full = _refresh_t >= FULL_TICK
 		if _full:
 			_refresh_t = 0.0
+			_vals.clear()
 		_send_poses()
 	_field_t += delta
 	if _field_t >= FIELD_TICK:
@@ -515,7 +501,7 @@ func _send_fields() -> void:
 		var now := {}
 		var diff := {}
 		for f in names:
-			var v: Variant = (n as Node).get(f)
+			var v: Variant = _read_field(n, f)
 			if v == null:
 				continue
 			now[f] = _copy_value(v)
@@ -609,6 +595,8 @@ func _set_flags(n: Node3D, f: int) -> void:
 
 
 func on_fields(batch: Dictionary) -> void:
+	if not mp.is_host:
+		_send_edits()
 	for host_key in batch:
 		var key := _local_key(String(host_key))
 		var n: Variant = _nodes.get(key)
@@ -619,6 +607,12 @@ func on_fields(batch: Dictionary) -> void:
 		# just changed from one the host handed down
 		var known: Dictionary = _theirs.get(key, {})
 		for f in diff:
+			var pending_key := key + "|" + str(f)
+			var pending: Dictionary = _pending_settings.get(pending_key, {})
+			if not pending.is_empty():
+				if pending.value != diff[f] and Time.get_ticks_msec() - int(pending.time) < 2000:
+					continue
+				_pending_settings.erase(pending_key)
 			_apply_field(n as Node, String(f), diff[f])
 			known[String(f)] = _copy_value(diff[f])
 		_theirs[key] = known
@@ -648,10 +642,11 @@ func _send_edits() -> void:
 		for f in names:
 			if not known.has(f):
 				continue
-			var v: Variant = (n as Node).get("switched_off" if f == "_off" else f)
+			var v: Variant = _read_field(n, f)
 			if v == null or v == known[f]:
 				continue
-			diff[f] = v
+			diff[f] = _copy_value(v)
+			_pending_settings[key + "|" + str(f)] = {"value": _copy_value(v), "time": Time.get_ticks_msec()}
 			known[f] = _copy_value(v)
 		if not diff.is_empty():
 			batch[key] = diff
@@ -728,12 +723,41 @@ func on_edit(from: int, batch: Dictionary) -> void:
 
 
 func _copy_value(value: Variant) -> Variant:
-	if value is Array or value is Dictionary or value is PackedInt32Array:
-		return value.duplicate(true) if value is Array or value is Dictionary else value.duplicate()
+	if value is Array or value is Dictionary:
+		return value.duplicate(true)
+	if typeof(value) >= TYPE_PACKED_BYTE_ARRAY and typeof(value) < TYPE_MAX:
+		return value.duplicate()
 	return value
 
 
+func _read_field(n: Node, field: String) -> Variant:
+	match field:
+		"mp_links": return n.links_to_save()
+		"mp_zone": return [n.zone_at, n.zone_r]
+		"mp_drop": return [n.drop_at, n.drop_kind]
+		"_off": return n.get("_off")
+	return n.get(field)
+
+
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if f == "mp_links" and n.has_method("load_links"):
+		n.load_links(v)
+		return
+	if f == "mp_zone" and v is Array and v.size() == 2:
+		if not (v[0] is Vector3) or not v[0].is_finite() or float(v[1]) <= 0:
+			n.clear_zone()
+		else:
+			n.set_zone(v[0], float(v[1]))
+		return
+	if f == "mp_drop" and v is Array and v.size() == 2:
+		if not (v[0] is Vector3) or not v[0].is_finite():
+			n.clear_drop()
+		else:
+			n.set_drop(v[0], int(v[1]))
+		return
+	if f == "tier_index" and n.has_method("set_tier"):
+		n.set_tier(int(v))
+		return
 	if f == "filters" and n.has_method("set_filter") and (v is Array or v is PackedInt32Array):
 		for side in mini(v.size(), 3):
 			n.set_filter(side, int(v[side]))

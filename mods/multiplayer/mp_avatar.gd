@@ -975,3 +975,32 @@ func _show_clump(straws: int) -> void:
 	# feed it strands, or it grows with every pose packet that arrives
 	_clump.scale = Vector3.ONE * (CLUMP_SCALE + CLUMP_STEP * float(mini(straws, CLUMP_MAX)))
 	_clump.visible = true
+
+
+var _tool_hay: Node3D
+
+func set_tool_load(fill: float) -> void:
+	if fill <= 0.0 or _tool not in [1, 2, 4] or not is_instance_valid(_hand):
+		if is_instance_valid(_tool_hay):
+			_tool_hay.visible = false
+		return
+	if not is_instance_valid(_tool_hay):
+		_tool_hay = ItemDb.make("hay_wad") as Node3D
+		if _tool_hay == null:
+			return
+		_tool_hay.name = "ToolHay"
+		_hand.add_child(_tool_hay)
+		_tool_hay.set("freeze", true)
+		_tool_hay.set("collision_layer", 0)
+		_tool_hay.set("collision_mask", 0)
+		_tool_hay.set_physics_process(false)
+		_tool_hay.set_process(false)
+	_tool_hay.position = Vector3(0.0, -0.1, -0.65)
+	if not _posed.is_empty() and is_instance_valid(_posed.get("mount")):
+		var box: AABB = _posed.box
+		var axis := box.size.max_axis_index()
+		var point := box.get_center()
+		point[axis] -= box.size[axis] * 0.35
+		_tool_hay.global_position = _posed.mount.to_global(point)
+	_tool_hay.scale = Vector3.ONE * lerpf(0.18, 0.55, clampf(fill, 0.0, 1.0))
+	_tool_hay.visible = true

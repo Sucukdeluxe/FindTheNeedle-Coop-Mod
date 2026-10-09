@@ -71,6 +71,8 @@ var belts_sync: Node  # what is riding on the belts
 var machines_sync: Node  # how the machines move and what they are set to
 var strands_sync: Node  # loose straw on the ground
 var contracts_sync: Node  # the delivery truck and its contract
+var _tech_script: Script
+var tools_sync: Node
 var boards_sync: Node  # what is drawn on the paint boards
 var _pose_t := 0.0
 
@@ -108,6 +110,9 @@ var _pile_seed := 0
 
 
 func _ready() -> void:
+	_tech_script = Tech.get_script()
+	_replace_tech_script(load(mp.base_dir + "/mp_tech.gd"))
+	Tech.set("mp_world", self)
 	field = world.get("field")
 	builds = world.get("builds")
 	if is_instance_valid(builds):
@@ -149,6 +154,9 @@ func _ready() -> void:
 	boards_sync.name = "MPBoards"
 	add_child(boards_sync)
 	boards_sync.start(mp, world)
+	tools_sync = load(mp.base_dir + "/mp_tools.gd").new()
+	add_child(tools_sync)
+	tools_sync.start(mp, world)
 	if field != null:
 		field.cells_redrawn.connect(_on_cells_redrawn)
 	if builds != null:
@@ -164,6 +172,10 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if _tech_script != null:
+		_replace_tech_script(_tech_script)
+	if is_instance_valid(tools_sync):
+		tools_sync.shutdown()
 	if _mission_script != null and is_instance_valid(world.get("missions")):
 		_replace_mission_script(_mission_script)
 	if is_instance_valid(builds) and _build_script != null:
@@ -329,7 +341,7 @@ func _send_pose() -> void:
 		crouch = float(player.crouch_amount())
 	var moving: float = (player.velocity * Vector3(1, 0, 1)).length() if "velocity" in player else 0.0
 	mp._rx_pose.rpc(player.global_position, player.rotation.y, pitch,
-		int(player.get("current_tool")), crouch, moving, _hands())
+		int(player.get("current_tool")), crouch, moving, _hands(), _tool_fill())
 
 
 # What is in our bare hands, in one number: how many straws in the low four
@@ -348,7 +360,7 @@ func _hands() -> int:
 	return straws | (needle << 4)
 
 
-func on_pose(id: int, pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int = 0) -> void:
+func on_pose(id: int, pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int = 0, tool_fill: float = 0.0) -> void:
 	_last_at[id] = pos
 	var a: Node = avatars.get(id)
 	if a == null or not is_instance_valid(a):
@@ -358,6 +370,7 @@ func on_pose(id: int, pos: Vector3, yaw: float, pitch: float, tool: int, crouch:
 		a.global_position = pos
 		avatars[id] = a
 	a.set_target(pos, yaw, pitch, tool, crouch, moving)
+	a.set_tool_load(tool_fill)
 	if a.has_method("set_hands"):
 		a.set_hands(hands & 15, (hands >> 4) - 1)
 	if strands_sync != null and is_instance_valid(strands_sync):
@@ -1222,6 +1235,8 @@ func build_payload(_pid: int) -> Dictionary:
 
 
 func send_full_sync(pid: int) -> void:
+	if is_instance_valid(tools_sync):
+		tools_sync.send_all(pid)
 	# loose needles the late joiner missed: [index, position, who holds it]
 	var needles: Array = []
 	var bodies := _needle_bodies()
@@ -1553,3 +1568,42 @@ func toast(text: String, seconds: float = 3.5) -> void:
 		hud.show_toast(text, seconds)
 	else:
 		mp.ui.notify(text)
+
+
+func _replace_tech_script(script: Script) -> void:
+	var values := {}
+	for property in Tech.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = Tech.get(property.name)
+	Tech.set_script(script)
+	for key in values:
+		if key in Tech:
+			Tech.set(key, values[key])
+
+func on_tech_purchase(sender: int, id: String, expected_rank: int) -> void:
+	if not mp.is_host or not mp.players.has(sender):
+		return
+	var current := int(Tech.ranks.get(id, 0))
+	var accepted := false
+	if current == expected_rank:
+		accepted = Tech.buy(id)
+	elif current > expected_rank:
+		accepted = true
+	mp._rx_tech_purchase_result.rpc_id(sender, id, accepted)
+	_state_tick()
+
+func on_tech_purchase_result(id: String, accepted: bool) -> void:
+	if "pending" in Tech:
+		Tech.get("pending").erase(id)
+	if not accepted:
+		mp.ui.notify(mp.t("purchase_declined"))
+
+
+func _tool_fill() -> float:
+	var tool: Node
+	match int(player.current_tool):
+		1, 4: tool = player.shovel
+		2: tool = player.pitchfork
+	if is_instance_valid(tool) and tool.has_method("fill_fraction"):
+		return clampf(float(tool.fill_fraction()), 0.0, 1.0)
+	return 0.0

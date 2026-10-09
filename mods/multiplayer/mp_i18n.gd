@@ -10,6 +10,7 @@ const FALLBACK := "en"
 
 const STRINGS := {
 "en": {
+	"purchase_declined": "Purchase not completed: requirements or shared funds changed.",
 	"title": "MULTIPLAYER",
 	"subtitle": "Co-op mod v%s   ·   F2 panel   ·   Y chat   ·   F8 resync",
 	"your_name": "YOUR NAME",
@@ -198,6 +199,7 @@ const STRINGS := {
 	"no_debug_menu": "Esta versión no tiene menú de depuración.",
 },
 "de": {
+	"purchase_declined": "Kauf nicht abgeschlossen: Voraussetzungen oder gemeinsames Guthaben haben sich geändert.",
 	"title": "MEHRSPIELER",
 	"subtitle": "Koop-Mod v%s   ·   F2 Panel   ·   Y Chat   ·   F8 Sync",
 	"your_name": "DEIN NAME",

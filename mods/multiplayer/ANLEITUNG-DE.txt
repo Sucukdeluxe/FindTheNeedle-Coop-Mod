@@ -1,37 +1,39 @@
-FIND THE NEEDLE CO-OP – 0.19.6-local.1
-Private Korrekturfassung auf Basis der Mod 0.19.5 von AleDev11.
+FIND THE NEEDLE CO-OP – 0.19.6-local.2
 
-INSTALLATION
-1. Spiel bei allen Spielern vollständig beenden.
-2. Den bisherigen Ordner mods/multiplayer außerhalb des Spielordners sichern.
-3. Den enthaltenen Ordner mods ins Spielverzeichnis kopieren und vorhandene
-   Dateien ersetzen. Host und Mitspieler benötigen genau diese Fassung.
-4. In override.cfg muss unter [autoload] folgende Zeile stehen:
+Private Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
+Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
+
+INSTALLATION AUF WEITEREN RECHNERN
+1. Spiel vollständig beenden.
+2. Bestehenden Ordner mods/multiplayer und override.cfg sichern.
+3. Den Ordner mods aus diesem ZIP in den Spielordner neben FindTheNeedle.exe kopieren.
+4. In override.cfg muss unter [autoload] stehen:
    MPMod="*mods/multiplayer/mp.gd"
-   Einen vorhandenen Eintrag beibehalten; andere Einstellungen nicht ersetzen.
-5. Alle Spieler starten das Spiel über Steam und verbinden sich neu.
+   Vorhandene andere Einstellungen beibehalten.
+5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
 
-ÄNDERUNGEN
-- Normale Förderbänder: genauer Abgleich der Endpunkte, Erhalt der Linienkennung,
-  gezielter Segmentabriss und Schutz vor doppelten Bau-Nachrichten.
-- Automatischer Abgleich: Der Host prüft den Gebäudezustand alle drei Sekunden.
-  Wiederholte Abweichungen werden ohne Neuladen korrigiert. Laufende Bauaktionen
-  werden berücksichtigt. F8 bleibt eine manuelle Wiederherstellungsmöglichkeit.
-- Quest-Abschlüsse eines Gasts werden an den Host übertragen. Der Host verwendet
-  die vorhandene Quest- und Belohnungslogik; Belohnungen werden dort vergeben.
-- Bandentnahmen werden vom Host bestätigt. Beim Umdrehen und Entfernen von
-  Bändern erzeugt der Gast keine zweite Kopie der transportierten Ladung.
-- Alte Pakete früherer Gegenstandsbesitzer überschreiben keine neuere Übergabe.
-  Position und Zustand werden regelmäßig erneut übertragen.
-- Fehlende Filter- und Richtungseinstellungen der Verteiler werden abgeglichen.
-- Fremdes Heu im Einfüllbereich eines Host-Behälters wird an dessen Simulation
-  übergeben. Bereits erfasstes Stroh bleibt beim Erreichen des Sendelimits erhalten.
-- Nicht unterstützte Steam-Netzwerkkanäle und doppelte Zustandsbuchungen korrigiert.
+VERHALTEN
+- Eingesammelte Werkzeuge stehen allen gemeinsam zur Verfügung.
+- Ablegen/Werfen eines bereits gemeinsam verfügbaren Werkzeugs steckt es weg.
+  Dabei wird keine weitere physische Werkzeugkopie erzeugt.
+- Der Host bestätigt Gegenstandsübernahmen und Upgrade-Käufe.
+- F8 gleicht die laufende Welt ab. Die Gastwelt wird dadurch nicht neu geladen.
+- Abweichende Förderbandlayouts werden automatisch abgeglichen.
+- Quests, Werkzeuge, Einstellungen, Tafeln und Gegenstände werden synchronisiert.
+- Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
-RÜCKKEHR ZUR ALTEN FASSUNG
-Spiel beenden, mods/multiplayer durch die zuvor gesicherte Version ersetzen.
-Spielstände sind nicht Bestandteil dieses Pakets und werden nicht überschrieben.
+GRENZEN DER PRÜFUNG
+Die Tests verwenden getrennte Spielprozesse und isolierte Speicherverzeichnisse.
+Netzwerkstörungen werden auf lokalen Netzwerkverbindungen simuliert. Ein Test
+über zwei getrennte Steam-Konten und unterschiedliche Internetanschlüsse ersetzt
+das nicht. Die Mod ist keine Garantie für Fehlerfreiheit in allen Spielzuständen.
 
-Diese Fassung ist keine offizielle Veröffentlichung des ursprünglichen Autors.
-Die Prüfung erfolgt mit der lokal installierten Demo und isolierten Testprofilen.
-Ein Langzeittest mit zwei getrennten Steam-Konten bleibt erforderlich.
+Der Host führt Maschinen und Spielstand. Gäste speichern den gemeinsamen Hof
+nicht in ihre eigenen Spielstände. Öffentliche Bestenlisten bleiben deaktiviert.
+Sonstige native Käufe/Baukosten verwenden weiterhin den gemeinsamen Delta-Abgleich;
+die zentrale Kaufprüfung gilt für Tech-/Upgrade-Käufe. Entfernte Werkzeugladungen
+sind eine visuelle Darstellung, keine exakte Kopie jedes einzelnen Halms.
+
+RÜCKKEHR ZUR VORHERIGEN FASSUNG
+Spiel beenden und den gesicherten Ordner mods/multiplayer sowie override.cfg
+zurückkopieren. Alle Mitspieler müssen wieder dieselbe Version verwenden.

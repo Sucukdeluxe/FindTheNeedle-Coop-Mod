@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-local.1
+FIND THE NEEDLE CO-OP MOD  v0.19.6-local.2
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -34,7 +34,7 @@ Host: MULTIPLAYER, CREATE GAME, INVITE FRIENDS, then start or load a save as
 usual. The others accept the Steam invite. If their game is closed, Steam
 opens it and takes them in.
 
-Keys:  F2 panel   Y chat   F8 resync the world   F6 test menu
+Keys:  F2 panel   Y chat   F8 reconcile the running world   F6 test menu
 
 F6 opens the debug menu the game already has (money, items, unlocks, tech).
 It is meant for setting up a session or trying things out. The game marks a
@@ -51,7 +51,8 @@ WHAT IS SHARED
   - The haystack. Everyone digs the same pile.
   - Buildings, placed and demolished.
   - Money, debt, hay sold, needles found, the collection.
-  - The tech tree.
+  - The tech tree; upgrade purchases are validated and charged by the host.
+  - Collected tools: shared equipment for every player in the session.
   - Uncovered needles. Everyone sees them, and they count once.
   - New hay loads, which resync every client.
   - Player positions, names and the tool in hand.
@@ -67,12 +68,14 @@ KNOWN LIMITATIONS
   - Machines run on the host only, so the same hay cannot be counted twice.
     Clients see them move, smoke and light up, and their settings match, but
     the work itself happens on one machine.
-  - Hay loaded on a tool, a shovel or a fork, is not drawn for the others.
-    What is in your bare hands, and straw on the ground, is.
-  - Bought tools are per player. Money is shared.
+  - Remote shovel and pitchfork loads use a visual representation, not an exact
+    copy of every physical strand.
+  - Shared tools are put away instead of spawning another physical tool when
+    dropped or thrown. Their collected inventory remains available.
   - Only the host saves. Clients never write to their own saves.
   - The online leaderboard is disabled while the mod is loaded.
-  - Money can dip below zero if two players spend at the same moment.
+  - Upgrade purchases are serialized by the host. Other native purchases and
+    building expenses still use the original shared-delta system.
   - Who holds a loose needle is shared; where it lies can differ a little
     between players until someone picks it up.
 

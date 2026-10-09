@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-local.1"
+const VERSION := "0.19.6-local.2"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -78,7 +78,9 @@ func _ready() -> void:
 			test.mp = self
 			add_child(test)
 	for f in ["mp_world.gd", "mp_avatar.gd", "mp_i18n.gd", "mp_props.gd",
-			"mp_machines.gd", "mp_strands.gd", "mp_contracts.gd", "mp_trace.gd", "mp_boards.gd"]:
+			"mp_machines.gd", "mp_strands.gd", "mp_contracts.gd", "mp_trace.gd", "mp_boards.gd",
+			"mp_belts.gd", "mp_carry.gd", "mp_builds.gd", "mp_missions.gd",
+			"mp_tools.gd", "mp_player.gd", "mp_tool_prop.gd", "mp_tech.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
@@ -541,6 +543,7 @@ func _rx_client_ready() -> void:
 		players[id]["state"] = "world"
 		_rx_players.rpc(players)
 	if world_sync != null:
+		world_sync._peer_ack.erase(id)
 		world_sync.send_full_sync(id)
 	ui.refresh()
 
@@ -618,6 +621,7 @@ func _rx_world_end() -> void:
 
 
 func _enter_mp_world(payload: Dictionary) -> void:
+	_world_watch = null
 	_stop_world_sync()
 	SaveManager.use_scratch_dir(SESSION_DIR)
 	var path := SaveManager.slot_path(0)
@@ -650,16 +654,20 @@ func resync_all() -> void:
 func _rx_request_world() -> void:
 	_trace("request_world")
 	if is_host and world_sync != null:
-		send_world(multiplayer.get_remote_sender_id())
+		world_sync.send_full_sync(multiplayer.get_remote_sender_id())
 
 
 func request_resync() -> void:
-	if not active():
+	if not active() or not is_instance_valid(world_sync):
 		return
 	if is_host:
-		resync_all()
+		for pid in players:
+			if pid != 1 and players[pid].get("state") == "world":
+				world_sync.send_full_sync(pid)
 		ui.notify(t("resyncing_all"))
 	else:
+		if world_sync != null:
+			world_sync._state_tick()
 		_rx_request_world.rpc_id(1)
 		ui.notify(t("asking_world"))
 
@@ -667,9 +675,9 @@ func request_resync() -> void:
 # ---------------------------------------------------------------- in-world RPCs (forwarded to mp_world)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int) -> void:
+func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int, tool_fill: float = 0.0) -> void:
 	if world_sync != null:
-		world_sync.on_pose(multiplayer.get_remote_sender_id(), pos, yaw, pitch, tool, crouch, moving, hands)
+		world_sync.on_pose(multiplayer.get_remote_sender_id(), pos, yaw, pitch, tool, crouch, moving, hands, tool_fill)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
@@ -802,11 +810,11 @@ func _rx_prop_state(ids: PackedInt64Array, states: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_claim(id: int) -> void:
+func _rx_prop_claim(id: int, expected: int, holding: bool) -> void:
 	_trace("prop_claim")
 	var p := _props()
-	if p != null:
-		p.on_claim(multiplayer.get_remote_sender_id(), id)
+	if p != null and is_host:
+		p.on_claim_request(multiplayer.get_remote_sender_id(), id, expected, holding)
 
 
 # A guest's belt took one of its items. Only the host's belts count, so the
@@ -904,7 +912,8 @@ func _rx_board(key: String, id: int, i: int, n: int, raw_size: int, piece: Packe
 	_trace("board", piece.size())
 	if world_sync == null or world_sync.boards_sync == null:
 		return
-	world_sync.boards_sync.on_piece(key, id, i, n, raw_size, piece)
+	if is_host or multiplayer.get_remote_sender_id() == 1:
+		world_sync.boards_sync.on_piece(key, id, i, n, raw_size, piece)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -1091,3 +1100,32 @@ func _rx_build_repair_request(revision: int) -> void:
 func _rx_build_repair(buildings: Array, revision: int) -> void:
 	if is_instance_valid(world_sync):
 		world_sync.on_build_repair(buildings, revision)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_tools_request(ids: Array) -> void:
+	if is_host and world_sync != null:
+		world_sync.tools_sync.on_request(multiplayer.get_remote_sender_id(), ids)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_tools_shared(ids: Array) -> void:
+	if world_sync != null:
+		world_sync.tools_sync.on_shared(ids)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_prop_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
+	var p := _props()
+	if p != null:
+		p.on_owner(id, owner, epoch, holding)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_tech_purchase(id: String, expected_rank: int) -> void:
+	if is_host and world_sync != null:
+		world_sync.on_tech_purchase(multiplayer.get_remote_sender_id(), id, expected_rank)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_tech_purchase_result(id: String, accepted: bool) -> void:
+	if world_sync != null:
+		world_sync.on_tech_purchase_result(id, accepted)

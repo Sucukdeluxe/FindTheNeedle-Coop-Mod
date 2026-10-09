@@ -1,4 +1,4 @@
-MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-local.1
+MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-local.2
 =============================================
 
 Mod no oficial. Todos los jugadores necesitan el juego (la demo, gratis en
@@ -52,7 +52,8 @@ QUE SE COMPARTE
   - El pajar. Todos cavan el mismo monton.
   - Las construcciones, al colocarlas y al derribarlas.
   - Dinero, deuda, paja vendida, agujas encontradas y coleccion.
-  - El arbol de mejoras.
+  - El arbol de mejoras; el anfitrion valida y cobra las compras.
+  - Las herramientas recogidas estan disponibles para todos.
   - Las agujas destapadas. Las ve todo el mundo y cuentan una vez.
   - Las cargas nuevas de paja, que resincronizan a todos.
   - Posicion, nombre y herramienta de cada jugador.
@@ -68,12 +69,12 @@ LIMITACIONES CONOCIDAS
   - Las maquinas funcionan solo en el anfitrion, para que la misma paja no se
     cuente dos veces. Los demas las ven moverse, echar humo y encender luces,
     y sus ajustes coinciden, pero el trabajo lo hace una sola maquina.
-  - La paja cargada en una herramienta, pala u horca, no se les dibuja a
-    los demas. La de la mano y la del suelo si.
-  - Las herramientas compradas son de cada jugador. El dinero es comun.
+  - La carga de palas y horcas se representa visualmente; no se copia cada paja.
+  - Soltar una herramienta compartida la guarda sin crear otra copia fisica.
   - Solo guarda el anfitrion. Los clientes no escriben en sus partidas.
   - La tabla de clasificacion online se desactiva con el mod cargado.
-  - El dinero puede bajar de cero si dos jugadores gastan a la vez.
+  - Las mejoras se compran a traves del anfitrion. Otras compras y costes de
+    construccion siguen usando el sistema original de diferencias compartidas.
   - Quien tiene una aguja suelta es comun; donde esta tirada puede variar un
     poco entre jugadores hasta que alguien la coge.
 

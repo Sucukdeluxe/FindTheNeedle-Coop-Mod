@@ -6,11 +6,6 @@ extends Node
 # lived only on the screen of whoever drew it. Now a finished stroke, an
 # erase or a wipe goes to everyone, and their board shows the same picture.
 #
-# Only what is drawn live travels. A board can also cycle through the
-# drawings a player has kept, and that sketchbook is each player's own, so a
-# board showing one of those is left alone rather than having the two players'
-# boards pull the picture back and forth.
-#
 # A drawing can be large, so it goes out in pieces of about a kilobyte.
 
 const SCAN := 0.5
@@ -29,6 +24,7 @@ var _known := {}     # board instance id -> hash of the strokes last sent or rec
 var _applying := false
 var _parts := {}     # "key|id" -> {n, raw, got: {i: bytes}}
 var _next := 0
+var _refresh := 0.0
 
 
 func start(mp_node: Node, world_node: Node) -> void:
@@ -51,12 +47,21 @@ func _boards() -> Array:
 
 func _key(b: Node3D) -> String:
 	var p := b.global_position
-	return "%.2f,%.2f,%.2f" % [p.x, p.y, p.z]
+	return "%.4f,%.4f,%.4f|%.5f" % [p.x, p.y, p.z, wrapf(b.rotation.y, -PI, PI)]
 
 
 func _process(delta: float) -> void:
 	if mp == null or not mp.active() or multiplayer.multiplayer_peer == null:
 		return
+	_refresh += delta
+	if mp.is_host and _refresh >= 10.0:
+		_refresh = 0.0
+		for board in _boards():
+			if is_instance_valid(board):
+				_send(board, 0, true)
+	for slot in _parts.keys():
+		if Time.get_ticks_msec() - int(_parts[slot].get("time", 0)) > 15000:
+			_parts.erase(slot)
 	_scan_t += delta
 	if _scan_t >= SCAN:
 		_scan_t = 0.0
@@ -77,17 +82,14 @@ func _process(delta: float) -> void:
 func _on_changed(b: Node) -> void:
 	if _applying or not is_instance_valid(b):
 		return
-	# a kept drawing from this player's own sketchbook: not ours to push
-	if int(b.get("showing")) >= 0 and not bool(b.get("drafting")):
-		return
 	# wait for the stroke to settle, a wipe and a redraw often come together
 	_due[b] = SEND_DELAY
 
 
-func _send(b: Node, pid: int) -> void:
-	var strokes: Array = b.get("strokes")
+func _send(b: Node, pid: int, force: bool = false) -> void:
+	var strokes: Array = b.visible_strokes()
 	var h := hash(strokes)
-	if pid == 0 and int(_known.get(b.get_instance_id(), 0)) == h:
+	if not force and pid == 0 and int(_known.get(b.get_instance_id(), 0)) == h:
 		return
 	_known[b.get_instance_id()] = h
 	var raw := var_to_bytes(strokes)
@@ -99,6 +101,8 @@ func _send(b: Node, pid: int) -> void:
 		var piece := packed.slice(i * PIECE, mini((i + 1) * PIECE, packed.size()))
 		if pid > 0:
 			mp._rx_board.rpc_id(pid, _key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece)
+		elif not mp.is_host:
+			mp._rx_board.rpc_id(1, _key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece)
 		else:
 			mp._rx_board.rpc(_key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece)
 
@@ -106,15 +110,18 @@ func _send(b: Node, pid: int) -> void:
 # Host: a player just came in, show them every board as it is.
 func send_all(pid: int) -> void:
 	for b in _boards():
-		if is_instance_valid(b) and not (b.get("strokes") as Array).is_empty():
+		if is_instance_valid(b):
 			_send(b, pid)
 
 
 func on_piece(key: String, id: int, i: int, n: int, raw_size: int, piece: PackedByteArray) -> void:
-	if n <= 0 or n > 4096 or raw_size <= 0 or raw_size > MAX_RAW:
+	if n <= 0 or n > 4096 or i < 0 or i >= n or piece.size() > PIECE or raw_size <= 0 or raw_size > MAX_RAW:
 		return
 	var slot := "%s|%d" % [key, id]
-	var e: Dictionary = _parts.get(slot, {"n": n, "raw": raw_size, "got": {}})
+	var e: Dictionary = _parts.get(slot, {"n": n, "raw": raw_size, "got": {}, "time": Time.get_ticks_msec()})
+	if int(e["n"]) != n or int(e["raw"]) != raw_size:
+		_parts.erase(slot)
+		return
 	(e["got"] as Dictionary)[i] = piece
 	_parts[slot] = e
 	if (e["got"] as Dictionary).size() < n:
@@ -135,20 +142,12 @@ func on_piece(key: String, id: int, i: int, n: int, raw_size: int, piece: Packed
 	_applying = true
 	b.set_picture(strokes)
 	_applying = false
+	if mp.is_host:
+		_send(b, 0, true)
 
 
 func _board_at(key: String) -> Node:
-	var xyz := key.split(",")
-	if xyz.size() != 3:
-		return null
-	var at := Vector3(float(xyz[0]), float(xyz[1]), float(xyz[2]))
-	var best: Node = null
-	var best_d := KEY_SLACK * KEY_SLACK
-	for b in _boards():
-		if not is_instance_valid(b):
-			continue
-		var d := (b as Node3D).global_position.distance_squared_to(at)
-		if d < best_d:
-			best_d = d
-			best = b
-	return best
+	for board in _boards():
+		if is_instance_valid(board) and _key(board) == key:
+			return board
+	return null

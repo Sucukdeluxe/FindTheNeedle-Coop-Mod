@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.19.6-local.2 (maintenance fork)
+
+* Share collected tools across the co-op session and preserve them during resync.
+* Confirm loose-item and tool pickup through the host; reject older ownership
+  confirmations and prevent delayed updates from restoring deleted items.
+* Reconcile F8 in place, preserving the guest world, held items and pending money.
+* Validate upgrade purchases on the host and charge a concurrent same-rank purchase
+  only once.
+* Distribute movement and state updates fairly across large item populations.
+* Repair locally missing items without treating them as globally deleted.
+* Synchronize drone controls, work areas and drop points, plus robotic-arm pickup
+  order, links and tier setters; protect edits from older host snapshots.
+* Synchronize saved board pictures and erasure, with bounded chunk assembly and
+  periodic refresh.
+* Show a visual hay load on remote spades and pitchforks.
+* Let guest-owned containers take host hay through confirmed ownership transfer.
+* Restart state acknowledgements after a guest loads a new world and prevent the
+  old world from reporting readiness during the transition.
+* Correct lamp switch reads and clearing empty drone targets.
+
+
 ## v0.19.6-local.1 (maintenance fork)
 
 * Reconcile divergent conveyor layouts automatically without reloading the world.

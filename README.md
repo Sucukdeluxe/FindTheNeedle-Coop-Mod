@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Private maintenance fork, version `0.19.6-local.1`, based on upstream 0.19.5.
+Private maintenance fork, version `0.19.6-local.2`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 See `mods/multiplayer/ANLEITUNG-DE.txt` for the patched installation notes.

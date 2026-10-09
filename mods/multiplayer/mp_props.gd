@@ -36,6 +36,13 @@ var _sent := {}      # mp id -> last transform we broadcast
 var _hash := {}      # mp id -> hash of the last state we broadcast
 var _goal := {}      # mp id -> transform a remote copy is easing towards
 var _want := {}      # mp id -> peer we expect it from
+var _original_tools := {}
+var _epoch := {}
+var _deleted := {}
+var _claim_pending := {}
+var _reset_seen := {}
+var _move_cursor := 0
+var _state_cursor := 0
 var _next := 0
 var _ready_map := false
 var _busy := false   # we are the ones touching the prop list, do not echo it
@@ -73,6 +80,10 @@ func session_started() -> void:
 
 
 func shutdown() -> void:
+	for item in _original_tools:
+		if is_instance_valid(item):
+			_replace_tool_script(item, _original_tools[item])
+	_original_tools.clear()
 	if props == null or not is_instance_valid(props):
 		return
 	if props.item_added.is_connected(_on_added):
@@ -135,17 +146,24 @@ func _adopt(item: Node, id: int, owner: int) -> void:
 	# and the others just move the old one to where the new one is.
 	if id / 1000000 == _me():
 		_next = maxi(_next, id % 1000000)
+	if mp != null and mp.active() and item.has_method("claim") and String(item.item_id) in TOOL_ITEMS:
+		if not _original_tools.has(item):
+			_original_tools[item] = item.get_script()
+			_replace_tool_script(item, load(mp.base_dir + "/mp_tool_prop.gd"))
+			item.set("mp_props", self)
 	item.set_meta("mp_id", id)
 	_by_id[id] = item
 	_owner[id] = owner
 	_want.erase(id)
+	_deleted.erase(id)
 	if owner == _me():
 		_release(item)
 	else:
 		_puppet(item)
 
 
-func _forget(id: int) -> void:
+func _forget(id: int, deleted: bool = true) -> void:
+	_original_tools.erase(_by_id.get(id))
 	_hidden.erase(id)
 	_held.erase(id)
 	_by_id.erase(id)
@@ -153,6 +171,9 @@ func _forget(id: int) -> void:
 	_sent.erase(id)
 	_hash.erase(id)
 	_goal.erase(id)
+	_claim_pending.erase(id)
+	if deleted:
+		_deleted[id] = Time.get_ticks_msec()
 
 
 # A copy owned by somebody else: no physics of its own, and off limits to the
@@ -217,12 +238,7 @@ func host_take(item: Variant) -> bool:
 	# theirs to carry for as long as they are carrying it
 	if _mine(id) or bool(_held.get(id, false)):
 		return false
-	_owner[id] = _me()
-	_goal.erase(id)
-	_held.erase(id)
-	_hash.erase(id)
-	_release(n)
-	mp._rx_prop_claim.rpc(id)
+	_assign_owner(id, _me(), false)
 	return true
 
 
@@ -246,7 +262,7 @@ func _on_removed(item: Node) -> void:
 		return
 	var id := int(item.get_meta("mp_id"))
 	var mine := _mine(id)
-	_forget(id)
+	_forget(id, mine or mp.is_host)
 	if _busy:
 		return
 	if _log:
@@ -263,7 +279,7 @@ func _on_removed(item: Node) -> void:
 		# guest's item (the delivery truck loads whatever lands in its bed), so
 		# it is gone for everybody. Asking for it back put it in the truck again
 		# and the same bale was counted over and over.
-		mp._rx_prop_claim.rpc(id)
+		mp._rx_prop_owner.rpc(id, 1, int(_epoch.get(id, 0)) + 1, false)
 		mp._rx_prop_del.rpc(PackedInt64Array([id]))
 	else:
 		# a local machine ate a copy: ask for it back
@@ -279,12 +295,7 @@ func _on_carry_changed(item: Variant) -> void:
 	var id := int(item.get_meta("mp_id"))
 	if _mine(id):
 		return
-	_owner[id] = _me()
-	_goal.erase(id)
-	_held.erase(id)
-	_hash.erase(id)
-	_release(item)
-	mp._rx_prop_claim.rpc(id)
+	request_claim(id, "carry")
 
 
 # Guest only. A belt says what it caught just before it takes the item out of
@@ -374,11 +385,7 @@ func _claim_in_reach() -> void:
 		var to: Vector3 = (it as Node3D).global_position - eye
 		if to.length() > CLAIM_REACH or to.normalized().dot(look) < 0.6:
 			continue
-		_owner[id] = _me()
-		_goal.erase(id)
-		_hash.erase(id)
-		_release(it)
-		mp._rx_prop_claim.rpc(id)
+		request_claim(id, "release")
 
 
 func _state_of(item: Node) -> Dictionary:
@@ -420,6 +427,7 @@ func _process(delta: float) -> void:
 	if _state_t >= STATE_TICK:
 		_state_t = 0.0
 		_state_tick()
+		_feed_containers()
 	_census_t += delta
 	if _census_t >= CENSUS_TICK:
 		_census_t = 0.0
@@ -529,7 +537,12 @@ func _smooth(delta: float) -> void:
 func _move_tick() -> void:
 	var ids := PackedInt64Array()
 	var xfs: Array = []
-	for id in _by_id:
+	var keys := _by_id.keys()
+	var start := _move_cursor
+	for offset in keys.size():
+		var index := (start + offset) % keys.size()
+		var id: int = keys[index]
+		_move_cursor = (index + 1) % keys.size()
 		var it: Variant = _by_id[id]
 		# out of the tree (mid-reparent) it reads as the origin and would
 		# teleport the copy on the other side
@@ -564,7 +577,12 @@ func _same(a: Transform3D, b: Transform3D) -> bool:
 func _state_tick() -> void:
 	var ids := PackedInt64Array()
 	var states: Array = []
-	for id in _by_id:
+	var keys := _by_id.keys()
+	var start := _state_cursor
+	for offset in keys.size():
+		var index := (start + offset) % keys.size()
+		var id: int = keys[index]
+		_state_cursor = (index + 1) % keys.size()
 		var it: Variant = _by_id[id]
 		if it == null or not is_instance_valid(it) or not _mine(id):
 			continue
@@ -582,6 +600,9 @@ func _state_tick() -> void:
 
 
 func _census_tick() -> void:
+	for id in _deleted.keys():
+		if Time.get_ticks_msec() - int(_deleted[id]) > 120000:
+			_deleted.erase(id)
 	_sent.clear()
 	_hash.clear()
 	var ids := PackedInt64Array()
@@ -594,6 +615,8 @@ func _census_tick() -> void:
 # ------------------------------------------------------------------ from the net
 
 func on_add(sender: int, id: int, item_id: String, xf: Transform3D, state: Dictionary) -> void:
+	if _deleted.has(id):
+		return
 	var have: Variant = _by_id.get(id)
 	if have != null and is_instance_valid(have):
 		if not _mine(id) and int(_owner.get(id, 0)) == sender:
@@ -605,7 +628,7 @@ func on_add(sender: int, id: int, item_id: String, xf: Transform3D, state: Dicti
 	var it: Variant = props.spawn(item_id, xf, state)
 	_busy = false
 	if it != null:
-		_adopt(it, id, sender)
+		_adopt(it, id, int(_owner.get(id, sender)))
 		_note_held(id, state)
 
 
@@ -628,7 +651,8 @@ func on_move(sender: int, ids: PackedInt64Array, xfs: Array) -> void:
 			continue
 		var it: Variant = _by_id.get(id)
 		if it == null or not is_instance_valid(it):
-			_want[id] = sender
+			if not _deleted.has(id):
+				_want[id] = sender
 			continue
 		if int(_owner.get(id, 0)) != sender:
 			continue
@@ -662,18 +686,87 @@ func _note_held(id: int, st: Dictionary) -> void:
 		_held.erase(id)
 
 
+func request_claim(id: int, action: String = "release") -> bool:
+	if _claim_pending.has(id):
+		return true
+	if not _by_id.has(id):
+		return false
+	_claim_pending[id] = action
+	if mp.is_host:
+		on_claim_request(_me(), id, int(_epoch.get(id, 0)), action != "release")
+	else:
+		mp._rx_prop_claim.rpc_id(1, id, int(_epoch.get(id, 0)), action != "release")
+	return true
+
+
+func on_claim_request(sender: int, id: int, expected: int, holding: bool) -> void:
+	if not mp.is_host or not mp.players.has(sender):
+		return
+	var item: Variant = _by_id.get(id)
+	if not is_instance_valid(item):
+		_reply_owner(sender, id, 0, int(_epoch.get(id, 0)), false)
+		return
+	var owner := int(_owner.get(id, 1))
+	var held: bool = bool(_held.get(id, false)) or item.is_held()
+	if owner != sender and (expected != int(_epoch.get(id, 0)) or held):
+		_reply_owner(sender, id, owner, int(_epoch.get(id, 0)), held)
+		_claim_pending.erase(id)
+		return
+	_assign_owner(id, sender, holding)
+
+
+func _reply_owner(peer: int, id: int, owner: int, epoch: int, holding: bool) -> void:
+	if peer == _me():
+		on_owner(id, owner, epoch, holding)
+	else:
+		mp._rx_prop_owner.rpc_id(peer, id, owner, epoch, holding)
+
+
+func _assign_owner(id: int, owner: int, holding: bool) -> void:
+	var epoch := int(_epoch.get(id, 0)) + 1
+	on_owner(id, owner, epoch, holding)
+	mp._rx_prop_owner.rpc(id, owner, epoch, holding)
+
+
 func on_claim(sender: int, id: int) -> void:
+	on_owner(id, sender, int(_epoch.get(id, 0)) + 1, false)
+
+
+func on_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
+	if epoch < int(_epoch.get(id, 0)):
+		return
+	var action := str(_claim_pending.get(id, ""))
+	_claim_pending.erase(id)
+	_epoch[id] = epoch
+	if owner == 0:
+		return
 	var it: Variant = _by_id.get(id)
-	_owner[id] = sender
+	_owner[id] = owner
 	_held.erase(id)
+	if holding:
+		_held[id] = true
 	_hash.erase(id)
 	_sent.erase(id)
 	_goal.erase(id)
-	if it == null or not is_instance_valid(it):
+	if not is_instance_valid(it):
+		_want[id] = owner
 		return
-	if sender == _me():
+	if owner == _me():
 		_release(it)
+		if action == "tool" and it.has_method("claim"):
+			it.claim(world.player)
+			return
+		var carry: Variant = _carry_tool()
+		if carry != null and action in ["carry", "stack"]:
+			if action == "stack" and carry.can_stack(it):
+				carry.stack_on(it)
+			elif not carry.is_carrying():
+				carry.take(it)
 	else:
+		if it.is_held():
+			var carry: Variant = _carry_tool()
+			if carry != null:
+				carry.drop_all()
 		if it is RigidBody3D:
 			BeltPath.release(it)
 		_puppet(it)
@@ -690,27 +783,11 @@ func on_want(sender: int, ids: PackedInt64Array) -> void:
 			it.global_transform, _state_of(it))
 
 
-# The owner lists what it still has. Anything of theirs we are holding on to
-# that is not on the list is gone; anything on the list we lack, we ask for.
 func on_census(sender: int, ids: PackedInt64Array) -> void:
-	var theirs := {}
-	for id in ids:
-		theirs[id] = true
-	var drop: Array = []
-	for id in _by_id:
-		if int(_owner.get(id, 0)) == sender and not theirs.has(id):
-			drop.append(id)
-	for id in drop:
-		var it: Variant = _by_id.get(id)
-		_forget(id)
-		if it != null and is_instance_valid(it):
-			_busy = true
-			props.remove(it)
-			_busy = false
 	var missing := PackedInt64Array()
 	for id in ids:
 		var it2: Variant = _by_id.get(id)
-		if it2 == null or not is_instance_valid(it2):
+		if (it2 == null or not is_instance_valid(it2)) and not _deleted.has(id):
 			missing.append(id)
 	if missing.size() > 0:
 		mp._rx_prop_want.rpc_id(sender, missing)
@@ -737,6 +814,7 @@ func send_all(pid: int) -> void:
 			st["held"] = true
 		entries.append({
 			"id": String(it.item_id),
+			"epoch": int(_epoch.get(id, 0)),
 			"xform": it.global_transform,
 			"state": st,
 		})
@@ -752,38 +830,68 @@ func send_all(pid: int) -> void:
 
 func on_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array, entries: Array) -> void:
 	if first:
-		_busy = true
-		props.clear()
-		_busy = false
-		_by_id.clear()
-		_owner.clear()
-		_sent.clear()
-		_hash.clear()
-		_goal.clear()
-		_want.clear()
-		_held.clear()
-	for i in ids.size():
+		_reset_seen.clear()
+		if not _ready_map:
+			_busy = true
+			props.clear()
+			_busy = false
+			_by_id.clear()
+			_owner.clear()
+			_epoch.clear()
+			_deleted.clear()
+			_sent.clear()
+			_hash.clear()
+			_goal.clear()
+			_want.clear()
+			_held.clear()
+			_hidden.clear()
+	for i in mini(ids.size(), mini(owners.size(), entries.size())):
+		var id: int = ids[i]
+		_reset_seen[id] = true
 		var e: Dictionary = entries[i]
+		var epoch := int(e.get("epoch", 0))
+		if epoch < int(_epoch.get(id, 0)):
+			continue
+		var existing: Variant = _by_id.get(id)
+		if is_instance_valid(existing):
+			if _mine(id) or _claim_pending.has(id):
+				continue
+			on_owner(id, owners[i], epoch, bool(e.get("state", {}).get("held", false)))
+			if not _mine(id):
+				existing.from_state(e.get("state", {}))
+				_goal[id] = e.get("xform", existing.global_transform)
+			continue
 		var item_id: String = e.get("id", "")
-		if not ItemDb.has_item(item_id):
+		if not ItemDb.has_item(item_id) or _deleted.has(id):
 			continue
 		_busy = true
 		var it: Variant = props.spawn(item_id, e.get("xform", Transform3D.IDENTITY), e.get("state", {}))
 		_busy = false
 		if it != null:
-			_adopt(it, ids[i], owners[i])
-			_note_held(ids[i], e.get("state", {}))
+			_epoch[id] = epoch
+			_adopt(it, id, owners[i])
+			_note_held(id, e.get("state", {}))
 
 
 func on_reset_end() -> void:
+	for id in _by_id.keys():
+		if _reset_seen.has(id) or int(_owner.get(id, 0)) != 1 or _mine(id) or _claim_pending.has(id):
+			continue
+		var item: Variant = _by_id[id]
+		_forget(id)
+		if is_instance_valid(item):
+			_busy = true
+			props.remove(item)
+			_busy = false
 	_ready_map = true
 
 
 # A peer left: the host keeps their things and takes over sending them.
 func peer_gone(pid: int) -> void:
-	for id in _owner:
+	for id in _owner.keys():
 		if int(_owner[id]) != pid:
 			continue
+		_epoch[id] = int(_epoch.get(id, 0)) + 1
 		_owner[id] = 1
 		_held.erase(id)
 		var it: Variant = _by_id.get(id)
@@ -792,3 +900,32 @@ func peer_gone(pid: int) -> void:
 		if _me() == 1:
 			_release(it)
 			_sent.erase(id)
+
+
+func _replace_tool_script(item: Node, script: Script) -> void:
+	var values := {}
+	for property in item.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = item.get(property.name)
+	item.set_script(script)
+	for key in values:
+		if key in item:
+			item.set(key, values[key])
+
+
+func _feed_containers() -> void:
+	for id in _by_id.keys():
+		var container: Variant = _by_id.get(id)
+		if not _mine(id) or not is_instance_valid(container) or not container.is_inside_tree():
+			continue
+		if not container.has_method("takes_loose") or not container.takes_loose():
+			continue
+		var interior: Variant = container.get("_interior")
+		if not (interior is Area3D) or not interior.is_inside_tree():
+			continue
+		for body in interior.get_overlapping_bodies():
+			if not (body is HayWad) or not body.has_meta("mp_id"):
+				continue
+			var other := int(body.get_meta("mp_id"))
+			if not _mine(other) and not _held.has(other):
+				request_claim(other)
