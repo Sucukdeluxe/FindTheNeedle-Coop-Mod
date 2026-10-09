@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.19.6-local.3 (maintenance fork)
+
+* Validate normal shop purchases, physical-item sales, construction, demolition
+  and arm upgrades on the host before changing money or world objects.
+* Recompute native building previews, collision checks, unlocks, gifts and prices
+  on the host; reject prices above the initiating player's preview.
+* Serialize transactions across physics frames and deduplicate request retries
+  using session epochs, per-player sequences and cached receipts; keep purchase
+  sequence numbers across full guest world reloads.
+* Reject client-authored building replication and unpaid arm tier changes.
+* Share gifts and purchase history, refund failed item creation, and prevent
+  duplicate sales or repeated payment for shared tools and same-tier upgrades.
+* Preserve the initiating player's native building tutorial counters and keep
+  cancelled previews from being restored by a late confirmation.
+
 ## v0.19.6-local.2 (maintenance fork)
 
 * Share collected tools across the co-op session and preserve them during resync.

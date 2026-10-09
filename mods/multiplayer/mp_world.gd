@@ -73,6 +73,7 @@ var strands_sync: Node  # loose straw on the ground
 var contracts_sync: Node  # the delivery truck and its contract
 var _tech_script: Script
 var tools_sync: Node
+var economy: Node
 var boards_sync: Node  # what is drawn on the paint boards
 var _pose_t := 0.0
 
@@ -157,6 +158,9 @@ func _ready() -> void:
 	tools_sync = load(mp.base_dir + "/mp_tools.gd").new()
 	add_child(tools_sync)
 	tools_sync.start(mp, world)
+	economy = load(mp.base_dir + "/mp_economy.gd").new()
+	add_child(economy)
+	economy.start(mp, self)
 	if field != null:
 		field.cells_redrawn.connect(_on_cells_redrawn)
 	if builds != null:
@@ -172,6 +176,8 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if is_instance_valid(economy):
+		economy.shutdown()
 	if _tech_script != null:
 		_replace_tech_script(_tech_script)
 	if is_instance_valid(tools_sync):
@@ -394,6 +400,8 @@ func clear_avatars() -> void:
 
 
 func forget_peer(id: int) -> void:
+	if is_instance_valid(economy):
+		economy.peer_gone(id)
 	if mp.is_host:
 		_drop_needles_of(id)
 	_last_at.erase(id)
@@ -624,7 +632,7 @@ func _flush_builds() -> void:
 		if not cur.has(k):
 			removes.append(_bkeys[k])
 	_bkeys = cur
-	if not adds.is_empty() or not removes.is_empty():
+	if (not adds.is_empty() or not removes.is_empty()) and mp.is_host:
 		mp._rx_builds.rpc(adds, removes)
 	if _is_client():
 		_freeze_client_machines()
@@ -1235,6 +1243,8 @@ func build_payload(_pid: int) -> Dictionary:
 
 
 func send_full_sync(pid: int) -> void:
+	if is_instance_valid(economy):
+		economy.publish(pid)
 	if is_instance_valid(tools_sync):
 		tools_sync.send_all(pid)
 	# loose needles the late joiner missed: [index, position, who holds it]

@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-local.2"
+const VERSION := "0.19.6-local.3"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -35,6 +35,7 @@ var steam: Node = null  # mp_steam.gd: Steam relay transport (no port forwarding
 var over_steam := false  # is the current session running through Steam?
 var trace: Node = null  # mp_trace.gd: what came in last, for crash reports
 
+var economy_sequence := 0
 var _last_scene: Node = null
 var _world_rx := {}
 var _pending_world: Variant = null
@@ -80,7 +81,8 @@ func _ready() -> void:
 	for f in ["mp_world.gd", "mp_avatar.gd", "mp_i18n.gd", "mp_props.gd",
 			"mp_machines.gd", "mp_strands.gd", "mp_contracts.gd", "mp_trace.gd", "mp_boards.gd",
 			"mp_belts.gd", "mp_carry.gd", "mp_builds.gd", "mp_missions.gd",
-			"mp_tools.gd", "mp_player.gd", "mp_tool_prop.gd", "mp_tech.gd"]:
+			"mp_tools.gd", "mp_player.gd", "mp_tool_prop.gd", "mp_tech.gd",
+			"mp_economy.gd", "mp_shop.gd", "mp_build_tool.gd", "mp_build_actor.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
@@ -706,6 +708,8 @@ func _rx_hay_want(blocks: PackedInt32Array) -> void:
 @rpc("any_peer", "call_remote", "reliable", 0)
 func _rx_builds(adds: Array, removes: Array) -> void:
 	_trace("builds", adds.size())
+	if is_host or multiplayer.get_remote_sender_id() != 1:
+		return
 	if world_sync != null:
 		world_sync.on_builds(adds, removes)
 
@@ -1129,3 +1133,19 @@ func _rx_tech_purchase(id: String, expected_rank: int) -> void:
 func _rx_tech_purchase_result(id: String, accepted: bool) -> void:
 	if world_sync != null:
 		world_sync.on_tech_purchase_result(id, accepted)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_economy_request(epoch: String, seq: int, action: String, args: Dictionary) -> void:
+	if is_host and world_sync != null and world_sync.economy != null:
+		world_sync.economy.on_request(multiplayer.get_remote_sender_id(), epoch, seq, action, args)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_economy_result(epoch: String, seq: int, result: Dictionary) -> void:
+	if world_sync != null and world_sync.economy != null:
+		world_sync.economy.on_result(epoch, seq, result)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_economy_state(epoch: String, state: Dictionary) -> void:
+	if world_sync != null and world_sync.economy != null:
+		world_sync.economy.on_state(epoch, state)

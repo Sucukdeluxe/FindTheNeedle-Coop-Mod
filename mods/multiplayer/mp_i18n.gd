@@ -10,6 +10,12 @@ const FALLBACK := "en"
 
 const STRINGS := {
 "en": {
+	"economy_wait": "Waiting for the host to process transactions.",
+	"economy_expired": "This transaction was already processed. Check the current state.",
+	"economy_shop_distance": "Move closer to the shop.",
+	"economy_price_changed": "The price changed. Check the current price and try again.",
+	"economy_funds": "Not enough shared funds.",
+	"shared_tool_sale": "Shared equipment cannot be sold. Spare physical tools can be sold.",
 	"purchase_declined": "Purchase not completed: requirements or shared funds changed.",
 	"title": "MULTIPLAYER",
 	"subtitle": "Co-op mod v%s   ·   F2 panel   ·   Y chat   ·   F8 resync",
@@ -199,6 +205,12 @@ const STRINGS := {
 	"no_debug_menu": "Esta versión no tiene menú de depuración.",
 },
 "de": {
+	"economy_wait": "Warte auf die Transaktionsverarbeitung des Hosts.",
+	"economy_expired": "Diese Transaktion wurde bereits verarbeitet. Aktuellen Stand prüfen.",
+	"economy_shop_distance": "Gehe näher an den Laden.",
+	"economy_price_changed": "Der Preis hat sich geändert. Aktuellen Preis prüfen und erneut versuchen.",
+	"economy_funds": "Nicht genug gemeinsames Guthaben.",
+	"shared_tool_sale": "Gemeinsame Ausrüstung kann nicht verkauft werden. Zusätzliche physische Werkzeuge sind verkäuflich.",
 	"purchase_declined": "Kauf nicht abgeschlossen: Voraussetzungen oder gemeinsames Guthaben haben sich geändert.",
 	"title": "MEHRSPIELER",
 	"subtitle": "Koop-Mod v%s   ·   F2 Panel   ·   Y Chat   ·   F8 Sync",

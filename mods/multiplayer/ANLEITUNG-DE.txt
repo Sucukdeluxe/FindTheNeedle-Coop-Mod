@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-local.2
+FIND THE NEEDLE CO-OP – 0.19.6-local.3
 
 Private Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,27 +12,41 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
 
-VERHALTEN
+KAUFEN UND BAUEN
+- Normale Shopkäufe, Verkäufe, Bauvorgänge, Abriss und Arm-Upgrades werden
+  vom Host geprüft und ausgeführt. Gäste warten kurz auf die Bestätigung.
+- Der Host verwendet seine aktuellen Preise, Freischaltungen, Bauprüfung
+  und den gemeinsamen Kontostand. Gleichzeitige Anfragen werden nacheinander bearbeitet.
+- Wiederholte Übertragung derselben Anfrage erzeugt keine zweite Abbuchung.
+- Steigt ein Baupreis zwischen Vorschau und Ausführung, wird die Anfrage abgelehnt.
+  Die aktuelle Vorschau prüfen und die Aktion erneut ausführen.
+- Geteilte Werkzeuge werden nur einmal bezahlt und bleiben allen verfügbar.
+  Gemeinsam verfügbare Ausrüstung wird nicht über den Shop verkauft.
+  Ein zusätzliches physisches Exemplar kann weiterhin verkauft werden.
+- Gratisbauten und Kaufhistorie werden vom Host an alle Spieler übertragen.
+
+WEITERE SYNCHRONISIERUNG
 - Eingesammelte Werkzeuge stehen allen gemeinsam zur Verfügung.
 - Ablegen/Werfen eines bereits gemeinsam verfügbaren Werkzeugs steckt es weg.
   Dabei wird keine weitere physische Werkzeugkopie erzeugt.
-- Der Host bestätigt Gegenstandsübernahmen und Upgrade-Käufe.
+- Der Host bestätigt Gegenstandsübernahmen und Tech-Käufe.
 - F8 gleicht die laufende Welt ab. Die Gastwelt wird dadurch nicht neu geladen.
 - Abweichende Förderbandlayouts werden automatisch abgeglichen.
 - Quests, Werkzeuge, Einstellungen, Tafeln und Gegenstände werden synchronisiert.
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
-GRENZEN DER PRÜFUNG
+PRÜFUMFANG
 Die Tests verwenden getrennte Spielprozesse und isolierte Speicherverzeichnisse.
-Netzwerkstörungen werden auf lokalen Netzwerkverbindungen simuliert. Ein Test
-über zwei getrennte Steam-Konten und unterschiedliche Internetanschlüsse ersetzt
-das nicht. Die Mod ist keine Garantie für Fehlerfreiheit in allen Spielzuständen.
+Verzögerungen, Paketverluste und doppelte Pakete werden auf lokalen
+Netzwerkverbindungen simuliert. Der beiliegende Testbericht nennt die Ergebnisse.
+Ein Test über zwei getrennte Steam-Konten und unterschiedliche Internetanschlüsse
+steht weiterhin aus. Fehlerfreiheit für sämtliche Spielzustände ist nicht garantiert.
 
 Der Host führt Maschinen und Spielstand. Gäste speichern den gemeinsamen Hof
 nicht in ihre eigenen Spielstände. Öffentliche Bestenlisten bleiben deaktiviert.
-Sonstige native Käufe/Baukosten verwenden weiterhin den gemeinsamen Delta-Abgleich;
-die zentrale Kaufprüfung gilt für Tech-/Upgrade-Käufe. Entfernte Werkzeugladungen
-sind eine visuelle Darstellung, keine exakte Kopie jedes einzelnen Halms.
+Andere Geldbewegungen, etwa aus Heuverkäufen, verwenden weiterhin den bestehenden
+Delta-Abgleich. Entfernte Werkzeugladungen sind eine visuelle Darstellung,
+keine exakte Kopie jedes einzelnen Halms.
 
 RÜCKKEHR ZUR VORHERIGEN FASSUNG
 Spiel beenden und den gesicherten Ordner mods/multiplayer sowie override.cfg

@@ -1,8 +1,9 @@
 # Find The Needle co-op mod
 
-Private maintenance fork, version `0.19.6-local.2`, based on upstream 0.19.5.
+Private maintenance fork, version `0.19.6-local.3`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
+Normal shop and construction transactions are checked and executed by the host.
 See `mods/multiplayer/ANLEITUNG-DE.txt` for the patched installation notes.
 
 Adds co-op multiplayer to the Find The Needle demo. Several players dig the
@@ -100,12 +101,13 @@ translations, so they read the same as in the rest of the UI.
 * Machines run on the host only, so the same hay cannot be counted twice.
   Clients see them move, smoke and light up, and their settings match, but the
   work itself happens on one machine.
-* Hay loaded on a tool, in a shovel or a fork, is not drawn for the others.
-  What is in your bare hands, and straw on the ground, is.
-* Bought tools are per player. Money is shared.
+* Remote shovel and fork loads use a visual model, not individual replicated strands.
+* Equipment and money are shared. Shared equipment cannot be sold away from the team.
 * Only the host saves. Clients never write to their own save files.
 * The online leaderboard is disabled while the mod is loaded.
-* Money can dip below zero if two players spend at the same moment.
+* Shop and building transactions wait for host confirmation. A changed price
+  or insufficient shared balance rejects the purchase. Other economic events
+  still use the existing state-delta synchronization.
 * Who holds a loose needle is shared; where one lies can differ a little
   between players until someone picks it up.
 
@@ -119,7 +121,8 @@ two lines again.
 A friend cannot join: check that both of you run the same mod version. The
 panel shows it.
 
-The world looks different between players: press F8.
+Building layouts are reconciled automatically. F8 is also available for an
+explicit in-place reconciliation. Everyone must use the same mod version.
 
 The game crashes: send the newest crash log from
 `%APPDATA%\Godot\app_userdata\Haystack Incremental\crashes\` together with
@@ -150,7 +153,9 @@ loader into a scratch slot.
 Syncing after that is incremental. The haystack is a height field and each peer
 sends the vertices it changed. Buildings are diffed against the game's
 `to_array()` and rebuilt through its own loader. Money and counters travel as
-deltas, with the host as the authority.
+deltas. Shop and building actions use a host transaction queue with native
+validation, sequence numbers and cached receipts. Clients replicate the
+resulting world changes after approval.
 
 Everything is applied by walking the live scene tree and calling the game's own
 methods.

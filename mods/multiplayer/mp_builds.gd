@@ -24,3 +24,12 @@ func _demolish_one(building: Node3D) -> float:
 func clear() -> void:
 	_clear_mirrored_records()
 	super.clear()
+
+
+func upgrade_arm(arm: RoboticArm) -> bool:
+	if not is_instance_valid(mp_world) or not is_instance_valid(mp_world.economy) or not mp_world.mp.active() or mp_world.economy.executing:
+		return super.upgrade_arm(arm)
+	var actor: Player = mp_world.player
+	return mp_world.economy.request("arm_upgrade", {"target": arm.to_dict(),
+		"tier": arm.tier_index, "max_price": arm_upgrade_price(arm),
+		"body": actor.global_transform, "camera": actor.camera.global_transform}) != 0

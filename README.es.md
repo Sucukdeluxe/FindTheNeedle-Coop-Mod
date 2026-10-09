@@ -97,12 +97,11 @@ juego, así que se leen igual que en el resto de la interfaz.
 * Las máquinas funcionan solo en el anfitrión, para que la misma paja no se
   cuente dos veces. Los demás las ven moverse, echar humo y encender luces, y
   sus ajustes coinciden, pero el trabajo lo hace una sola máquina.
-* La paja cargada en una herramienta, en la pala o la horca, no se les dibuja
-  a los demás. La de la mano y la del suelo sí.
-* Las herramientas compradas son de cada jugador. El dinero es común.
+* La carga de pala y horca se muestra con un modelo visual.
+* Las herramientas y el dinero se comparten. El anfitrión valida las compras y la construcción.
 * Solo guarda el anfitrión. Los clientes no escriben en sus partidas.
 * La tabla de clasificación online se desactiva con el mod cargado.
-* El dinero puede bajar de cero si dos jugadores gastan a la vez.
+* Las compras y la construcción esperan confirmación del anfitrión; se rechazan si cambia el precio o no hay fondos.
 * Quién tiene una aguja suelta es común; dónde está tirada puede variar un
   poco entre jugadores hasta que alguien la coge.
 
@@ -116,7 +115,7 @@ Añade las dos líneas otra vez.
 Un amigo no puede entrar: comprobad que los dos tenéis la misma versión del
 mod. El panel la indica.
 
-El mundo se ve distinto entre jugadores: pulsa F8.
+Las construcciones se reconcilian automáticamente. F8 solicita además una reconciliación manual.
 
 El juego se cierra de golpe: manda el último registro de fallo de
 `%APPDATA%\Godot\app_userdata\Haystack Incremental\crashes\` junto con
