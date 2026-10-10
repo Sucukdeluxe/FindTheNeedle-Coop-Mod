@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.11
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.12
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -10,6 +10,9 @@ INSTALLATION AUF WEITEREN RECHNERN
 4. In override.cfg muss unter [autoload] stehen:
    MPMod="*mods/multiplayer/mp.gd"
    Vorhandene andere Einstellungen beibehalten.
+   Für Godot 4.7 sollte außerdem
+   driver/threads/thread_model.template=1
+   gesetzt sein. Das verwendet den sicheren Rendering-Thread-Modus.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
 
 BESTEHENDE SPIELSTÄNDE
@@ -70,6 +73,8 @@ WEITERE SYNCHRONISIERUNG
   werden ausschließlich vom Host vergeben, auch nach einem erneuten Abgleich.
 - Einstellungen, Tafeln und Gegenstände werden synchronisiert.
 - Die Endposition abgelegter Gegenstände wird zuverlässig bestätigt.
+- Umgekehrt gespeicherte Förderbandrichtungen werden beim Wiederherstellen auf
+  das vorhandene Band zurückgeführt; Position und Spur werden dabei gespiegelt.
 - Splitter behalten ihre Priorität auch bei gleichzeitigen Einstellungsänderungen.
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 

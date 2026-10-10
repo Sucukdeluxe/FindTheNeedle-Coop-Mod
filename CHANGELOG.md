@@ -1,6 +1,15 @@
 # Changelog
 
-## v0.19.6-xRangerDE.11 (maintenance preview)
+## v0.19.6-xRangerDE.12 (maintenance preview)
+
+- Removed the over-broad selling-outlet repair that could change unrelated belts.
+- Rebased belt records when an existing path is found with reversed endpoints, preserving distance and lane side through curved or machine transitions.
+- Added a diagnostic event when a reversed path is corrected.
+- Set the shipped override to Godot's safe rendering-thread mode; the previous separate mode is explicitly reported by the game's crash logs as experimental and unstable.
+
+## v0.19.6-xRangerDE.11 (withdrawn)
+
+- Withdrawn: the outlet repair was too broad and is superseded by `.12`.
 
 - Rebuild the native belt junction and selling-stand outlet links after multiplayer belt snapshots.
 - Mark a snapshot-recreated belt that terminates at the selling stand as a selling belt and reopen a stale closed end, preventing the final curve from dropping cargo at the sale transition.

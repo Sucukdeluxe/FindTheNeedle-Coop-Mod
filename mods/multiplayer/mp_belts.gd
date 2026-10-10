@@ -23,8 +23,6 @@ var _carry: Node
 var _carry_script: Script
 var _pick_pending := false
 var _pick_stack := false
-var _outlet_repair_pending := false
-var _outlet_repair_at := -100000
 var _cleanup_scripts := {}
 
 
@@ -41,7 +39,6 @@ func start(mp_node: Node, world_node: Node) -> void:
 		_carry_script = _carry.get_script()
 		_replace_carry_script(load(mp.base_dir + "/mp_carry.gd"))
 		_carry.set("mp_belts", self)
-	_repair_sell_outlet_later()
 
 
 # Hand the belt ends back, in case the world outlives the session.
@@ -135,63 +132,82 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 			item.hold_records(Callable())
 	# no PropManager: a ride we cannot place is dropped instead of becoming a
 	# loose item that only this player would have
-	var got: Dictionary = BeltPath.belts_from_array(entries, null)
-	_repair_sell_outlet_later()
+	var normalized: Dictionary = _normalize_reversed_entries(entries)
+	var got: Dictionary = BeltPath.belts_from_array(normalized["entries"], null)
+	if int(normalized["reversed"]) > 0:
+		mp.trace.note("belts reversed: %d path(s)" % int(normalized["reversed"]))
+		if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
+			mp.world_sync.diagnostics.observe("belts", true, int(normalized["reversed"]))
 	mp.trace.note("belts end")
 	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
-		mp.world_sync.diagnostics.check_belts(entries)
+		mp.world_sync.diagnostics.check_belts(normalized["entries"])
 	if OS.get_environment("MP_DEBUG_PROPS") != "":
 		var rows := 0
-		for e in entries:
+		for e in normalized["entries"]:
 			rows += (e.get("records", []) as Array).size()
-		print("[MPBELTS] %d paths, %d rows -> %s" % [entries.size(), rows, got])
+		print("[MPBELTS] %d paths, %d rows -> %s" % [normalized["entries"].size(), rows, got])
 
 
-func _repair_sell_outlet_later() -> void:
-	if _outlet_repair_pending or Time.get_ticks_msec() < _outlet_repair_at:
-		return
-	_outlet_repair_pending = true
-	_outlet_repair_at = Time.get_ticks_msec() + 500
-	call_deferred("_repair_sell_outlet")
-
-
-func _repair_sell_outlet() -> void:
-	_outlet_repair_pending = false
-	if not is_instance_valid(world):
-		return
-	var manager: Variant = world.get("builds")
-	if is_instance_valid(manager):
-		if manager.has_method("rebuild_junctions"):
-			manager.rebuild_junctions()
-		if manager.has_method("rebuild_water_joints"):
-			manager.rebuild_water_joints()
-		if manager.has_method("fit_posts_to_decks"):
-			manager.fit_posts_to_decks()
-		if manager.has_method("share_joints"):
-			manager.share_joints()
-	var stand: Variant = world.get("stand")
-	if not is_instance_valid(stand) or not stand.has_method("mouth_centre"):
-		return
-	var mouth: Vector3 = stand.mouth_centre()
-	var repaired := 0
-	for path in BeltPath._live:
-		if not is_instance_valid(path) or not path.is_inside_tree():
+func _normalize_reversed_entries(entries: Array) -> Dictionary:
+	var live: Array = []
+	for item in BeltPath._live:
+		if is_instance_valid(item) and item.is_inside_tree():
+			var ends: PackedVector3Array = item.save_ends()
+			if ends.size() >= 2:
+				live.append([item, ends])
+	var out: Array = []
+	var reversed := 0
+	for entry in entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			out.append(entry)
 			continue
-		var ends: PackedVector3Array = path.save_ends()
-		if ends.size() < 2:
+		var d: Dictionary = entry
+		var a: Variant = d.get("a", Vector3.INF)
+		var b: Variant = d.get("b", Vector3.INF)
+		if not (a is Vector3) or not (b is Vector3) or not a.is_finite() or not b.is_finite():
+			out.append(entry)
 			continue
-		var near := minf(ends[0].distance_squared_to(mouth), ends[1].distance_squared_to(mouth))
-		if near > 4.0:
+		var direct := false
+		for pair in live:
+			var ends: PackedVector3Array = pair[1]
+			if ends[0].distance_to(a) <= 0.02 and ends[1].distance_to(b) <= 0.02:
+				direct = true
+				break
+		if direct:
+			out.append(entry)
 			continue
-		if not bool(path.get("stand_belt")):
-			path.set("stand_belt", true)
-			repaired += 1
-		if path.has_method("set_end_closed") and bool(path.get("end_closed")):
-			path.set_end_closed(false)
-		if path.has_method("_sync_end_shut"):
-			path._sync_end_shut()
-	if repaired > 0 and is_instance_valid(mp) and is_instance_valid(mp.trace):
-		mp.trace.note("sell outlet repaired: %d path(s)" % repaired)
+		var match_path: Variant = null
+		var want: Vector3 = a - b
+		var want_length := want.length()
+		for pair in live:
+			var ends: PackedVector3Array = pair[1]
+			var have: Vector3 = ends[1] - ends[0]
+			var aligned := want_length <= 0.01 or (have.length() > 0.01 and have.normalized().dot(want.normalized()) >= 0.9)
+			if ends[0].distance_to(b) <= 0.2 and ends[1].distance_to(a) <= 0.2 and absf(have.length() - want_length) <= 0.4 and aligned:
+				match_path = pair[0]
+				break
+		if not is_instance_valid(match_path):
+			out.append(entry)
+			continue
+		var copy: Dictionary = d.duplicate(true)
+		copy["a"] = b
+		copy["b"] = a
+		var length := float(match_path.path_length())
+		var rows: Array = []
+		for row in d.get("records", []):
+			if typeof(row) != TYPE_DICTIONARY:
+				rows.append(row)
+				continue
+			var r: Dictionary = row.duplicate(true)
+			if r.has("s"):
+				r["s"] = clampf(length - float(r["s"]), 0.0, length)
+			if r.has("side"):
+				r["side"] = -float(r["side"])
+			rows.append(r)
+		copy["records"] = rows
+		out.append(copy)
+		reversed += 1
+	return {"entries": out, "reversed": reversed}
 
 
 func _replace_carry_script(script: Script) -> void:
