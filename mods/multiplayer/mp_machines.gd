@@ -597,15 +597,18 @@ func _set_flags(n: Node3D, f: int) -> void:
 func on_fields(batch: Dictionary) -> void:
 	if not mp.is_host:
 		_send_edits()
+	var diagnostic_errors := 0
 	for host_key in batch:
 		var key := _local_key(String(host_key))
 		var n: Variant = _nodes.get(key)
 		if n == null or not is_instance_valid(n):
+			diagnostic_errors += 1
 			continue
 		var diff: Dictionary = batch[host_key]
 		# remember what the host says, so a guest can tell a setting the player
 		# just changed from one the host handed down
 		var known: Dictionary = _theirs.get(key, {})
+		var checked := {}
 		for f in _ordered_fields(diff):
 			var pending_key := key + "|" + str(f)
 			var pending: Dictionary = _pending_settings.get(pending_key, {})
@@ -615,7 +618,13 @@ func on_fields(batch: Dictionary) -> void:
 				_pending_settings.erase(pending_key)
 			_apply_field(n as Node, String(f), diff[f])
 			known[String(f)] = _copy_value(diff[f])
+			checked[String(f)] = diff[f]
 		_theirs[key] = known
+		for f in checked:
+			if _read_field(n, f) != checked[f]:
+				diagnostic_errors += 1
+	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
+		mp.world_sync.diagnostics.observe("machines", diagnostic_errors > 0, diagnostic_errors)
 
 
 # Guest: anything in SETTINGS that no longer matches what the host last told us

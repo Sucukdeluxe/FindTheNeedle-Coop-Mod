@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.19.6-xRangerDE.10 (maintenance preview)
+
+- Add local automatic diagnostics for repeated conveyor cargo, prop, building, hay and machine-setting discrepancies.
+- Detect stalled transaction, inventory and shared-state acknowledgements with per-request timers.
+- Debounce transient mismatches, record recovery, rate-limit notifications and cap diagnostic log size with one previous log retained.
+- Keep reports limited to categories, counts and relative timestamps; diagnostics do not write gameplay state or trigger purchases or world reloads.
+- Validate syntax and isolated diagnostic logic without launching the game; new live multiplayer validation remains outstanding.
+
 ## v0.19.6-xRangerDE.9 (maintenance preview)
 
 - Prevent native conveyor overflow cleanup from deleting cargo above the belt limit while the host has automatic cleanup disabled.

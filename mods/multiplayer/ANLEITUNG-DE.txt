@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.9
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.10
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -93,3 +93,20 @@ zurückkopieren. Alle Mitspieler müssen wieder dieselbe Version verwenden.
 Grafikfix: Loses Heu auf Förderbändern behält seine detaillierte Form bei Entfernung.
 Die normale Perspektive verkleinert entfernte Objekte weiterhin. Große sichtbare
 Förderbandanlagen können dadurch mehr GPU-Leistung benötigen.
+
+AUTOMATISCHE FEHLERDIAGNOSE
+- Die Mod prüft wiederholte Abweichungen bei Bandladung, Gegenständen, Gebäuden,
+  Heuhaufen-Felddaten und Maschineneinstellungen. Ausstehende Bestätigungen für
+  Käufe, Werkzeuginventare und gemeinsame Zustandsänderungen werden überwacht.
+- Kurze Lade- und Bauübergänge werden abgewartet. Eine einzelne Verzögerung reicht
+  nicht für einen Befund. Behobene Abweichungen werden als Entwarnung protokolliert.
+- Bei bestätigten Befunden erscheint höchstens einmal pro Minute ein Hinweis.
+- Protokoll: %APPDATA%\Godot\app_userdata\Haystack Incremental\mp_diagnostics.jsonl
+  Die vorherige Datei bleibt als mp_diagnostics.prev.jsonl erhalten. Beide Dateien
+  sind größenbegrenzt. Sie enthalten Kategorien, Anzahlen und Zeitabstände, keine
+  Namen, Steam-IDs, IP-Adressen, Chattexte oder vollständigen Spielstände.
+- Die Diagnose selbst ändert keine Spielstände, wiederholt keine Käufe und löst
+  keinen vollständigen Welt-Neuladevorgang aus. Bestehende Synchronisations- und
+  Reparaturmechanismen bleiben aktiv.
+- Diese Fassung wurde ohne Spielstart auf Syntax und isolierte Diagnoselogik
+  geprüft. Eine neue Prüfung in einer laufenden Mehrspielersitzung steht aus.

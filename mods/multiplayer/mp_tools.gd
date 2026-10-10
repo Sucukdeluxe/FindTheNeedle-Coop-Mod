@@ -6,6 +6,7 @@ var player: Node
 var original: Script
 var epoch := ""
 var _observed := {}
+var diagnostic_inventory := {}
 var _applying := false
 var _pending := {}
 var _actions := {}
@@ -21,6 +22,7 @@ func start(session: Node, world: Node) -> void:
 	_replace(load(mp.base_dir + "/mp_player.gd"))
 	player.mp_tools = self
 	_observed = _local()
+	diagnostic_inventory = _observed.duplicate()
 	if mp.is_host:
 		epoch = str(Time.get_ticks_usec()) + ":" + str(randi())
 		_store()
@@ -106,6 +108,7 @@ func _changed() -> void:
 		if not current.has(id):
 			removed.append(id)
 	_observed = current
+	diagnostic_inventory = current.duplicate()
 	if mp.is_host:
 		_store().players["host"] = current.keys()
 		_revisions[1] = int(_revisions.get(1, 0)) + 1
@@ -180,6 +183,7 @@ func on_inventory(token: String, revision: int, ack: int, ids: Array) -> void:
 		_send_pending()
 
 func _apply(inventory: Dictionary) -> void:
+	diagnostic_inventory = inventory.duplicate()
 	_applying = true
 	for id in TOOL_IDS:
 		if not inventory.has(id):

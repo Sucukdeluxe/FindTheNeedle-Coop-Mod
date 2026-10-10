@@ -134,6 +134,8 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	# loose item that only this player would have
 	var got: Dictionary = BeltPath.belts_from_array(entries, null)
 	mp.trace.note("belts end")
+	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
+		mp.world_sync.diagnostics.check_belts(entries)
 	if OS.get_environment("MP_DEBUG_PROPS") != "":
 		var rows := 0
 		for e in entries:

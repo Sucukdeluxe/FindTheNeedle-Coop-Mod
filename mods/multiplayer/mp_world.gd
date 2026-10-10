@@ -74,6 +74,7 @@ var contracts_sync: Node  # the delivery truck and its contract
 var _tech_script: Script
 var tools_sync: Node
 var economy: Node
+var diagnostics: Node
 var boards_sync: Node  # what is drawn on the paint boards
 var _pose_t := 0.0
 
@@ -161,6 +162,8 @@ func _ready() -> void:
 	economy = load(mp.base_dir + "/mp_economy.gd").new()
 	add_child(economy)
 	economy.start(mp, self)
+	diagnostics = load(mp.base_dir + "/mp_diagnostics.gd").new()
+	add_child(diagnostics)
 	if field != null:
 		field.cells_redrawn.connect(_on_cells_redrawn)
 	if builds != null:
@@ -524,11 +527,15 @@ func on_hay_sums(sums: PackedFloat32Array) -> void:
 	_hay_tick(false)
 	var mine := _hay_block_sums()
 	if mine.size() != sums.size():
+		if is_instance_valid(diagnostics):
+			diagnostics.observe("hay", true, absi(mine.size() - sums.size()))
 		return
 	var want := PackedInt32Array()
 	for b in sums.size():
 		if absf(mine[b] - sums[b]) > HAY_SUM_TOL:
 			want.append(b)
+	if is_instance_valid(diagnostics):
+		diagnostics.observe("hay", not want.is_empty(), want.size())
 	if not want.is_empty():
 		mp._rx_hay_want.rpc_id(1, want)
 
@@ -747,7 +754,10 @@ func _build_digest() -> int:
 func on_build_digest(digest: int) -> void:
 	if not _is_client() or _frozen or _applying_builds or _builds_dirty:
 		return
-	if digest == _build_digest():
+	var matches := digest == _build_digest()
+	if is_instance_valid(diagnostics):
+		diagnostics.observe("buildings", not matches, 0 if matches else 1)
+	if matches:
 		_mismatch_count = 0
 		return
 	_mismatch_count += 1

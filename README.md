@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.9`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.10`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 Settled props receive reliable position confirmation with stale-update rejection.
@@ -18,6 +18,13 @@ Quest money and building gifts are granted only by the host, including after res
 Loose hay on conveyors now retains its detailed shape at distance. Belt batching and
 draw-distance culling remain active. This can increase GPU work on large visible
 conveyor networks; physical quantities, collisions and transport are unchanged.
+
+Automatic diagnostics record repeated conveyor, prop, building, hay and machine
+synchronization discrepancies and stalled transaction, inventory and state
+acknowledgements. Reports stay local in `user://mp_diagnostics.jsonl`, with one
+previous log retained. Short loading/building transitions are ignored; confirmed
+findings and recovery are logged with category and count only. The diagnostic
+layer does not alter saves, retry purchases or force a world reload.
 
 **Maintenance preview:** the current repair suite is tested locally, including
 multiple game processes and simulated packet loss. Two-PC Steam/WAN validation

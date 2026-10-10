@@ -848,6 +848,8 @@ func on_census(sender: int, ids: PackedInt64Array) -> void:
 		var it2: Variant = _by_id.get(id)
 		if (it2 == null or not is_instance_valid(it2)) and not _deleted.has(id):
 			missing.append(id)
+	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
+		mp.world_sync.diagnostics.observe("props", not missing.is_empty(), missing.size(), sender)
 	if missing.size() > 0:
 		mp._rx_prop_want.rpc_id(sender, missing)
 
