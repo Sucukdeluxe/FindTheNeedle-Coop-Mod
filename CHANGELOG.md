@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19.6-xRangerDE.11 (maintenance preview)
+
+- Rebuild the native belt junction and selling-stand outlet links after multiplayer belt snapshots.
+- Mark a snapshot-recreated belt that terminates at the selling stand as a selling belt and reopen a stale closed end, preventing the final curve from dropping cargo at the sale transition.
+- Added static outlet-capacity and curve-boundary regression coverage; no game process is started by the release checks.
+
 ## v0.19.6-xRangerDE.10 (maintenance preview)
 
 - Add local automatic diagnostics for repeated conveyor cargo, prop, building, hay and machine-setting discrepancies.

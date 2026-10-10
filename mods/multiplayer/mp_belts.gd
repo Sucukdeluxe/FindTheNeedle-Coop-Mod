@@ -23,6 +23,8 @@ var _carry: Node
 var _carry_script: Script
 var _pick_pending := false
 var _pick_stack := false
+var _outlet_repair_pending := false
+var _outlet_repair_at := -100000
 var _cleanup_scripts := {}
 
 
@@ -39,6 +41,7 @@ func start(mp_node: Node, world_node: Node) -> void:
 		_carry_script = _carry.get_script()
 		_replace_carry_script(load(mp.base_dir + "/mp_carry.gd"))
 		_carry.set("mp_belts", self)
+	_repair_sell_outlet_later()
 
 
 # Hand the belt ends back, in case the world outlives the session.
@@ -133,6 +136,7 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	# no PropManager: a ride we cannot place is dropped instead of becoming a
 	# loose item that only this player would have
 	var got: Dictionary = BeltPath.belts_from_array(entries, null)
+	_repair_sell_outlet_later()
 	mp.trace.note("belts end")
 	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
 		mp.world_sync.diagnostics.check_belts(entries)
@@ -141,6 +145,53 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 		for e in entries:
 			rows += (e.get("records", []) as Array).size()
 		print("[MPBELTS] %d paths, %d rows -> %s" % [entries.size(), rows, got])
+
+
+func _repair_sell_outlet_later() -> void:
+	if _outlet_repair_pending or Time.get_ticks_msec() < _outlet_repair_at:
+		return
+	_outlet_repair_pending = true
+	_outlet_repair_at = Time.get_ticks_msec() + 500
+	call_deferred("_repair_sell_outlet")
+
+
+func _repair_sell_outlet() -> void:
+	_outlet_repair_pending = false
+	if not is_instance_valid(world):
+		return
+	var manager: Variant = world.get("builds")
+	if is_instance_valid(manager):
+		if manager.has_method("rebuild_junctions"):
+			manager.rebuild_junctions()
+		if manager.has_method("rebuild_water_joints"):
+			manager.rebuild_water_joints()
+		if manager.has_method("fit_posts_to_decks"):
+			manager.fit_posts_to_decks()
+		if manager.has_method("share_joints"):
+			manager.share_joints()
+	var stand: Variant = world.get("stand")
+	if not is_instance_valid(stand) or not stand.has_method("mouth_centre"):
+		return
+	var mouth: Vector3 = stand.mouth_centre()
+	var repaired := 0
+	for path in BeltPath._live:
+		if not is_instance_valid(path) or not path.is_inside_tree():
+			continue
+		var ends: PackedVector3Array = path.save_ends()
+		if ends.size() < 2:
+			continue
+		var near := minf(ends[0].distance_squared_to(mouth), ends[1].distance_squared_to(mouth))
+		if near > 4.0:
+			continue
+		if not bool(path.get("stand_belt")):
+			path.set("stand_belt", true)
+			repaired += 1
+		if path.has_method("set_end_closed") and bool(path.get("end_closed")):
+			path.set_end_closed(false)
+		if path.has_method("_sync_end_shut"):
+			path._sync_end_shut()
+	if repaired > 0 and is_instance_valid(mp) and is_instance_valid(mp.trace):
+		mp.trace.note("sell outlet repaired: %d path(s)" % repaired)
 
 
 func _replace_carry_script(script: Script) -> void:
