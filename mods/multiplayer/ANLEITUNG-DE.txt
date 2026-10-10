@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.8
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.9
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -40,7 +40,10 @@ BODENHEU UND AUFRÄUMEN
 - Im Co-op gelten die Aufräumeinstellung und die Wartezeit des Hosts für alle
   Spieler. Änderungen werden auch während der Sitzung übertragen.
 - Persönliche Einstellungen der Gäste werden dafür nicht dauerhaft geändert.
-- Bei eingeschaltetem Aufräumen bleiben die nativen Aufräumregeln aktiv.
+- Die zusätzliche Überlaufbereinigung auf Förderbändern beachtet ebenfalls die
+  Aufräumeinstellung des Hosts. Ohne automatisches Aufräumen bleiben auch mehr
+  als die native Bandbegrenzung erhalten. Gäste entfernen solche Ladungen nicht selbst.
+- Bei eingeschaltetem Aufräumen bleiben die nativen Aufräumregeln beim Host aktiv.
 - Manuelles Aufräumen, Aufheben und Verarbeitung von Heu bleiben möglich.
 - Lose Heuhaufen auf Förderbändern behalten auch in der Entfernung ihre Detailform.
   Sehr große sichtbare Förderbandanlagen können dadurch mehr Grafikleistung benötigen.

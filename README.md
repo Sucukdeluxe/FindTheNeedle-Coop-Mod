@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.8`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.9`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 Settled props receive reliable position confirmation with stale-update rejection.
@@ -10,6 +10,8 @@ Existing saves remain compatible; demolition and reversal work without first sel
 a construction type, and host-confirmed platform cuts are replicated to guests.
 Loose floor hay is retained when the host disables automatic cleanup, including
 overflow cleanup; guests use the host policy without changing their saved preferences.
+Conveyor overflow cleanup also follows the host’s automatic-cleanup setting, and
+clients do not independently delete conveyor cargo above their local limit.
 Tools are personal: Q drops a physical tool and removes it from that player’s inventory.
 The host saves individual inventories and resolves competing purchases and pickups.
 Quest money and building gifts are granted only by the host, including after resync.

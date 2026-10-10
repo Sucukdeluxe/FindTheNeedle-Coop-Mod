@@ -23,11 +23,15 @@ var _carry: Node
 var _carry_script: Script
 var _pick_pending := false
 var _pick_stack := false
+var _cleanup_scripts := {}
 
 
 func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
+	get_tree().node_added.connect(_protect_belt_cleanup)
+	for path in BeltPath._live:
+		_protect_belt_cleanup(path)
 	var player: Variant = world.get("player")
 	if is_instance_valid(player):
 		_carry = player.get("carry")
@@ -39,6 +43,16 @@ func start(mp_node: Node, world_node: Node) -> void:
 
 # Hand the belt ends back, in case the world outlives the session.
 func shutdown() -> void:
+	if get_tree().node_added.is_connected(_protect_belt_cleanup):
+		get_tree().node_added.disconnect(_protect_belt_cleanup)
+	for path in BeltPath._live:
+		if not is_instance_valid(path):
+			continue
+		for original in _cleanup_scripts:
+			if path.get_script() == _cleanup_scripts[original]:
+				_replace_belt_script(path, original)
+				break
+	_cleanup_scripts.clear()
 	if is_instance_valid(_carry) and _carry_script != null:
 		_replace_carry_script(_carry_script)
 	for item in BeltPath._live:
@@ -184,3 +198,28 @@ func on_pick_result(owner: int, id: int) -> void:
 		_carry.stack_on(item)
 	elif not _carry.is_carrying():
 		_carry.take(item)
+
+
+func _protect_belt_cleanup(node: Node) -> void:
+	if not (node is BeltPath):
+		return
+	var original: Script = node.get_script()
+	if original == null or not original.resource_path.begins_with("res://scripts/"):
+		return
+	if not _cleanup_scripts.has(original):
+		var patch := GDScript.new()
+		patch.source_code = "extends %s\nfunc _shed_over_cap() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active():\n\t\tif not session.is_host or not Cfg.auto_clean:\n\t\t\treturn\n\tsuper._shed_over_cap()\n" % JSON.stringify(original.resource_path)
+		if patch.reload() != OK:
+			return
+		_cleanup_scripts[original] = patch
+	_replace_belt_script(node, _cleanup_scripts[original])
+
+
+func _replace_belt_script(node: Node, script: Script) -> void:
+	var values := {}
+	for property in node.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = node.get(property.name)
+	node.set_script(script)
+	for key in values:
+		node.set(key, values[key])

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19.6-xRangerDE.9 (maintenance preview)
+
+- Prevent native conveyor overflow cleanup from deleting cargo above the belt limit while the host has automatic cleanup disabled.
+- Keep conveyor overflow cleanup authoritative on the host; clients retain cargo until the host updates it.
+- Preserve native conveyor behavior, saved state and cleanup when enabled; restore the original scripts when world synchronization shuts down.
+
 ## v0.19.6-xRangerDE.8 (maintenance preview)
 
 - Reliably confirm the final position of settled props, so a dropped movement packet does not leave hay above a wheelbarrow until the next periodic census.
