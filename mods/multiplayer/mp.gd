@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-local.6"
+const VERSION := "0.19.6-local.7"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -39,6 +39,7 @@ var economy_sequence := 0
 var tools_sequence := 0
 var tool_profile := ""
 var _tool_identities := {}
+var _belt_visuals: Script
 var _last_scene: Node = null
 var _world_rx := {}
 var _pending_world: Variant = null
@@ -53,6 +54,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	base_dir = get_script().resource_path.get_base_dir()
 	_install_game_state()
+	_belt_visuals = load(base_dir + "/mp_belt_visuals.gd")
 	trace = load(base_dir + "/mp_trace.gd").new()
 	trace.name = "MPTrace"
 	add_child(trace)
@@ -87,7 +89,7 @@ func _ready() -> void:
 			"mp_belts.gd", "mp_carry.gd", "mp_builds.gd", "mp_missions.gd",
 			"mp_tools.gd", "mp_player.gd", "mp_tool_prop.gd", "mp_tech.gd",
 			"mp_economy.gd", "mp_shop.gd", "mp_build_tool.gd", "mp_build_actor.gd",
-			"mp_game_state.gd", "mp_prop_manager.gd"]:
+			"mp_game_state.gd", "mp_prop_manager.gd", "mp_belt_visuals.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
@@ -109,6 +111,8 @@ func t(key: String) -> String:
 
 
 func _process(_delta: float) -> void:
+	if _belt_visuals != null:
+		_belt_visuals.install_current(_belt_visuals)
 	var cs := get_tree().current_scene
 	if cs != _last_scene:
 		_last_scene = cs

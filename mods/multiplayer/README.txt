@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-local.6
+FIND THE NEEDLE CO-OP MOD  v0.19.6-local.7
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -87,3 +87,7 @@ CREDITS
   GodotSteam (GDExtension), MIT, https://godotsteam.com
   Steamworks SDK, (c) Valve Corporation.
   Source: https://github.com/AleDev11/FindTheNeedle-Coop-Mod
+
+Visual fix: loose hay on belts keeps its detailed geometry at distance. Normal
+perspective still makes distant objects smaller. Large visible belt networks
+can require more GPU work. This maintenance preview needs further two-PC testing.

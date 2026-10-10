@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Private maintenance fork, version `0.19.6-local.6`, based on upstream 0.19.5.
+Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-local.7`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 Normal shop and construction transactions are checked and executed by the host.
@@ -11,7 +11,17 @@ overflow cleanup; guests use the host policy without changing their saved prefer
 Tools are personal: Q drops a physical tool and removes it from that player’s inventory.
 The host saves individual inventories and resolves competing purchases and pickups.
 Quest money and building gifts are granted only by the host, including after resync.
-See `mods/multiplayer/ANLEITUNG-DE.txt` for the patched installation notes.
+Loose hay on conveyors now retains its detailed shape at distance. Belt batching and
+draw-distance culling remain active. This can increase GPU work on large visible
+conveyor networks; physical quantities, collisions and transport are unchanged.
+
+**Maintenance preview:** the current repair suite is tested locally, including
+multiple game processes and simulated packet loss. Two-PC Steam/WAN validation
+and a complete manual long playthrough are still outstanding. Back up your save,
+use the same mod version on every peer, and report reproducible issues.
+
+See [German installation notes](mods/multiplayer/ANLEITUNG-DE.txt).
+
 
 Adds co-op multiplayer to the Find The Needle demo. Several players dig the
 same haystack, share the money and see each other's buildings.

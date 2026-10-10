@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-local.6
+FIND THE NEEDLE CO-OP – 0.19.6-local.7
 
 Private Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -82,3 +82,7 @@ keine exakte Kopie jedes einzelnen Halms.
 RÜCKKEHR ZUR VORHERIGEN FASSUNG
 Spiel beenden und den gesicherten Ordner mods/multiplayer sowie override.cfg
 zurückkopieren. Alle Mitspieler müssen wieder dieselbe Version verwenden.
+
+Grafikfix: Loses Heu auf Förderbändern behält seine detaillierte Form bei Entfernung.
+Die normale Perspektive verkleinert entfernte Objekte weiterhin. Große sichtbare
+Förderbandanlagen können dadurch mehr GPU-Leistung benötigen.

@@ -1,10 +1,16 @@
+# Changelog
+
+## v0.19.6-local.7 (maintenance preview)
+
+- Keep detailed loose-hay geometry on conveyors at distance, preventing the visible thinning caused by native far-detail models.
+- Preserve native batching, draw-distance culling, cargo quantities, collision and transport. Dense visible conveyor layouts can require more GPU work.
+- Publish the maintenance fork with installation notes and explicit test limitations.
+
 ## v0.19.6-local.6 (maintenance fork)
 
 - Corrected stale carried-state bookkeeping after a real Q drop, so released tools and wheelbarrows are no longer left marked as held.
 - Added host authority promotion for host-side wheelbarrow/container mutations and baseline tracking for remote container states.
 - Verified guest and host wheelbarrow fill/empty, carry handoff, conveyor pickup, splitter stress and full source regressions under packet loss, duplication and delay.
-
-# Changelog
 
 ## v0.19.6-local.5 (maintenance fork)
 
