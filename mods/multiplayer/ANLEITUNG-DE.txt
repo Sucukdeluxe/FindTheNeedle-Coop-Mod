@@ -1,6 +1,6 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.7
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.8
 
-Private Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
+Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
 
 INSTALLATION AUF WEITEREN RECHNERN
@@ -42,7 +42,9 @@ BODENHEU UND AUFRÄUMEN
 - Persönliche Einstellungen der Gäste werden dafür nicht dauerhaft geändert.
 - Bei eingeschaltetem Aufräumen bleiben die nativen Aufräumregeln aktiv.
 - Manuelles Aufräumen, Aufheben und Verarbeitung von Heu bleiben möglich.
-- Das Spiel stellt entfernte Heuhaufen mit einfacheren Modellen dar. Dadurch
+- Lose Heuhaufen auf Förderbändern behalten auch in der Entfernung ihre Detailform.
+  Sehr große sichtbare Förderbandanlagen können dadurch mehr Grafikleistung benötigen.
+- Auf dem Boden stellt das Spiel entfernte Heuhaufen mit einfacheren Modellen dar. Dadurch
   kann die sichtbare Dichte wechseln; die Heumenge ändert sich dabei nicht.
   Nahe Haufen können sich durch die native Heulogik zusammenfügen.
 
@@ -64,12 +66,14 @@ WEITERE SYNCHRONISIERUNG
 - Questabschlüsse werden gemeinsam übernommen. Questgeld und Gratisbauten
   werden ausschließlich vom Host vergeben, auch nach einem erneuten Abgleich.
 - Einstellungen, Tafeln und Gegenstände werden synchronisiert.
+- Die Endposition abgelegter Gegenstände wird zuverlässig bestätigt.
+- Splitter behalten ihre Priorität auch bei gleichzeitigen Einstellungsänderungen.
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
 PRÜFUMFANG
 Die Tests verwenden getrennte Spielprozesse und isolierte Speicherverzeichnisse.
 Verzögerungen, Paketverluste und doppelte Pakete werden auf lokalen
-Netzwerkverbindungen simuliert. Der beiliegende Testbericht nennt die Ergebnisse.
+Netzwerkverbindungen simuliert. Die Veröffentlichungsnotizen nennen den geprüften Umfang.
 Ein Test über zwei getrennte Steam-Konten und unterschiedliche Internetanschlüsse
 steht weiterhin aus. Fehlerfreiheit für sämtliche Spielzustände ist nicht garantiert.
 

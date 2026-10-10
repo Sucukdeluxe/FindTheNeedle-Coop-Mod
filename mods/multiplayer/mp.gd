@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.7"
+const VERSION := "0.19.6-xRangerDE.8"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -820,11 +820,19 @@ func _rx_prop_del(ids: PackedInt64Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_prop_move(ids: PackedInt64Array, xfs: Array) -> void:
+func _rx_prop_move(ids: PackedInt64Array, xfs: Array, sequence: int = 0, epochs: PackedInt64Array = PackedInt64Array()) -> void:
 	_trace("prop_move", ids.size())
 	var p := _props()
 	if p != null:
-		p.on_move(multiplayer.get_remote_sender_id(), ids, xfs)
+		p.on_move(multiplayer.get_remote_sender_id(), ids, xfs, sequence, epochs)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_prop_rest(ids: PackedInt64Array, xfs: Array, sequence: int, epochs: PackedInt64Array) -> void:
+	_trace("prop_rest", ids.size())
+	var p := _props()
+	if p != null:
+		p.on_move(multiplayer.get_remote_sender_id(), ids, xfs, sequence, epochs)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.19.6-xRangerDE.8 (maintenance preview)
+
+- Reliably confirm the final position of settled props, so a dropped movement packet does not leave hay above a wheelbarrow until the next periodic census.
+- Reject older movement updates and updates from a previous ownership epoch; retain this protection across repeated owner confirmations and reset it when a player leaves.
+- Preserve another player’s carried-item protection when a local player drops an item.
+- Retain remote container comparison state across periodic censuses, preserving detection of host-side changes.
+- Apply dependent splitter settings in the correct order so entry and lane updates do not silently reset the chosen priority.
+
 ## v0.19.6-xRangerDE.7 (maintenance preview)
 
 - Keep detailed loose-hay geometry on conveyors at distance, preventing the visible thinning caused by native far-detail models.

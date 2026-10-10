@@ -14,3 +14,5 @@ PROJECT_MEMORY.md
 /dev/mp_sync_test.gd
 .env
 .env.*
+
+/Godot/

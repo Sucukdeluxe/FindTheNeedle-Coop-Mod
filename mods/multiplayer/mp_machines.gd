@@ -606,7 +606,7 @@ func on_fields(batch: Dictionary) -> void:
 		# remember what the host says, so a guest can tell a setting the player
 		# just changed from one the host handed down
 		var known: Dictionary = _theirs.get(key, {})
-		for f in diff:
+		for f in _ordered_fields(diff):
 			var pending_key := key + "|" + str(f)
 			var pending: Dictionary = _pending_settings.get(pending_key, {})
 			if not pending.is_empty():
@@ -711,7 +711,7 @@ func on_edit(from: int, batch: Dictionary) -> void:
 		var names: Array = SETTINGS.get(_group.get(key, ""), [])
 		var diff: Dictionary = batch[guest_key]
 		var was: Dictionary = _vals.get(key, {})
-		for f in diff:
+		for f in _ordered_fields(diff):
 			# only ever the settings: a guest does not get to set our stock
 			if names.has(String(f)):
 				_apply_field(n as Node, String(f), diff[f])
@@ -720,6 +720,14 @@ func on_edit(from: int, batch: Dictionary) -> void:
 			# line when we would not take the change
 			was.erase(String(f))
 		_vals[key] = was
+
+
+func _ordered_fields(diff: Dictionary) -> Array:
+	var fields: Array = diff.keys()
+	if fields.has("priority_side"):
+		fields.erase("priority_side")
+		fields.append("priority_side")
+	return fields
 
 
 func _copy_value(value: Variant) -> Variant:

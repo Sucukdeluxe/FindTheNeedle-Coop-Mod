@@ -46,6 +46,9 @@ var _claim_pending := {}
 var _reset_seen := {}
 var _move_cursor := 0
 var _state_cursor := 0
+var _settling := {}
+var _move_order := {}
+var _move_sequence := 0
 var _next := 0
 var _ready_map := false
 var _busy := false   # we are the ones touching the prop list, do not echo it
@@ -118,6 +121,8 @@ func shutdown() -> void:
 	_by_id.clear()
 	_owner.clear()
 	_goal.clear()
+	_settling.clear()
+	_move_order.clear()
 
 
 func _carry_tool() -> Variant:
@@ -180,6 +185,8 @@ func _forget(id: int, deleted: bool = true) -> void:
 	_hash.erase(id)
 	_goal.erase(id)
 	_claim_pending.erase(id)
+	_settling.erase(id)
+	_move_order.erase(id)
 	if deleted:
 		_deleted[id] = Time.get_ticks_msec()
 
@@ -300,6 +307,8 @@ func _on_carry_changed(item: Variant) -> void:
 	_state_t = STATE_TICK
 	if item == null or not is_instance_valid(item) or not item.has_meta("mp_id"):
 		for stale_id in _held.keys():
+			if not _mine(stale_id):
+				continue
 			var stale_item: Variant = _by_id.get(stale_id)
 			if stale_item == null or not is_instance_valid(stale_item) or not stale_item.is_held():
 				_held.erase(stale_id)
@@ -550,6 +559,10 @@ func _smooth(delta: float) -> void:
 func _move_tick() -> void:
 	var ids := PackedInt64Array()
 	var xfs: Array = []
+	var epochs := PackedInt64Array()
+	var resting := PackedInt64Array()
+	var rest_xfs: Array = []
+	var rest_epochs := PackedInt64Array()
 	var keys := _by_id.keys()
 	var start := _move_cursor
 	for offset in keys.size():
@@ -557,21 +570,31 @@ func _move_tick() -> void:
 		var id: int = keys[index]
 		_move_cursor = (index + 1) % keys.size()
 		var it: Variant = _by_id[id]
-		# out of the tree (mid-reparent) it reads as the origin and would
-		# teleport the copy on the other side
 		if it == null or not is_instance_valid(it) or not _mine(id) or not it.is_inside_tree():
 			continue
 		var xf: Transform3D = it.global_transform
 		var last: Variant = _sent.get(id)
 		if last != null and _same(last, xf):
-			continue
-		_sent[id] = xf
-		ids.append(id)
-		xfs.append(xf)
-		if ids.size() >= MOVE_BUDGET:
+			if _settling.has(id):
+				_settling.erase(id)
+				_sent[id] = xf
+				resting.append(id)
+				rest_xfs.append(xf)
+				rest_epochs.append(int(_epoch.get(id, 0)))
+		else:
+			_sent[id] = xf
+			_settling[id] = true
+			ids.append(id)
+			xfs.append(xf)
+			epochs.append(int(_epoch.get(id, 0)))
+		if ids.size() + resting.size() >= MOVE_BUDGET:
 			break
-	if ids.size() > 0:
-		mp._rx_prop_move.rpc(ids, xfs)
+	if not ids.is_empty():
+		_move_sequence += 1
+		mp._rx_prop_move.rpc(ids, xfs, _move_sequence, epochs)
+	if not resting.is_empty():
+		_move_sequence += 1
+		mp._rx_prop_rest.rpc(resting, rest_xfs, _move_sequence, rest_epochs)
 	if not _want.is_empty():
 		var asking := PackedInt64Array()
 		for id in _want:
@@ -621,7 +644,9 @@ func _census_tick() -> void:
 		if Time.get_ticks_msec() - int(_deleted[id]) > 120000:
 			_deleted.erase(id)
 	_sent.clear()
-	_hash.clear()
+	for id in _hash.keys():
+		if _mine(id):
+			_hash.erase(id)
 	var ids := PackedInt64Array()
 	for id in _by_id:
 		if _mine(id) and is_instance_valid(_by_id[id]):
@@ -665,7 +690,7 @@ func on_del(sender: int, ids: PackedInt64Array) -> void:
 			_busy = false
 
 
-func on_move(sender: int, ids: PackedInt64Array, xfs: Array) -> void:
+func on_move(sender: int, ids: PackedInt64Array, xfs: Array, sequence: int = 0, epochs: PackedInt64Array = PackedInt64Array()) -> void:
 	for i in mini(ids.size(), xfs.size()):
 		var id: int = ids[i]
 		if _mine(id):
@@ -677,8 +702,14 @@ func on_move(sender: int, ids: PackedInt64Array, xfs: Array) -> void:
 			continue
 		if int(_owner.get(id, 0)) != sender:
 			continue
+		if not epochs.is_empty() and (i >= epochs.size() or int(epochs[i]) != int(_epoch.get(id, 0))):
+			continue
+		if sequence > 0 and sequence <= int(_move_order.get(id, 0)):
+			continue
 		if it.is_held():
 			continue
+		if sequence > 0:
+			_move_order[id] = sequence
 		_goal[id] = xfs[i]
 
 
@@ -757,6 +788,7 @@ func on_claim(sender: int, id: int) -> void:
 func on_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
 	if epoch < int(_epoch.get(id, 0)):
 		return
+	var ownership_changed := epoch != int(_epoch.get(id, 0)) or owner != int(_owner.get(id, 0))
 	var action := str(_claim_pending.get(id, ""))
 	_claim_pending.erase(id)
 	_epoch[id] = epoch
@@ -769,6 +801,9 @@ func on_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
 		_held[id] = true
 	_hash.erase(id)
 	_sent.erase(id)
+	_settling.erase(id)
+	if ownership_changed:
+		_move_order.erase(id)
 	_goal.erase(id)
 	if not is_instance_valid(it):
 		_want[id] = owner
@@ -865,6 +900,8 @@ func on_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array, entr
 			_epoch.clear()
 			_deleted.clear()
 			_sent.clear()
+			_settling.clear()
+			_move_order.clear()
 			_hash.clear()
 			_goal.clear()
 			_want.clear()
@@ -918,6 +955,9 @@ func peer_gone(pid: int) -> void:
 		if int(_owner[id]) != pid:
 			continue
 		_epoch[id] = int(_epoch.get(id, 0)) + 1
+		_move_order.erase(id)
+		_settling.erase(id)
+		_hash.erase(id)
 		_owner[id] = 1
 		_held.erase(id)
 		var it: Variant = _by_id.get(id)
