@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.19.6-local.7 (maintenance preview)
+## v0.19.6-xRangerDE.7 (maintenance preview)
 
 - Keep detailed loose-hay geometry on conveyors at distance, preventing the visible thinning caused by native far-detail models.
 - Preserve native batching, draw-distance culling, cargo quantities, collision and transport. Dense visible conveyor layouts can require more GPU work.

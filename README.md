@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-local.7`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.7`, based on upstream 0.19.5.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 Normal shop and construction transactions are checked and executed by the host.
