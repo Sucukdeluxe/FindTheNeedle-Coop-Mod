@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.15
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.16
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,17 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+QUESTS, KÄUFE UND PERSÖNLICHE WERKZEUGE
+- „Herholen“ im Shop versetzt bestehende Gegenstände über den Host und löst
+  deren alte Bandzuordnung. Getragene oder von Maschinen benutzte Gegenstände
+  werden nicht hergeholt.
+- Bestätigtes Ablegen und Herholen zählt direkt für die zugehörige Quest.
+- Beim Sitzungswechsel werden alte Inventaränderungen und Werkzeugaktionen
+  verworfen. Werkzeuge bleiben persönlich; der Host erfasst gemeinsame Freischaltungen.
+- Technikkäufe sind während des Weltwechsels und Ladens gesperrt.
+- Gleichzeitige Käufe, Rückerstattungen, doppelte Nachrichten und die Übertragung
+  aller 46 Quest-IDs sind offline geprüft. Echte Quest-Durchläufe bleiben offen.
 
 DROHNEN UND MASCHINENANIMATION
 - Bestätigte Drohneneinstellungen werden beim Gast ohne eigene Routenplanung

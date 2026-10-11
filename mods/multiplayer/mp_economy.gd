@@ -164,6 +164,12 @@ func on_result(token: String, seq: int, result: Dictionary) -> void:
 		tool.accept_result(seq, result)
 	if result.get("ok", false):
 		var id := str(result.get("id", ""))
+		var action := str(result.get("action", ""))
+		var missions: Variant = world_sync.world.get("missions")
+		if is_instance_valid(missions) and missions.has_method("accept_action"):
+			missions.accept_action(action)
+		if action == "fetch" and is_instance_valid(world_sync.world.shop_menu):
+			world_sync.world.shop_menu.accept_fetch(id, int(result.get("moved", 0)))
 		if result.get("action") == "tool_pickup" and GameState.has_tool(id):
 			world_sync.player.equip_tool_id(id)
 		if result.get("action") == "buy" and GameState.has_tool(id):
@@ -202,6 +208,7 @@ func on_state(token: String, state: Dictionary) -> void:
 	if epoch != token:
 		epoch = token
 		pending.clear()
+		world_sync.tools_sync.reset_actions()
 		if is_instance_valid(world_sync.player.build):
 			world_sync.player.build.request_id = 0
 	var previous: Dictionary = GameState.gifts.duplicate(true)
@@ -268,6 +275,8 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 			return _pickup_tool(peer, actor, args)
 		"sell":
 			return _sell(actor, args)
+		"fetch":
+			return _fetch(actor, args)
 		"arm_upgrade":
 			return _upgrade_arm(args)
 		"place":
@@ -318,6 +327,31 @@ func _sell(actor: Player, args: Dictionary) -> Dictionary:
 	props.props.remove(item)
 	GameState.add_money(ItemDb.price(id))
 	return {"ok": true}
+
+func _fetch(actor: Player, args: Dictionary) -> Dictionary:
+	var id := str(args.get("id", ""))
+	if not ItemDb.has_item(id):
+		return _failure("purchase_declined")
+	if not world_sync.world.shop.is_near(actor.global_position):
+		return _failure("economy_shop_distance")
+	var props: Node = world_sync.props_sync
+	var moved := 0
+	for item_id in props._by_id.keys():
+		var item: Variant = props._by_id.get(item_id)
+		if not is_instance_valid(item) or not item.is_inside_tree() or item.is_queued_for_deletion():
+			continue
+		if item.item_id != id or props._held.has(item_id) or item.is_held():
+			continue
+		if item.has_meta(PropManager.META_CLAIM) and int(item.get_meta(PropManager.META_CLAIM)) != props.get_instance_id():
+			continue
+		props.host_take(item)
+		BeltPath.release(item)
+		props.props.place_at_feet(item, actor, moved)
+		moved += 1
+	if moved == 0:
+		return _failure("tool_unavailable")
+	GameState.used_fetch = true
+	return {"ok": true, "moved": moved}
 
 func _upgrade_arm(args: Dictionary) -> Dictionary:
 	var target: Node = world_sync._find_building(args.get("target", {}))

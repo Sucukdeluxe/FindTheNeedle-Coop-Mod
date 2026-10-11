@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.15`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.16`, based on upstream 0.19.5.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
@@ -17,6 +17,10 @@ clients do not independently delete conveyor cargo above their local limit.
 Tools are personal: Q drops a physical tool and removes it from that player’s inventory.
 The host saves individual inventories and resolves competing purchases and pickups.
 Quest money and building gifts are granted only by the host, including after resync.
+Shop retrieval is also performed by the host and skips carried or machine-claimed
+objects. Confirmed drop/retrieval actions feed quest tracking directly. A session
+change clears stale inventory deltas and pending tool action locks. Technology
+purchases are rejected while the world or requesting player is loading.
 Loose hay on conveyors now retains its detailed shape at distance. Belt batching and
 draw-distance culling remain active. This can increase GPU work on large visible
 conveyor networks; physical quantities, collisions and transport are unchanged.

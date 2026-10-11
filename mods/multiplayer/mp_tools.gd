@@ -83,6 +83,7 @@ func grant(pid: int, id: String) -> bool:
 	if Cfg.DEMO and id in GameState.DEMO_WITHHELD_TOOLS:
 		return false
 	inventory[id] = true
+	Tech.note_bought(id)
 	_write(pid, inventory)
 	return true
 
@@ -164,6 +165,7 @@ func on_inventory(token: String, revision: int, ack: int, ids: Array) -> void:
 		return
 	if token != epoch:
 		_received = -1
+		_pending.clear()
 	epoch = token
 	_received = revision
 	for seq in _pending.keys():
@@ -220,3 +222,6 @@ func _request(action: String, args: Dictionary, key: String) -> void:
 
 func accept_result(seq: int, _result: Dictionary) -> void:
 	_actions.erase(seq)
+
+func reset_actions() -> void:
+	_actions.clear()

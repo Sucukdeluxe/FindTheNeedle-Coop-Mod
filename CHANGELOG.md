@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.19.6-xRangerDE.16 (maintenance preview)
+
+Shop retrieval, personal tools and quest action tracking now use confirmed host transactions more consistently.
+
+- Route shop “Bring to me” through the host. Reuse existing objects, release their old belt attachment, and skip carried, machine-claimed, detached or deleted objects.
+- Clear stale inventory deltas and outstanding tool action locks when the session changes. Record guest tool unlocks on the host at grant time.
+- Credit confirmed drop and retrieval actions to their quest even when inventory changes occur between observation frames. Duplicate transaction replies do not repeat this credit.
+- Reject technology purchases while the world is transitioning or the requesting player is still loading.
+- Update installation note versions. Existing save data and renderer settings are unchanged; install the same version on all peers.
+
+Validation: 796 offline assertions cover transaction retries, concurrent purchases, refunds, item pickup/sale races, retrieval ownership, session changes, upgrades and propagation of all 46 quest IDs. Existing drone, conveyor, snapshot and diagnostic regression suites also pass. All 34 mod scripts and the generated belt patch pass grammar checks. Selected production methods run through a Python AST adapter with engine and transport stubs; no game or engine was launched.
+
+This is a maintenance preview. Native quest completion, real physics and graphics performance, two-PC Steam/WAN play and the reported guest crash are not confirmed by these offline tests. Guest crash logs are still needed to establish the crash cause.
+
 ## v0.19.6-xRangerDE.15 (maintenance preview)
 
 - Apply host-confirmed drone work areas, drop points, modes and filters on guests without running local placement rejection or route planning. New commands are still validated by the host.

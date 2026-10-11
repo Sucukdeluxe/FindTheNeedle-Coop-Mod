@@ -30,3 +30,22 @@ func _give_reward(index: int) -> void:
 	if is_instance_valid(mp_world) and mp_world._is_client():
 		return
 	super._give_reward(index)
+
+
+func accept_action(action: String) -> void:
+	if not is_instance_valid(mp_world) or not mp_world.mp.active():
+		return
+	var lesson := ""
+	var latch := ""
+	if action == "tool_drop":
+		lesson = "drop_tool"
+		latch = "dropped_tool"
+	elif action == "fetch":
+		lesson = "bring_to_me"
+		latch = "fetched"
+	else:
+		return
+	_seen[latch] = true
+	if GameState.mission_index >= 0 and GameState.mission_index < MissionBook.count() and MissionBook.id_at(GameState.mission_index) == lesson:
+		_stale.erase(latch)
+		_live[latch] = true

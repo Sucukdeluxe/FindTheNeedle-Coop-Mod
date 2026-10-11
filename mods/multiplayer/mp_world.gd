@@ -1595,10 +1595,11 @@ func on_tech_purchase(sender: int, id: String, expected_rank: int) -> void:
 		return
 	var current := int(Tech.ranks.get(id, 0))
 	var accepted := false
-	if current == expected_rank:
-		accepted = Tech.buy(id)
-	elif current > expected_rank:
-		accepted = true
+	if not _frozen and mp.players[sender].get("state") == "world" and expected_rank >= 0 and TechTree.has_id(id):
+		if current == expected_rank:
+			accepted = Tech.buy(id)
+		elif current > expected_rank:
+			accepted = true
 	mp._rx_tech_purchase_result.rpc_id(sender, id, accepted)
 	_state_tick()
 
