@@ -1,5 +1,8 @@
 extends Node
 
+const DroneState = preload("res://mods/multiplayer/mp_drone_state.gd")
+const MachinePacket = preload("res://mods/multiplayer/mp_machine_packet.gd")
+
 # Machines.
 #
 # A machine runs on the host only, so the same hay cannot become two bales.
@@ -184,7 +187,7 @@ func _rescan() -> void:
 		if not (arr is Array):
 			continue
 		for n in arr:
-			if n is Node3D and is_instance_valid(n):
+			if is_instance_valid(n) and n is Node3D and n.is_inside_tree() and not n.is_queued_for_deletion():
 				_protect_processor(n)
 				var key := _key(String(group), n)
 				_nodes[key] = n
@@ -271,7 +274,7 @@ func _walk(n: Node, out: Array) -> void:
 	for child in n.get_children():
 		if out.size() >= MAX_PARTS:
 			return
-		if child is Node3D:
+		if child is Node3D and not child.is_queued_for_deletion():
 			out.append(child)
 			_walk(child, out)
 
@@ -370,7 +373,7 @@ func _send_poses() -> void:
 		var rows := PackedFloat32Array()
 		for i in parts.size():
 			var part: Variant = parts[i]
-			if part == null or not is_instance_valid(part):
+			if not _live_part(key, part):
 				continue
 			var node := part as Node3D
 			flags[i] = _flags_of(node)
@@ -533,10 +536,17 @@ func _send_fields() -> void:
 
 func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 	if raw_size <= 0 or raw_size > MAX_RAW:
+		_observe_packet(true)
 		return
-	var batch: Variant = bytes_to_var(packed.decompress(raw_size, FileAccess.COMPRESSION_ZSTD))
-	if not (batch is Dictionary):
+	var raw := packed.decompress(raw_size, FileAccess.COMPRESSION_ZSTD)
+	if raw.size() != raw_size:
+		_observe_packet(true)
 		return
+	var batch: Variant = bytes_to_var(raw)
+	if not MachinePacket.valid(batch):
+		_observe_packet(true)
+		return
+	_observe_packet(false)
 	for host_key in batch:
 		var key := _local_key(String(host_key))
 		if key == "":
@@ -559,7 +569,7 @@ func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 				var at: int = int(slot.get(flags[k], -1))
 				if at >= 0 and at < parts.size():
 					var part: Variant = parts[at]
-					if part != null and is_instance_valid(part):
+					if _live_part(key, part):
 						_set_flags(part as Node3D, flags[k + 1])
 						hit += 1
 				else:
@@ -590,10 +600,10 @@ func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 			# gap between packets. Chasing the newest pose with a fixed pull
 			# made every arm and grabber move in steps.
 			var at: int = int(slot[moved[j]])
-			var from: Transform3D = to
-			if at < parts.size() and parts[at] != null and is_instance_valid(parts[at]):
-				from = (parts[at] as Node3D).transform
-			want[moved[j]] = [from, to, 0.0]
+			if at < 0 or at >= parts.size() or not _live_part(key, parts[at]):
+				continue
+			var from: Transform3D = (parts[at] as Node3D).transform
+			want[moved[j]] = [from, to, 0.0, weakref(parts[at])]
 		_goal[key] = want
 
 
@@ -618,12 +628,19 @@ func on_fields(batch: Dictionary) -> void:
 		if n == null or not is_instance_valid(n):
 			diagnostic_errors += 1
 			continue
+		if not (batch[host_key] is Dictionary):
+			continue
 		var diff: Dictionary = batch[host_key]
 		# remember what the host says, so a guest can tell a setting the player
 		# just changed from one the host handed down
 		var known: Dictionary = _theirs.get(key, {})
 		var checked := {}
 		for f in _ordered_fields(diff):
+			if not FIELDS.get(_group.get(key, ""), []).has(f):
+				continue
+			if n is HayDrone and not DroneState.valid(str(f), diff[f]):
+				diagnostic_errors += 1
+				continue
 			var pending_key := key + "|" + str(f)
 			var pending: Dictionary = _pending_settings.get(pending_key, {})
 			if not pending.is_empty():
@@ -732,6 +749,8 @@ func on_edit(from: int, batch: Dictionary) -> void:
 		if n == null or not is_instance_valid(n):
 			continue
 		var names: Array = SETTINGS.get(_group.get(key, ""), [])
+		if not (batch[guest_key] is Dictionary):
+			continue
 		var diff: Dictionary = batch[guest_key]
 		var was: Dictionary = _vals.get(key, {})
 		for f in _ordered_fields(diff):
@@ -771,6 +790,12 @@ func _read_field(n: Node, field: String) -> Variant:
 
 
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if n is HayDrone:
+		if not DroneState.valid(f, v):
+			return
+		if not mp.is_host:
+			DroneState.apply_snapshot(n, f, v)
+			return
 	if f == "mp_links" and n.has_method("load_links"):
 		n.load_links(v)
 		return
@@ -820,10 +845,13 @@ func _ease(delta: float) -> void:
 				done.append(part_id)
 				continue
 			var part: Variant = parts[idx]
-			if part == null or not is_instance_valid(part):
+			if not _live_part(key, part):
 				done.append(part_id)
 				continue
 			var walk: Array = want[part_id]
+			if walk.size() != 4 or not is_same(walk[3].get_ref(), part):
+				done.append(part_id)
+				continue
 			var from: Transform3D = walk[0]
 			var to: Transform3D = walk[1]
 			var t: float = minf(1.0, float(walk[2]) + step_t)
@@ -955,6 +983,9 @@ func _note_fx(part_id: int, slot: int, v: float, was: Dictionary,
 
 
 func on_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array) -> void:
+	if ids.size() != vals.size() * 2:
+		return
+	var parts := _parts_of(key)
 	var fx := _fx_of(key)
 	var slot := _slot_of(key)
 	var k := 0
@@ -963,7 +994,7 @@ func on_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array) -> void
 		var which: int = ids[k + 1]
 		var v: float = vals[k / 2]
 		k += 2
-		if at < 0 or at >= fx.size() or fx[at] == null:
+		if not is_finite(v) or at < 0 or at >= fx.size() or fx[at] == null or at >= parts.size() or not _live_part(key, parts[at]):
 			continue
 		var d: Dictionary = fx[at]
 		if which < 0:
@@ -974,7 +1005,9 @@ func on_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array) -> void
 			continue
 		var names: PackedStringArray = d["names"]
 		if which < names.size():
-			_own_material(key, at, d).set_shader_parameter(names[which], v)
+			var material := _own_material(key, at, d)
+			if material != null:
+				material.set_shader_parameter(names[which], v)
 
 
 # A machine's shader material is often the mesh's own, shared by every copy of
@@ -982,11 +1015,13 @@ func on_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array) -> void
 # Give the part its own copy the first time we write to it.
 func _own_material(key: String, at: int, d: Dictionary) -> ShaderMaterial:
 	var mat: ShaderMaterial = d["mat"]
-	if mat.has_meta("mp_own") or _is_build_glow(mat):
-		return mat
 	var parts := _parts_of(key)
 	if at < 0 or at >= parts.size() or parts[at] == null or not is_instance_valid(parts[at]) \
 	or not (parts[at] is GeometryInstance3D):
+		return null
+	if _shader_of(parts[at]) != mat or _is_build_glow(mat):
+		return null
+	if mat.has_meta("mp_own"):
 		return mat
 	var own := mat.duplicate() as ShaderMaterial
 	own.set_meta("mp_own", true)
@@ -1068,3 +1103,17 @@ func _refresh_processor_belt(node: Node) -> void:
 	belt.hold_records(Callable(node, "_parks"))
 	if node is HayCompressor:
 		belt.set_hold_filter(Callable(node, "_held_in_mouth"))
+
+
+func _live_part(key: String, part: Variant) -> bool:
+	var machine: Variant = _nodes.get(key)
+	return is_instance_valid(machine) and machine is Node3D \
+		and machine.is_inside_tree() and not machine.is_queued_for_deletion() \
+		and is_instance_valid(part) and part is Node3D \
+		and part.is_inside_tree() and not part.is_queued_for_deletion() \
+		and machine.is_ancestor_of(part)
+
+
+func _observe_packet(rejected: bool) -> void:
+	if is_instance_valid(mp.world_sync) and is_instance_valid(mp.world_sync.diagnostics):
+		mp.world_sync.diagnostics.observe("machines", rejected, 1 if rejected else 0, 1)

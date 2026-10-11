@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.14`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.15`, based on upstream 0.19.5.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
@@ -27,6 +27,12 @@ acknowledgements. Reports stay local in `user://mp_diagnostics.jsonl`, with one
 previous log retained. Short loading/building transitions are ignored; confirmed
 findings and recovery are logged with category and count only. The diagnostic
 layer does not alter saves, retry purchases or force a world reload.
+
+Guests apply host-confirmed drone settings without local placement rejection or route
+planning. The host continues to validate new commands. Machine animation packets
+are checked before application, and stale parts/materials cannot receive cached
+animation or effect updates. These safeguards do not establish the cause of the
+reported guest crash; the guest log and native runtime confirmation are still missing.
 
 **Maintenance preview:** this revision was checked without launching the game.
 Validation covers script grammar and selected production methods executed through

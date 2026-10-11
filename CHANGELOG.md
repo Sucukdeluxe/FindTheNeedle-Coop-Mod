@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.19.6-xRangerDE.15 (maintenance preview)
+
+- Apply host-confirmed drone work areas, drop points, modes and filters on guests without running local placement rejection or route planning. New commands are still validated by the host.
+- Reject invalid drone fields and malformed or non-finite machine animation packets before applying them. Repeated packet problems feed the existing local diagnostics.
+- Stop applying animation and effect updates to detached, queued-for-deletion or replaced machine parts. A cached shader no longer overwrites a material subsequently changed by the game.
+- Preserve existing saves, personal tool inventories, machine buffers and renderer settings. Every peer must install the same version.
+
+Validation: 493 new offline assertions plus the existing press/conveyor, snapshot and diagnostic regression suites. All 34 mod scripts and the generated belt patch passed grammar checks. Selected production GDScript methods were executed through a Python AST adapter with explicit engine stubs. No game, Godot or GDRE engine was started.
+
+The reported guest crash is not confirmed fixed: only host logs are available, without the guest crash stack. Native physics, graphics performance, complete quest/purchase playthroughs and two-PC Steam/WAN testing remain outstanding. This is a maintenance preview, not a guarantee of crash-free gameplay.
+
 ## v0.19.6-xRangerDE.14 (maintenance preview)
 
 - Hold physical raw hay at the press intake until the native consumer takes it, including tufts that are temporarily missing from collision queries.

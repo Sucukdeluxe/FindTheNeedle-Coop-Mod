@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.14
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.15
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,16 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+DROHNEN UND MASCHINENANIMATION
+- Bestätigte Drohneneinstellungen werden beim Gast ohne eigene Routenplanung
+  übernommen. Neue Eingaben prüft weiterhin der Host.
+- Ungültige Bewegungsdaten und Zugriffe auf entfernte oder ersetzte Teile werden
+  abgefangen. Wiederholte Paketfehler werden lokal diagnostiziert.
+- Der gemeldete Gastabsturz ist noch nicht als behoben bestätigt. Dafür fehlen
+  die Logs des Mitspielers: mp_trace.log, mp_trace.prev.log, mp_diagnostics.jsonl
+  sowie der passende Eintrag aus logs und crashes im Benutzerordner des Spiels.
+- Diese Fassung wurde ohne Spielstart geprüft; echte Laufzeittests bleiben offen.
 
 PRESSE UND BANDÜBERGÄNGE
 - Rohheu wartet am Presseneinzug, bis es verarbeitet wird. Das gilt auch für
