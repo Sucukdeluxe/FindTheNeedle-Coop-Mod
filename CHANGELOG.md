@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.19.6-xRangerDE.14 (maintenance preview)
+
+- Hold physical raw hay at the press intake until the native consumer takes it, including tufts that are temporarily missing from collision queries.
+- Accept and hold raw tuft records at the press. Hold unsupported tuft records at the wrapper rather than allowing them through.
+- Retain an owned, live belt rider when a handoff to an existing connected belt fails, including near-view and shared-deck junctions. Full or incompatible destinations back up the line instead of dropping the rider. Open/unconnected ends retain native behavior.
+- Postpone press/wrapper output when its prop manager is unavailable, keeping the batch pending.
+- Apply reversible machine hooks to existing and newly built processors while preserving buffers, needles and cycle state.
+- Validate 1,217 new offline assertions, existing snapshot/diagnostic regressions, and grammar for all mod scripts plus the generated belt patch. Engine APIs are stubbed in the offline adapter; no game or engine was launched. Actual trajectories, throughput and two-PC multiplayer still require runtime verification.
+
 ## v0.19.6-xRangerDE.13 (maintenance preview)
 
 - Preserve native machine intake holds on shutdown; release only holds installed by the multiplayer mirror and leave subsequent native filter changes intact.

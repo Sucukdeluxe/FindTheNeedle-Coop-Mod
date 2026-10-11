@@ -111,6 +111,7 @@ var _field_t := 0.0
 var _edit_t := 0.0
 var _mouth_t := 0.0
 var _pending_settings := {}
+var _processor_hooks := {}
 var _theirs := {}   # guest: key -> the settings as the host last stated them
 var _alias := {}    # a key from the host -> our key for the same machine
 var _rescan_at := -100000  # msec, last rescan forced by a key we did not know
@@ -125,10 +126,19 @@ func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
 	builds = world.get("builds")
+	get_tree().node_added.connect(_protect_processor)
 	_rescan()
 
 
 func shutdown() -> void:
+	if get_tree().node_added.is_connected(_protect_processor):
+		get_tree().node_added.disconnect(_protect_processor)
+	for saved in _processor_hooks.values():
+		var node: Variant = saved["node"].get_ref()
+		if is_instance_valid(node) and node.get_script() == saved["replacement"]:
+			_replace_processor_script(node, saved["original"])
+			_refresh_processor_belt(node)
+	_processor_hooks.clear()
 	_pending_settings.clear()
 	_parts.clear()
 	_fx.clear()
@@ -152,6 +162,9 @@ func shutdown() -> void:
 # Every machine worth sending, under a key both sides work out the same way:
 # the array it lives in and where it stands.
 func _rescan() -> void:
+	for id in _processor_hooks.keys():
+		if not is_instance_valid(_processor_hooks[id]["node"].get_ref()):
+			_processor_hooks.erase(id)
 	for key in _pending_settings.keys():
 		if Time.get_ticks_msec() - int(_pending_settings[key].time) > 10000:
 			_pending_settings.erase(key)
@@ -172,6 +185,7 @@ func _rescan() -> void:
 			continue
 		for n in arr:
 			if n is Node3D and is_instance_valid(n):
+				_protect_processor(n)
 				var key := _key(String(group), n)
 				_nodes[key] = n
 				_group[key] = String(group)
@@ -1015,3 +1029,42 @@ func _part_name(n: Node) -> String:
 		if child.get_class() == n.get_class():
 			seen += 1
 	return "%s#%d" % [n.get_class(), seen]
+
+
+func _protect_processor(node: Node) -> void:
+	if not (node is HayCompressor or node is HayWrapper):
+		return
+	var original: Script = node.get_script()
+	if original == null:
+		return
+	var replacement: Script
+	if original.resource_path == "res://scripts/build/hay_compressor.gd":
+		replacement = load(mp.base_dir + "/mp_hay_compressor.gd")
+	elif original.resource_path == "res://scripts/build/hay_wrapper.gd":
+		replacement = load(mp.base_dir + "/mp_hay_wrapper.gd")
+	else:
+		return
+	_replace_processor_script(node, replacement)
+	node.set("mp_transport", self)
+	_processor_hooks[node.get_instance_id()] = {"node": weakref(node), "original": original, "replacement": replacement}
+	_refresh_processor_belt(node)
+
+
+func _replace_processor_script(node: Node, script: Script) -> void:
+	var values := {}
+	for property in node.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = node.get(property.name)
+	node.set_script(script)
+	for key in values:
+		if key in node:
+			node.set(key, values[key])
+
+
+func _refresh_processor_belt(node: Node) -> void:
+	var belt: Variant = node.get("_belt")
+	if not is_instance_valid(belt) or not belt.is_inside_tree():
+		return
+	belt.hold_records(Callable(node, "_parks"))
+	if node is HayCompressor:
+		belt.set_hold_filter(Callable(node, "_held_in_mouth"))

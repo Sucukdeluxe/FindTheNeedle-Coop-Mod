@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.13`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.14`, based on upstream 0.19.5.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
@@ -31,10 +31,20 @@ layer does not alter saves, retry purchases or force a world reload.
 **Maintenance preview:** this revision was checked without launching the game.
 Validation covers script grammar and selected production methods executed through
 a local Python adapter with engine stubs. Earlier revisions had local multiplayer
-runs with simulated packet loss; those runs do not validate this revision. Native
-press/wrapper behavior, sharp-curve and selling transitions, graphics performance,
-and the reported guest crash remain unverified. Two-PC Steam/WAN validation is
+runs with simulated packet loss; those runs do not validate this revision. The current press intake and connected-seam fixes still need native runtime
+verification; graphics performance and the reported guest crash also remain
+unverified. Two-PC Steam/WAN validation is
 also outstanding. Use the same mod version on every peer.
+
+Raw hay now waits at the press intake for consumption, including newly created
+physical tufts that are temporarily absent from collision queries. The press
+accepts tuft records as raw hay. The wrapper holds unsupported tuft records at its
+input instead of passing them through. A failed handoff to an existing connected
+belt retains the current rider for retry, including near-view and shared-deck
+junctions. Full or incompatible destinations can therefore back up the line.
+Open, unconnected ends retain native behavior. Missing output managers postpone
+product release instead of marking a batch delivered. Existing buffered material,
+needles and processing state are preserved when machine hooks are restored.
 
 Belt snapshots wait for local building reconstruction before they are applied.
 Invalid snapshots leave the current mirror intact. Session shutdown restores only

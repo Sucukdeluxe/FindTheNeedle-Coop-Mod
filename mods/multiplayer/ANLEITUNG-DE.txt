@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.13
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.14
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,19 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+PRESSE UND BANDÜBERGÄNGE
+- Rohheu wartet am Presseneinzug, bis es verarbeitet wird. Das gilt auch für
+  neue Heuhaufen, die kurzzeitig von der Kollisionserkennung nicht erfasst werden.
+- Heuhaufen-Datensätze werden von der Presse angenommen. Der Wickler hält
+  ungeeignetes Rohheu am Eingang zurück; solches Material muss entfernt werden.
+- Scheitert die Übergabe an ein bereits verbundenes Band, bleibt die Ladung auf
+  dem bisherigen Band und wartet. Volle oder ungeeignete Anschlüsse erzeugen Rückstau.
+- Offene, nicht verbundene Bandenden behalten das native Verhalten.
+- Fehlt vorübergehend die Gegenstandsverwaltung für ein Produkt, bleibt die
+  Ausgabe ausstehend. Puffer, enthaltene Nadeln und laufende Zyklen bleiben erhalten.
+- Diese Eingriffe sind offline geprüft; ein aktueller Test der echten Physik und
+  des vollständigen Produktionsdurchsatzes steht noch aus.
 
 BESTEHENDE SPIELSTÄNDE
 - Den vorhandenen Spielstand normal laden. Ein neuer Spielstand oder Zurücksetzen
