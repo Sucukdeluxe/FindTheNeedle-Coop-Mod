@@ -1,8 +1,8 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.12`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.13`, based on upstream 0.19.5.
 
-The included `override.cfg` selects Godot's safe rendering-thread mode because the game's separate rendering thread reports instability on the affected systems.
+The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
 for conveyor edits, cargo pickup, prop ownership and machine settings.
 Settled props receive reliable position confirmation with stale-update rejection.
@@ -28,10 +28,19 @@ previous log retained. Short loading/building transitions are ignored; confirmed
 findings and recovery are logged with category and count only. The diagnostic
 layer does not alter saves, retry purchases or force a world reload.
 
-**Maintenance preview:** the current repair suite is tested locally, including
-multiple game processes and simulated packet loss. Two-PC Steam/WAN validation
-and a complete manual long playthrough are still outstanding. Back up your save,
-use the same mod version on every peer, and report reproducible issues.
+**Maintenance preview:** this revision was checked without launching the game.
+Validation covers script grammar and selected production methods executed through
+a local Python adapter with engine stubs. Earlier revisions had local multiplayer
+runs with simulated packet loss; those runs do not validate this revision. Native
+press/wrapper behavior, sharp-curve and selling transitions, graphics performance,
+and the reported guest crash remain unverified. Two-PC Steam/WAN validation is
+also outstanding. Use the same mod version on every peer.
+
+Belt snapshots wait for local building reconstruction before they are applied.
+Invalid snapshots leave the current mirror intact. Session shutdown restores only
+the mirror holds owned by the mod, preserving native machine intake holds. The
+experimental endpoint reversal from `.12` has been removed: it could move cargo
+onto a path with the wrong transport direction.
 
 See [German installation notes](mods/multiplayer/ANLEITUNG-DE.txt).
 

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.12
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.13
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -10,9 +10,7 @@ INSTALLATION AUF WEITEREN RECHNERN
 4. In override.cfg muss unter [autoload] stehen:
    MPMod="*mods/multiplayer/mp.gd"
    Vorhandene andere Einstellungen beibehalten.
-   Für Godot 4.7 sollte außerdem
-   driver/threads/thread_model.template=1
-   gesetzt sein. Das verwendet den sicheren Rendering-Thread-Modus.
+   Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
 
 BESTEHENDE SPIELSTÄNDE
@@ -73,15 +71,21 @@ WEITERE SYNCHRONISIERUNG
   werden ausschließlich vom Host vergeben, auch nach einem erneuten Abgleich.
 - Einstellungen, Tafeln und Gegenstände werden synchronisiert.
 - Die Endposition abgelegter Gegenstände wird zuverlässig bestätigt.
-- Umgekehrt gespeicherte Förderbandrichtungen werden beim Wiederherstellen auf
-  das vorhandene Band zurückgeführt; Position und Spur werden dabei gespiegelt.
+- Banddaten werden erst nach dem lokalen Gebäudeaufbau angewendet. Währenddessen
+  bleibt nur der neueste gültige Datensatz vorgemerkt. Ungültige Pakete leeren keine Ladung.
+- Beim Sitzungsende bleiben native Maschinen-Haltesperren erhalten.
+- Der experimentelle Richtungs-Workaround aus .12 wurde entfernt; eine Spiegelung
+  der Ladungsposition allein korrigiert keine falsche Transportrichtung.
 - Splitter behalten ihre Priorität auch bei gleichzeitigen Einstellungsänderungen.
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
 PRÜFUMFANG
-Die Tests verwenden getrennte Spielprozesse und isolierte Speicherverzeichnisse.
-Verzögerungen, Paketverluste und doppelte Pakete werden auf lokalen
-Netzwerkverbindungen simuliert. Die Veröffentlichungsnotizen nennen den geprüften Umfang.
+Diese Fassung wurde ohne Spiel- oder Engine-Start geprüft: GDScript-Grammatik
+und ausgewählte Produktionsfunktionen über einen Python-Adapter mit Engine-Stubs.
+Frühere Fassungen hatten lokale Mehrspielertests mit simulierten Paketverlusten;
+diese ersetzen keinen Laufzeittest der jetzigen Änderungen. Presse/Wickler,
+scharfe Kurven, Verkaufsübergang, Grafikleistung und der gemeldete Gastabsturz
+sind weiterhin nicht durch aktuelle Laufzeittests bestätigt.
 Ein Test über zwei getrennte Steam-Konten und unterschiedliche Internetanschlüsse
 steht weiterhin aus. Fehlerfreiheit für sämtliche Spielzustände ist nicht garantiert.
 

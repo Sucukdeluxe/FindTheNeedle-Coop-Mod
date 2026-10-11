@@ -13,6 +13,7 @@ extends Node
 const TICK := 0.25
 const FULL_TICK := 2.0  # the list goes out at least this often, changed or not
 const MAX_RAW := 8 << 20
+const Snapshot = preload("res://mods/multiplayer/mp_belt_snapshot.gd")
 
 var mp: Node
 var world: Node
@@ -24,6 +25,9 @@ var _carry_script: Script
 var _pick_pending := false
 var _pick_stack := false
 var _cleanup_scripts := {}
+var _mirror_holds := {}
+var _pending_snapshot: Variant = null
+var _stopped := false
 
 
 func start(mp_node: Node, world_node: Node) -> void:
@@ -55,18 +59,14 @@ func shutdown() -> void:
 	_cleanup_scripts.clear()
 	if is_instance_valid(_carry) and _carry_script != null:
 		_replace_carry_script(_carry_script)
-	for item in BeltPath._live:
-		if not is_instance_valid(item) or not item.is_inside_tree():
-			continue
-		if not item._records_held:
-			continue
-		item._records_held = false
-		item._eats = Callable()
-		item.run.hold_for = Callable()
-		item._sync_run_links()
+	_release_mirror_holds()
+	_pending_snapshot = null
+	_stopped = true
+	set_process(false)
 
 
 func _process(delta: float) -> void:
+	_flush_pending_belts()
 	if mp == null or not mp.is_host or not mp.active():
 		return
 	if multiplayer.multiplayer_peer == null:
@@ -114,100 +114,79 @@ func send_all(pid: int = 0) -> void:
 
 
 func on_belts(packed: PackedByteArray, raw_size: int) -> void:
+	if _stopped or not is_instance_valid(mp) or not mp.active() or mp.is_host:
+		return
 	if raw_size <= 0 or raw_size > MAX_RAW:
 		return
 	var raw := packed.decompress(raw_size, FileAccess.COMPRESSION_ZSTD)
-	var entries: Variant = bytes_to_var(raw)
-	if not (entries is Array):
+	if raw.size() != raw_size:
 		return
-	mp.trace.note("belts begin: %d paths" % (entries as Array).size())
+	var entries: Variant = bytes_to_var(raw)
+	if not (entries is Array) or not Snapshot.valid(entries):
+		return
+	_pending_snapshot = entries
+	_flush_pending_belts()
+
+
+func _flush_pending_belts() -> void:
+	if _pending_snapshot == null or _stopped:
+		return
+	if not is_instance_valid(mp) or not mp.active() or mp.is_host:
+		_pending_snapshot = null
+		return
+	var sync: Node = mp.world_sync
+	if not is_instance_valid(sync) or sync.world != world:
+		_pending_snapshot = null
+		return
+	if mp.phase != mp.Phase.IN_WORLD or sync._frozen or sync._applying_builds or sync._builds_dirty:
+		return
+	var entries: Array = _pending_snapshot
+	_pending_snapshot = null
+	_apply_belts(entries)
+
+
+func _apply_belts(entries: Array) -> void:
+	mp.trace.note("belts begin: %d paths" % entries.size())
+	for id in _mirror_holds.keys():
+		if not is_instance_valid(_mirror_holds[id]["path"].get_ref()):
+			_mirror_holds.erase(id)
 	for item in BeltPath._live:
 		if not is_instance_valid(item) or not item.is_inside_tree():
 			continue
 		item.run.clear()
-		# A belt that reaches its end turns the ride into a real item. The host
-		# does that and sends us the item, so hold our own end shut: the same
-		# switch a machine sitting at the end of a belt uses.
-		if not item._records_held:
-			item.hold_records(Callable())
-	# no PropManager: a ride we cannot place is dropped instead of becoming a
-	# loose item that only this player would have
-	var normalized: Dictionary = _normalize_reversed_entries(entries)
-	var got: Dictionary = BeltPath.belts_from_array(normalized["entries"], null)
-	if int(normalized["reversed"]) > 0:
-		mp.trace.note("belts reversed: %d path(s)" % int(normalized["reversed"]))
-		if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
-			mp.world_sync.diagnostics.observe("belts", true, int(normalized["reversed"]))
-	mp.trace.note("belts end")
-	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
-		mp.world_sync.diagnostics.check_belts(normalized["entries"])
+		_hold_mirrored_path(item)
+	var got: Dictionary = BeltPath.belts_from_array(entries, null)
+	mp.trace.note("belts end: %d restored, %d unmatched" % [int(got.get("boarded", 0)), int(got.get("lost", 0))])
+	if is_instance_valid(mp.world_sync) and is_instance_valid(mp.world_sync.diagnostics):
+		mp.world_sync.diagnostics.check_belts(entries)
 	if OS.get_environment("MP_DEBUG_PROPS") != "":
 		var rows := 0
-		for e in normalized["entries"]:
-			rows += (e.get("records", []) as Array).size()
-		print("[MPBELTS] %d paths, %d rows -> %s" % [normalized["entries"].size(), rows, got])
+		for entry in entries:
+			rows += entry["records"].size()
+		print("[MPBELTS] %d paths, %d rows -> %s" % [entries.size(), rows, got])
 
 
-func _normalize_reversed_entries(entries: Array) -> Dictionary:
-	var live: Array = []
-	for item in BeltPath._live:
-		if is_instance_valid(item) and item.is_inside_tree():
-			var ends: PackedVector3Array = item.save_ends()
-			if ends.size() >= 2:
-				live.append([item, ends])
-	var out: Array = []
-	var reversed := 0
-	for entry in entries:
-		if typeof(entry) != TYPE_DICTIONARY:
-			out.append(entry)
+func _hold_mirrored_path(item: Node) -> void:
+	if item._records_held:
+		return
+	var saved := {"path": weakref(item), "eats": item._eats, "hold_for": item.run.hold_for}
+	item.hold_records(Callable())
+	saved["applied_hold"] = item.run.hold_for
+	_mirror_holds[item.get_instance_id()] = saved
+
+
+func _release_mirror_holds() -> void:
+	for saved in _mirror_holds.values():
+		var item: Variant = saved["path"].get_ref()
+		if not is_instance_valid(item) or not item.is_inside_tree():
 			continue
-		var d: Dictionary = entry
-		var a: Variant = d.get("a", Vector3.INF)
-		var b: Variant = d.get("b", Vector3.INF)
-		if not (a is Vector3) or not (b is Vector3) or not a.is_finite() or not b.is_finite():
-			out.append(entry)
+		if not item._records_held or item._eats.is_valid() or item.run.hold_for != saved["applied_hold"]:
 			continue
-		var direct := false
-		for pair in live:
-			var ends: PackedVector3Array = pair[1]
-			if ends[0].distance_to(a) <= 0.02 and ends[1].distance_to(b) <= 0.02:
-				direct = true
-				break
-		if direct:
-			out.append(entry)
-			continue
-		var match_path: Variant = null
-		var want: Vector3 = a - b
-		var want_length := want.length()
-		for pair in live:
-			var ends: PackedVector3Array = pair[1]
-			var have: Vector3 = ends[1] - ends[0]
-			var aligned := want_length <= 0.01 or (have.length() > 0.01 and have.normalized().dot(want.normalized()) >= 0.9)
-			if ends[0].distance_to(b) <= 0.2 and ends[1].distance_to(a) <= 0.2 and absf(have.length() - want_length) <= 0.4 and aligned:
-				match_path = pair[0]
-				break
-		if not is_instance_valid(match_path):
-			out.append(entry)
-			continue
-		var copy: Dictionary = d.duplicate(true)
-		copy["a"] = b
-		copy["b"] = a
-		var length := float(match_path.path_length())
-		var rows: Array = []
-		for row in d.get("records", []):
-			if typeof(row) != TYPE_DICTIONARY:
-				rows.append(row)
-				continue
-			var r: Dictionary = row.duplicate(true)
-			if r.has("s"):
-				r["s"] = clampf(length - float(r["s"]), 0.0, length)
-			if r.has("side"):
-				r["side"] = -float(r["side"])
-			rows.append(r)
-		copy["records"] = rows
-		out.append(copy)
-		reversed += 1
-	return {"entries": out, "reversed": reversed}
+		item._records_held = false
+		item._eats = saved["eats"]
+		item.run.hold_for = saved["hold_for"]
+		item._sync_run_links()
+	_mirror_holds.clear()
 
 
 func _replace_carry_script(script: Script) -> void:

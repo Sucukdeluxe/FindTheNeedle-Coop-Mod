@@ -1,19 +1,23 @@
 # Changelog
 
-## v0.19.6-xRangerDE.12 (maintenance preview)
+## v0.19.6-xRangerDE.13 (maintenance preview)
 
-- Removed the over-broad selling-outlet repair that could change unrelated belts.
-- Rebased belt records when an existing path is found with reversed endpoints, preserving distance and lane side through curved or machine transitions.
-- Added a diagnostic event when a reversed path is corrected.
-- Set the shipped override to Godot's safe rendering-thread mode; the previous separate mode is explicitly reported by the game's crash logs as experimental and unstable.
+- Preserve native machine intake holds on shutdown; release only holds installed by the multiplayer mirror and leave subsequent native filter changes intact.
+- Defer conveyor snapshots during loading and building reconstruction, retain the newest valid snapshot, and discard pending data when its world or session is gone.
+- Validate the snapshot structure and finite transport values before replacing mirrored cargo. Reject truncated payloads without clearing existing cargo.
+- Remove the speculative endpoint reversal introduced in .12; positional mirroring did not establish correct transport direction.
+- Stop packaging a host-specific override.cfg, preserving each installation's renderer and other mod configuration.
+- Validate script grammar and selected production methods via a local Python adapter with engine stubs. No game or engine was launched for this revision. Native machine processing, curve/selling physics, guest crashes and graphics performance still need runtime verification.
+
+## v0.19.6-xRangerDE.12 (superseded preview)
+
+- Removed the over-broad .11 selling-outlet rewrite, but introduced an experimental endpoint reversal and a renderer override.
+- Correction: the previously reported 20,018 checks did not test native curves, capacity or machine processing. The isolated JavaScript model differed from the shipped GDScript and its reported count represented records rather than executed assertions. It does not establish that the reported transition or loose-hay issue was fixed.
+- The endpoint workaround and packaged renderer override are removed in .13. No confirmed cause of the reported guest crash has been established.
 
 ## v0.19.6-xRangerDE.11 (withdrawn)
 
-- Withdrawn: the outlet repair was too broad and is superseded by `.12`.
-
-- Rebuild the native belt junction and selling-stand outlet links after multiplayer belt snapshots.
-- Mark a snapshot-recreated belt that terminates at the selling stand as a selling belt and reopen a stale closed end, preventing the final curve from dropping cargo at the sale transition.
-- Added static outlet-capacity and curve-boundary regression coverage; no game process is started by the release checks.
+- Withdrawn because the selling-outlet rewrite could alter unrelated nearby belts. Its isolated model was insufficient evidence for a native transition fix.
 
 ## v0.19.6-xRangerDE.10 (maintenance preview)
 
