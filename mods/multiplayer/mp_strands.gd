@@ -26,6 +26,7 @@ const MAX_RAW := 4 << 20
 var mp: Node
 var world: Node
 var live: Node
+var _live_script: Script
 
 var _mine := {}      # sid -> body we own
 var _ghost := {}     # sid -> our copy of somebody else's straw
@@ -43,9 +44,16 @@ func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
 	live = world.get("live")
+	if is_instance_valid(live):
+		_live_script = live.get_script()
+		_replace_live_script(load(mp.base_dir + "/mp_live_strand_manager.gd"))
+		live.set("mp_strands", self)
 
 
 func shutdown() -> void:
+	if is_instance_valid(live) and _live_script != null:
+		_replace_live_script(_live_script)
+		_live_script = null
 	for sid in _ghost:
 		var b: Variant = _ghost[sid]
 		if b != null and is_instance_valid(b) and live != null:
@@ -509,3 +517,14 @@ func _ease(delta: float) -> void:
 			done.append(sid)
 	for sid in done:
 		_goal.erase(sid)
+
+
+func _replace_live_script(script: Script) -> void:
+	var values := {}
+	for property in live.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = live.get(property.name)
+	live.set_script(script)
+	for key in values:
+		if key in live:
+			live.set(key, values[key])

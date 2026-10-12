@@ -141,3 +141,51 @@ func ready(sync: Node, groups: Array) -> bool:
 		if int(counts.get(group.key, 0)) != 1:
 			return false
 	return true
+
+
+static func is_transported(body: Variant) -> bool:
+	if not is_instance_valid(body) or not (body is RigidBody3D) or not body.is_inside_tree() or body.is_queued_for_deletion() or not body.freeze:
+		return false
+	for key in [HayLift.META_CARRIED, HayStairs.META_CARRIED]:
+		if not body.has_meta(key):
+			continue
+		var carrier: Variant = body.get_meta(key)
+		if not is_instance_valid(carrier) or not (carrier is HayLift or carrier is HayStairs):
+			continue
+		if not carrier.is_inside_tree() or carrier.is_queued_for_deletion() or carrier.placement_preview:
+			continue
+		for row in carrier._carried:
+			if is_same(row.get("body"), body):
+				return true
+	return false
+
+
+static func hold_bodies(sync: Node) -> Array:
+	var saved := []
+	if not is_instance_valid(sync) or not is_instance_valid(sync.builds):
+		return saved
+	var seen := {}
+	for carrier in carriers(sync):
+		if not is_instance_valid(carrier) or not carrier.is_inside_tree() or carrier.is_queued_for_deletion() or carrier.placement_preview:
+			continue
+		for row in carrier._carried:
+			var body: Variant = row.get("body")
+			if not is_instance_valid(body) or not (body is RigidBody3D) or not body.is_inside_tree() or body.is_queued_for_deletion() or not body.freeze or seen.has(body):
+				continue
+			if not is_same(body.get_meta(HayLift.META_CARRIED, 0), carrier) and not is_same(body.get_meta(HayStairs.META_CARRIED, 0), carrier):
+				continue
+			seen[body] = true
+			saved.append([body, body.has_meta(LiveStrandManager.META_HOLD_UNTIL), body.get_meta(LiveStrandManager.META_HOLD_UNTIL, 0.0)])
+			body.set_meta(LiveStrandManager.META_HOLD_UNTIL, INF)
+	return saved
+
+
+static func release_bodies(saved: Array) -> void:
+	for entry in saved:
+		var body: Variant = entry[0]
+		if not is_instance_valid(body) or body.get_meta(LiveStrandManager.META_HOLD_UNTIL, 0.0) != INF:
+			continue
+		if entry[1]:
+			body.set_meta(LiveStrandManager.META_HOLD_UNTIL, entry[2])
+		else:
+			body.remove_meta(LiveStrandManager.META_HOLD_UNTIL)

@@ -32,3 +32,9 @@ func to_array() -> Array:
 	var data := super.to_array()
 	items = original_items
 	return data
+
+
+func is_spoken_for(item: Carryable) -> bool:
+	if is_instance_valid(mp_props) and is_instance_valid(mp_props.mp) and mp_props.mp.active() and preload("res://mods/multiplayer/mp_lift_cargo.gd").is_transported(item):
+		return true
+	return super.is_spoken_for(item)

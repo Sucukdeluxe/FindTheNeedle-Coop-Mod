@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.6-xRangerDE.28
+
+Protect physical hay cargo while it is waiting inside a hay lift or hay stairs.
+
+- Keep owned cargo out of the loose-straw recycling pool, including when an output stays full longer than the native hold timer.
+- Exclude carried hay tufts from automatic prop cleanup. Protection requires a live carrier and a matching cargo entry; stale ownership markers do not keep abandoned items forever.
+- Restore original hold metadata after each recycling operation and preserve the live body pool when the multiplayer patch is installed or removed.
+- Keep existing save formats and optional add-on support. All players must use this version; third-party add-ons are not included in the public ZIP.
+
+Validation: 36 offline regression suites passed. New tests include 3,000 randomized recycling scenarios with 62,701 bodies and 1,000 backpressure scenarios with 9,974 cargo records. The original recycling bug is reproduced by executing translated native methods. These tests use explicit engine and pool adapters, not a running game. No game, Godot or GDRE runtime was started.
+
+Rendered transport physics, GPU/FPS performance, the historical guest crash without a trace and two-PC Steam/WAN play remain unverified. This maintenance preview does not guarantee complete bug freedom.
+
 ## 0.19.6-xRangerDE.27
 
 Synchronize moving cargo on hay stairs and remove stale lift cargo after joining a host.

@@ -1,6 +1,10 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.27`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.28`, based on upstream 0.19.5.
+
+Physical cargo waiting inside a lift or hay stairs is protected from recycling
+and prop cleanup by its current carrier ownership. Original temporary hold
+metadata is restored after each recycling operation.
 
 Hay stairs now share the authoritative moving-cargo channel with hay lifts.
 Guests discard stale native cargo copies loaded from the host save before applying
