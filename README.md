@@ -1,6 +1,10 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.20`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.21`, based on upstream 0.19.5.
+
+Pulper pipe construction retains its pending origin between host requests; build
+cancellations reach the host in the same queue. Confirmed fittings are synchronized
+without replacing the machine, and excluded from generic machine animation.
 
 Route changes now keep dependent machine settings together. Guest-side route rebuilds
 do not spawn physical copies of mirrored cargo. Partial building updates retain

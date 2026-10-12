@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.21
+
+Preserve Pulper pipe anchors across multiplayer build requests and synchronize confirmed pipe fittings.
+
+- Keep the exact valid pending origin fitting while the host prepares the next water-pipe placement step. Mode changes, different anchors and cancellation still reset the preview.
+- Send build cancellation through the same host queue, including cancellation while a placement is still in flight. Remove temporary fittings when a multiplayer build tool leaves the scene.
+- Exclude pipe fittings and their children from generic machine animation.
+- Replicate committed Pulper fittings from the host without replacing the machine or touching its material stock. Repeated snapshots preserve existing fitting objects and local pending previews.
+
+All peers must install this version. Existing saves are retained; optional third-party add-ons remain separate.
+
+Validation: 24 offline regression suites, including 6,141 targeted fitting/anchor checks and randomized add/remove sequences. Selected production methods run through Python adapters with explicit native and engine stubs. No game, Godot or GDRE runtime was started.
+
+Still unverified: actual scanner/curve/sale physics, physical pipe flow, rendering performance, the reported guest crash without a trace, and two-PC Steam/WAN play. Mutable power-line and power-group editing still needs a separate authoritative command path. This maintenance preview is not a guarantee of complete bug freedom.
+
 ## 0.19.6-xRangerDE.20
 
 Keep multiplayer routing settings consistent and prevent guest-only cargo spills during conveyor rebuilds.

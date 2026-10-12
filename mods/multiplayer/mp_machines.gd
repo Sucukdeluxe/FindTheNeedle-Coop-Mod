@@ -47,7 +47,7 @@ const FIELDS := {
 	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "paid_cost", "legacy_refit", "pick_order", "mp_links"],
 	"scanners": ["switched_off", "tier_index", "banked", "stored"],
 	"compressors": ["switched_off", "stored"],
-	"pulpers": ["switched_off", "stored"],
+	"pulpers": ["switched_off", "stored", "mp_taps"],
 	"papers": ["switched_off", "queued"],
 	"briquette_presses": ["switched_off", "stored_strands", "stored_bricks"],
 	"wrappers": ["switched_off", "queued"],
@@ -666,7 +666,8 @@ func on_fields(batch: Dictionary) -> void:
 			checked[String(f)] = diff[f]
 		_theirs[key] = known
 		for f in checked:
-			if _read_field(n, f) != checked[f]:
+			var matches := _tap_state_matches(n, checked[f]) if f == "mp_taps" else _read_field(n, f) == checked[f]
+			if not matches:
 				diagnostic_errors += 1
 	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
 		mp.world_sync.diagnostics.observe("machines", diagnostic_errors > 0, diagnostic_errors)
@@ -826,6 +827,80 @@ func _ordered_fields(diff: Dictionary) -> Array:
 	return fields
 
 
+func _tap_state(n: Node) -> Array:
+	var out: Array = []
+	for tap in n.taps:
+		if is_instance_valid(tap) and not tap.is_queued_for_deletion() and not n.is_pending_tap(tap):
+			out.append([tap.position, -tap.basis.z])
+	return out
+
+
+func _tap_state_matches(n: Node, value: Variant) -> bool:
+	if not (value is Array):
+		return false
+	var current := _tap_state(n)
+	if current.size() != value.size():
+		return false
+	for i in current.size():
+		if not (value[i] is Array) or value[i].size() != 2:
+			return false
+		for side in 2:
+			if not (value[i][side] is Vector3) or not value[i][side].is_finite():
+				return false
+			if current[i][side].distance_to(value[i][side]) >= 0.00001:
+				return false
+	return true
+
+
+func _same_tap(tap: Node3D, data: Array) -> bool:
+	return tap.position.distance_to(data[0]) < 0.00001 and (-tap.basis.z).distance_to(data[1]) < 0.00001
+
+
+func _apply_taps(n: Node, value: Variant) -> void:
+	if not (value is Array) or value.size() > 4096:
+		return
+	for data in value:
+		if not (data is Array) or data.size() != 2:
+			return
+		if not (data[0] is Vector3) or not (data[1] is Vector3) or not data[0].is_finite() or not data[1].is_finite():
+			return
+		if absf(data[1].length_squared() - 1.0) > 0.001 or absf(data[1].dot(Vector3.BACK)) > 0.999:
+			return
+	if _tap_state(n) == value:
+		return
+	var used: Array = []
+	var changed := false
+	for data in value:
+		var found: Node3D = null
+		for tap in n.taps:
+			if is_instance_valid(tap) and not tap.is_queued_for_deletion() and tap not in used and _same_tap(tap, data):
+				found = tap
+				break
+		if found == null:
+			found = n.add_tap(data[0], data[1], false)
+			changed = true
+		elif n.is_pending_tap(found):
+			n.commit_tap(found)
+			changed = true
+		used.append(found)
+	for tap in n.taps.duplicate():
+		if not is_instance_valid(tap):
+			n.taps.erase(tap)
+			changed = true
+		elif tap not in used:
+			if n.is_pending_tap(tap):
+				used.append(tap)
+			else:
+				n.remove_tap(tap)
+				changed = true
+	if n.taps != used:
+		n.taps.assign(used)
+		changed = true
+	if changed:
+		builds.rebuild_water_joints()
+		builds.changed.emit()
+
+
 func _copy_value(value: Variant) -> Variant:
 	if value is Array or value is Dictionary:
 		return value.duplicate(true)
@@ -837,6 +912,7 @@ func _copy_value(value: Variant) -> Variant:
 func _read_field(n: Node, field: String) -> Variant:
 	match field:
 		"mp_links": return n.links_to_save()
+		"mp_taps": return _tap_state(n)
 		"mp_zone": return [n.zone_at, n.zone_r]
 		"mp_drop": return [n.drop_at, n.drop_kind]
 		"_off": return n.get("_off")
@@ -844,6 +920,10 @@ func _read_field(n: Node, field: String) -> Variant:
 
 
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if f == "mp_taps":
+		if not mp.is_host:
+			_apply_taps(n, v)
+		return
 	if f in ["discharge_rate", "resume_rate", "head_yaw", "out_lane"]:
 		if not (v is int or v is float) or not is_finite(float(v)):
 			return
@@ -1218,6 +1298,8 @@ func _is_transport_part(part: Node) -> bool:
 		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut" or current.has_meta("mp_lift_cargo"):
 			return true
 		var parent := current.get_parent()
+		if parent is HayPulper and current in parent.taps:
+			return true
 		if parent is HayLift:
 			for carried in parent._carried:
 				if carried.get("draw") == current:

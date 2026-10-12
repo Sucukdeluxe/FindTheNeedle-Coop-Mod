@@ -130,7 +130,7 @@ func _physics_process(_delta: float) -> void:
 	var before := float(GameState.money)
 	executing = true
 	var result := _failure("economy_wait")
-	if not world_sync._frozen:
+	if not world_sync._frozen or entry.action == "build_cancel":
 		result = _failure("purchase_declined") if preparation < 0 else _execute(peer, entry.action, entry.args)
 	executing = false
 	result["money_change"] = float(GameState.money) - before
@@ -288,6 +288,9 @@ func _prepare_build_tool(peer: int, args: Dictionary) -> int:
 	return 0
 
 func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
+	if action == "build_cancel":
+		_cancel_build(peer)
+		return {"ok": true}
 	if args.has("inputs") and not (args.inputs is Dictionary):
 		return _failure("purchase_declined")
 	if args.has("target") and not (args.target is Dictionary):
@@ -323,6 +326,15 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		"demolish", "demolish_tile", "reverse":
 			return _edit(actor, action, args)
 	return _failure("purchase_declined")
+
+func _cancel_build(peer: int) -> void:
+	var actor: Variant = _actors.get(peer)
+	if not is_instance_valid(actor) or actor.is_queued_for_deletion():
+		return
+	var tool: Variant = actor.get("build")
+	if is_instance_valid(tool) and not tool.is_queued_for_deletion():
+		tool.cancel()
+	actor.hide()
 
 func _buy(peer: int, actor: Player, args: Dictionary) -> Dictionary:
 	var id := str(args.get("id", ""))
@@ -415,9 +427,9 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 		return _failure("purchase_declined")
 	var tool := _build_tool(actor)
 	actor.build_id = id
-	tool.set_mode(BuildCatalog.mode_of(id))
-	tool._follow_tech()
 	var inputs: Dictionary = args.get("inputs", {})
+	tool.prepare_mode(BuildCatalog.mode_of(id), inputs)
+	tool._follow_tech()
 	for key in tool.INPUT_FIELDS:
 		if not inputs.has(key) or typeof(inputs[key]) != typeof(tool.get(key)):
 			continue

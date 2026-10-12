@@ -12,19 +12,43 @@ var request_id := 0
 var input_revision := 0
 var sent_revision := 0
 var price_limit := INF
+var last_place_request := 0
+var cancelled_place_request := 0
+var cancel_requested := false
+
+func _exit_tree() -> void:
+	_drop_taps()
 
 func set_mode(mode: Mode) -> void:
+	_cancel_remote()
 	input_revision += 1
 	super.set_mode(mode)
 
 func set_active(on: bool) -> void:
 	if not on:
+		_cancel_remote()
 		input_revision += 1
 	super.set_active(on)
 
 func cancel() -> void:
+	_cancel_remote()
 	input_revision += 1
 	super.cancel()
+
+func _cancel_remote() -> void:
+	if last_place_request == 0 or last_place_request == cancelled_place_request:
+		return
+	if not is_instance_valid(mp_economy) or not mp_economy.mp.active():
+		return
+	cancel_requested = true
+	_send_cancel()
+
+func _send_cancel() -> void:
+	if not cancel_requested or not is_instance_valid(mp_economy) or not mp_economy.mp.active():
+		return
+	if mp_economy.request("build_cancel", {}) != 0:
+		cancelled_place_request = last_place_request
+		cancel_requested = false
 
 func primary() -> void:
 	if not is_instance_valid(mp_economy) or not mp_economy.mp.active():
@@ -63,6 +87,25 @@ func _pay(amount: float) -> bool:
 		return false
 	return super._pay(amount)
 
+func prepare_mode(mode: Mode, inputs: Dictionary) -> void:
+	var anchor := _tap_anchor
+	var pulper := _tap_anchor_pulper
+	var requested: Variant = inputs.get("_anchor")
+	var keep := _mode == Mode.WATER_PIPE and mode == Mode.WATER_PIPE and inputs.get("_state") == State.RUNNING \
+		and requested is Vector3 and requested.is_finite() \
+		and is_instance_valid(anchor) and is_instance_valid(pulper) \
+		and anchor.is_inside_tree() and not anchor.is_queued_for_deletion() \
+		and pulper.is_inside_tree() and not pulper.is_queued_for_deletion() \
+		and anchor.get_parent() == pulper and pulper in builds.pulpers \
+		and pulper.is_pending_tap(anchor) and anchor.global_position.distance_to(requested) < 0.001
+	if keep:
+		_tap_anchor = null
+		_tap_anchor_pulper = null
+	set_mode(mode)
+	if keep:
+		_tap_anchor = anchor
+		_tap_anchor_pulper = pulper
+
 func capture_inputs() -> Dictionary:
 	var out := {}
 	for key in INPUT_FIELDS:
@@ -70,6 +113,9 @@ func capture_inputs() -> Dictionary:
 	return out.duplicate(true)
 
 func _request(action: String, args: Dictionary) -> void:
+	_send_cancel()
+	if cancel_requested:
+		return
 	if request_id != 0:
 		return
 	if action == "place":
@@ -79,8 +125,11 @@ func _request(action: String, args: Dictionary) -> void:
 	args["camera"] = player.camera.global_transform
 	sent_revision = input_revision
 	request_id = mp_economy.request(action, args)
+	if action == "place" and request_id != 0:
+		last_place_request = request_id
 
 func accept_result(seq: int, result: Dictionary) -> void:
+	_send_cancel()
 	if seq != request_id:
 		return
 	request_id = 0
