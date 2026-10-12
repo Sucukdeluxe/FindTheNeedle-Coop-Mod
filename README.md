@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.31`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.32`, based on upstream 0.19.5.
+
+Pending machine setup and conveyor handoff callbacks now ignore objects that
+have already been removed. Conveyor handoffs retain the original item identity
+and clear stale boarding markers, so a later removal is not mistaken for a
+transfer onto a belt.
 
 The selling stand now processes cargo and payments only on the host. Guests keep
 the native stand presentation but cannot consume mirrored belt cargo or sell it

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.32
+
+Ignore expired machine and conveyor callbacks after objects are removed or replaced.
+
+- Resolve delayed press/wrapper setup through weak references before accessing the machine. Valid newly placed machines still receive their production guards.
+- Retain the original network item identity during deferred belt handoff. Discard callbacks for deleted, detached or replaced objects.
+- Clear stale boarding markers when the item no longer rides the belt, so a later removal cannot be mistaken for a conveyor transfer.
+- Keep existing save formats, personal tools and optional add-on support. Every player needs the same version.
+
+Native lifecycle tests reproduce 40 invalid-object callback errors in the previous implementation and none with the fix. Thirteen checks cover valid setup, preserved stock, previews, shutdown, removed riders and changed item identities.
+
+Three actual local game processes passed 181 checks with 30,752 proxied packets, including 601 dropped and 602 duplicated packets. Both scanner tiers, 90-degree and 135-degree turns, physical hay from both guests, live junction rebuilds and guest resynchronization preserved all 720 input strands through pressing, wrapping, scanning and sale. No raw-hay leak or duplicate guest sale occurred in these fixtures. All 43 multiplayer scripts compile in the installed V62 engine.
+
+The historical guest crash without a trace and two-PC Steam/WAN play remain unverified. Native shutdown resource warnings remain. This maintenance preview does not guarantee complete bug freedom.
+
 ## 0.19.6-xRangerDE.31
 
 Prevent guests from selling mirrored hay twice and restore host collection of guest-delivered items at the selling stand.

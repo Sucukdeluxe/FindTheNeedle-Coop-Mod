@@ -333,7 +333,7 @@ func _on_belt_caught(rb: Node) -> void:
 	var id := int(rb.get_meta("mp_id"))
 	if _mine(id):
 		_boarded[id] = (rb as Node3D).global_transform
-		_hand_rider.call_deferred(rb)
+		_hand_rider_deferred.call_deferred(weakref(rb), id)
 
 
 # Guest only. Most items leave the prop list when a belt takes them, and
@@ -342,11 +342,20 @@ func _on_belt_caught(rb: Node) -> void:
 # at a splitter it went off the path and back to the start over and over. Hand
 # it over now, where it got on, and drop it from our belt: the host's belt
 # carries it from there like the host's own.
+func _hand_rider_deferred(reference: WeakRef, id: int) -> void:
+	var rb: Variant = reference.get_ref()
+	if not is_instance_valid(rb) or not rb.is_inside_tree() or int(rb.get_meta("mp_id", 0)) != id:
+		_boarded.erase(id)
+		return
+	_hand_rider(rb)
+
+
 func _hand_rider(rb: Node) -> void:
 	if rb == null or not is_instance_valid(rb) or not rb.is_inside_tree():
 		return
 	var id := int(rb.get_meta("mp_id", 0))
 	if not _mine(id) or not BeltPath.is_rider(rb as RigidBody3D):
+		_boarded.erase(id)
 		return
 	var xf: Transform3D = _boarded.get(id, (rb as Node3D).global_transform)
 	_boarded.erase(id)

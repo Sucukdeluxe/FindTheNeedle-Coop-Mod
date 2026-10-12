@@ -1231,7 +1231,13 @@ func _protect_processors() -> void:
 
 func _processor_added(node: Node) -> void:
 	if node is HayCompressor or node is HayWrapper:
-		_protect_processor.call_deferred(node)
+		_protect_processor_deferred.call_deferred(weakref(node))
+
+
+func _protect_processor_deferred(reference: WeakRef) -> void:
+	var node: Variant = reference.get_ref()
+	if is_instance_valid(node):
+		_protect_processor(node)
 
 
 func _protect_processor(node: Node) -> void:
