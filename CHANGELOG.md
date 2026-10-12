@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.6-xRangerDE.34
+
+Synchronize drone collection and status through the host.
+
+- Let a host-controlled drone collect settled hay placed by a guest after ownership, movement and carry-state validation.
+- Keep held tools, moving props, conveyor riders and pending player claims out of the automatic collection path.
+- Replicate drone phase, route/wait status, trip count, delivered strands and drop-full state to guests with strict value validation.
+- Preserve cargo through resync and drone demolition; existing saves and third-party add-ons remain unchanged.
+
+Validation: 45 current GDScripts compile in the V62 engine. Three isolated local game processes pass 104 drone checks with packet loss and duplication, including guest hay collection, carrying, resync, exact delivery, a second guest load and demolition with 77 strands preserved. The existing three-process press → wrapper → scanner → curve → selling-stand regression remains 181 checks with 0 failures.
+
+The historical crash without a matching guest trace and two-PC Steam/WAN play remain unverified. Native shutdown resource warnings remain; this release does not claim complete bug freedom.
+
 ## 0.19.6-xRangerDE.33
 
 Route T-junction changes through the host and restore their internal conveyor connections.

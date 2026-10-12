@@ -42,7 +42,7 @@ const FIELDS := {
 	"joiners": ["out_lane", "manual", "next_side", "mp_t_revision"],
 	"tube_launchers": ["switched_off", "aim", "power", "stored"],
 	"piston_rakes": ["switched_off", "throw_distance"],
-	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop"],
+	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop", "mp_drone_status"],
 	"pelletizers": ["switched_off", "throw_distance", "head_yaw", "stored"],
 	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "paid_cost", "legacy_refit", "pick_order", "mp_links"],
 	"scanners": ["switched_off", "tier_index", "banked", "stored"],
@@ -957,6 +957,7 @@ func _copy_value(value: Variant) -> Variant:
 
 func _read_field(n: Node, field: String) -> Variant:
 	match field:
+		"mp_drone_status": return DroneState.status(n)
 		"mp_t_revision":
 			return int(n.get_meta("mp_t_revision", 0)) if n is ConveyorTSplitter or n is ConveyorTJoiner else null
 		"mp_links": return n.links_to_save()
@@ -1272,7 +1273,7 @@ func _part_name(n: Node) -> String:
 
 
 func _protect_processors() -> void:
-	for group in ["compressors", "wrappers"]:
+	for group in ["compressors", "wrappers", "hay_drones"]:
 		var nodes: Variant = builds.get(group)
 		if nodes is Array:
 			for node in nodes:
@@ -1280,7 +1281,7 @@ func _protect_processors() -> void:
 
 
 func _processor_added(node: Node) -> void:
-	if node is HayCompressor or node is HayWrapper:
+	if node is HayCompressor or node is HayWrapper or node is HayDrone:
 		_protect_processor_deferred.call_deferred(weakref(node))
 
 
@@ -1293,7 +1294,7 @@ func _protect_processor_deferred(reference: WeakRef) -> void:
 func _protect_processor(node: Node) -> void:
 	if not _processors_enabled or not is_instance_valid(node) or not node.is_inside_tree() or not node.is_node_ready() or node.is_queued_for_deletion():
 		return
-	if not (node is HayCompressor or node is HayWrapper):
+	if not (node is HayCompressor or node is HayWrapper or node is HayDrone):
 		return
 	if node.placement_preview:
 		return
@@ -1309,6 +1310,8 @@ func _protect_processor(node: Node) -> void:
 		replacement = load(mp.base_dir + "/mp_hay_compressor.gd")
 	elif original.resource_path == "res://scripts/build/hay_wrapper.gd":
 		replacement = load(mp.base_dir + "/mp_hay_wrapper.gd")
+	elif original.resource_path == "res://scripts/build/hay_drone.gd":
+		replacement = load(mp.base_dir + "/mp_hay_drone.gd")
 	else:
 		return
 	_replace_processor_script(node, replacement)
@@ -1329,6 +1332,8 @@ func _replace_processor_script(node: Node, script: Script) -> void:
 
 
 func _refresh_processor_belt(node: Node) -> void:
+	if node is HayDrone:
+		return
 	var belt: Variant = node.get("_belt")
 	if not is_instance_valid(belt) or not belt.is_inside_tree():
 		return
