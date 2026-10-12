@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.19.6-xRangerDE.33
+
+Route T-junction changes through the host and restore their internal conveyor connections.
+
+- Execute role selection, automatic/manual mode and splitter/joiner conversions through the existing validated, deduplicated host transaction queue.
+- Rebuild affected internal connections after applying authoritative settings, including scoped native rebuilds.
+- Keep the panel pending until the confirmed configuration revision arrives. Preserve revisions through native automatic type changes, and release pending controls when leaving the lobby.
+- Treat legacy role fields as context only. Reject stale priority or pin packets instead of letting them restore an older role layout.
+- Preserve existing saves and personal tools. Every player needs this version; third-party add-ons remain outside the public ZIP.
+
+Native transport testing covers 35 splitter/joiner cases, three rotations, blocked outputs and resumption, priority routing and smart filters. All 84,000 input strands were collected. Physical conveyor riders are included in the material and ownership checks.
+
+Three actual local game processes also passed 181 production-chain checks. With packet loss, duplication and latency, both scanner tiers and 90/135-degree curves delivered all 720 input strands through pressing, wrapping, scanning and sale, including junction rebuilds and guest resynchronization. No raw-hay leak or duplicate guest sale occurred in those layouts.
+
+Three local game processes passed 215 additional T-configuration checks covering actual panel signals, simultaneous changes, duplicate requests, delayed priority packets and lobby cleanup. Native lifecycle checks passed 19 assertions, including configuration revisions, offline controls and conservation of 46 strands across type swaps. The lifecycle fixture freezes materialized bodies and is not a fall or transport test.
+
+The original historical layouts, the guest crash without a trace, and two-PC Steam/WAN play remain unverified. Native shutdown resource warnings remain. This maintenance preview does not guarantee complete bug freedom.
+
 ## 0.19.6-xRangerDE.32
 
 Ignore expired machine and conveyor callbacks after objects are removed or replaced.

@@ -38,8 +38,8 @@ const MAX_RAW := 4 << 20
 const FIELDS := {
 	"generators": ["fuel", "switched_off", "made_kw"],
 	"silos": ["switched_off", "discharge_rate", "resume_rate", "stored", "queued"],
-	"splitters": ["forced_side", "priority_side", "next_side", "filters", "entry", "manual", "closed_lane", "fed", "stem_wait"],
-	"joiners": ["out_lane", "manual", "next_side"],
+	"splitters": ["forced_side", "priority_side", "next_side", "filters", "entry", "manual", "closed_lane", "fed", "stem_wait", "mp_t_revision"],
+	"joiners": ["out_lane", "manual", "next_side", "mp_t_revision"],
 	"tube_launchers": ["switched_off", "aim", "power", "stored"],
 	"piston_rakes": ["switched_off", "throw_distance"],
 	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop"],
@@ -91,7 +91,7 @@ const SETTINGS := {
 	"work_lamps": ["brightness", "_off"],
 }
 
-const FIELD_GROUPS := [["entry", "out_lane", "forced_side", "priority_side", "next_side", "manual", "stem_wait"],
+const FIELD_GROUPS := [["entry", "out_lane", "closed_lane", "forced_side", "priority_side", "next_side", "manual", "stem_wait", "mp_t_revision"],
 	["discharge_rate", "resume_rate"]]
 
 var mp: Node
@@ -633,6 +633,7 @@ func on_fields(batch: Dictionary) -> void:
 	if not mp.is_host:
 		_send_edits()
 	var diagnostic_errors := 0
+	var junctions: Array = []
 	for host_key in batch:
 		var key := _local_key(String(host_key))
 		var n: Variant = _nodes.get(key)
@@ -641,6 +642,7 @@ func on_fields(batch: Dictionary) -> void:
 			continue
 		if not (batch[host_key] is Dictionary):
 			continue
+		var junction_before := _junction_state(n)
 		var diff: Dictionary = batch[host_key]
 		# remember what the host says, so a guest can tell a setting the player
 		# just changed from one the host handed down
@@ -665,10 +667,13 @@ func on_fields(batch: Dictionary) -> void:
 			known[String(f)] = _copy_value(diff[f])
 			checked[String(f)] = diff[f]
 		_theirs[key] = known
+		if _junction_state(n) != junction_before:
+			junctions.append(n)
 		for f in checked:
 			var matches: bool = _tap_state_matches(n, checked[f]) if f == "mp_taps" else _read_field(n, f) == checked[f]
 			if not matches:
 				diagnostic_errors += 1
+	_rewire_junctions(junctions)
 	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
 		mp.world_sync.diagnostics.observe("machines", diagnostic_errors > 0, diagnostic_errors)
 
@@ -772,8 +777,13 @@ func on_edit(from: int, batch: Dictionary) -> void:
 		if not (batch[guest_key] is Dictionary):
 			continue
 		var diff: Dictionary = batch[guest_key]
+		if not _t_edit_matches(n, diff):
+			_vals.erase(key)
+			continue
 		var was: Dictionary = _vals.get(key, {})
 		for f in _ordered_fields(diff):
+			if (n is ConveyorTSplitter or n is ConveyorTJoiner) and f in ["entry", "out_lane", "manual", "closed_lane"]:
+				continue
 			# only ever the settings: a guest does not get to set our stock
 			if names.has(String(f)):
 				_apply_field(n as Node, String(f), diff[f])
@@ -782,6 +792,39 @@ func on_edit(from: int, batch: Dictionary) -> void:
 			# line when we would not take the change
 			was.erase(String(f))
 		_vals[key] = was
+
+
+func _t_edit_matches(node: Node, fields: Dictionary) -> bool:
+	var required: Array = []
+	if node is ConveyorTSplitter:
+		required = ["entry", "manual", "closed_lane"]
+	elif node is ConveyorTJoiner:
+		required = ["out_lane", "manual"]
+	for field in required:
+		if not fields.has(field) or fields[field] != node.get(field):
+			return false
+	return true
+
+
+func _junction_state(node: Node) -> PackedInt32Array:
+	if node is ConveyorTSplitter:
+		return PackedInt32Array([node.entry, int(node.manual), node.closed_lane])
+	if node is ConveyorTJoiner:
+		return PackedInt32Array([node.out_lane, int(node.manual)])
+	return PackedInt32Array()
+
+
+func _rewire_junctions(nodes: Array) -> void:
+	if nodes.is_empty() or not is_instance_valid(builds):
+		return
+	for node in nodes:
+		if is_instance_valid(node) and node.is_inside_tree() and not node.is_queued_for_deletion():
+			builds.refit_runs_at(node.ports())
+			YardPorts.touch()
+			BuildManager.jx_note(node)
+	builds.rebuild_junctions()
+	builds.changed.emit()
+	_rescan()
 
 
 func _complete_fields(n: Node, diff: Dictionary, allowed: Array) -> void:
@@ -914,6 +957,8 @@ func _copy_value(value: Variant) -> Variant:
 
 func _read_field(n: Node, field: String) -> Variant:
 	match field:
+		"mp_t_revision":
+			return int(n.get_meta("mp_t_revision", 0)) if n is ConveyorTSplitter or n is ConveyorTJoiner else null
 		"mp_links": return n.links_to_save()
 		"mp_taps": return _tap_state(n)
 		"mp_zone": return [n.zone_at, n.zone_r]
@@ -923,17 +968,22 @@ func _read_field(n: Node, field: String) -> Variant:
 
 
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if f == "mp_t_revision":
+		if not mp.is_host and v is int and v >= 0 and (n is ConveyorTSplitter or n is ConveyorTJoiner):
+			n.set_meta("mp_t_revision", maxi(v, int(n.get_meta("mp_t_revision", 0))))
+		return
 	if f == "mp_taps":
 		if not mp.is_host:
 			_apply_taps(n, v)
 		return
-	if f in ["discharge_rate", "resume_rate", "head_yaw", "out_lane"]:
+	if f in ["discharge_rate", "resume_rate", "head_yaw", "out_lane", "entry"]:
 		if not (v is int or v is float) or not is_finite(float(v)):
 			return
-	if f == "out_lane":
-		if v != int(v) or int(v) < 0 or int(v) > 2 or not n.has_method("set_out"):
+	if f in ["out_lane", "entry"]:
+		var setter := "set_out" if f == "out_lane" else "set_entry"
+		if v != int(v) or int(v) < 0 or int(v) > 2 or not n.has_method(setter):
 			return
-		n.set_out(int(v))
+		n.call(setter, int(v))
 		return
 	if f == "discharge_rate" and n.has_method("set_rate"):
 		var resume: Variant = n.get("resume_rate")

@@ -10,6 +10,7 @@ var epoch := ""
 var executing := false
 var pending := {}
 var _next := 0
+var _t_revision := 0
 var _queue: Array = []
 var _queued := {}
 var _last := {}
@@ -27,6 +28,7 @@ func start(session: Node, sync: Node) -> void:
 		epoch = str(Time.get_ticks_usec()) + ":" + str(randi())
 	_hook(sync.player.build, "mp_build_tool.gd")
 	_hook(sync.world.shop_menu, "mp_shop.gd")
+	_hook(sync.world.t_panel, "mp_t_panel.gd")
 	GameState.gifts_changed.connect(_gifts_changed)
 	GameState.purchased.connect(_purchase_changed)
 
@@ -54,6 +56,8 @@ func shutdown() -> void:
 		GameState.purchased.disconnect(_purchase_changed)
 	for node in _originals:
 		if is_instance_valid(node):
+			if node.has_method("reset_mp_request"):
+				node.reset_mp_request()
 			_replace(node, _originals[node])
 	_originals.clear()
 	for actor in _actors.values():
@@ -145,6 +149,8 @@ func _physics_process(_delta: float) -> void:
 	while _results[peer].size() > CACHE_LIMIT:
 		_results[peer].erase(_results[peer].keys()[0])
 	world_sync._flush_builds()
+	if entry.action == "t_configure" and result.get("ok", false):
+		world_sync.machines_sync._send_fields()
 	world_sync._state_tick()
 	publish()
 	_reply(peer, seq, result)
@@ -192,6 +198,9 @@ func on_result(token: String, seq: int, result: Dictionary) -> void:
 		mp.ui.notify(str(result.get("message", mp.t("purchase_declined"))))
 	if is_instance_valid(world_sync.world.shop_menu):
 		world_sync.world.shop_menu._refresh()
+	var panel: Variant = world_sync.world.get("t_panel")
+	if is_instance_valid(panel) and panel.has_method("accept_result"):
+		panel.accept_result(seq, result)
 	completed.emit(seq, result)
 
 func _gifts_changed() -> void:
@@ -325,6 +334,8 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 			return _upgrade_arm(args)
 		"lift_reshape":
 			return _reshape_lift(args)
+		"t_configure":
+			return _configure_t(args)
 		"place":
 			return _build(actor, action, args)
 		"demolish", "demolish_tile", "reverse":
@@ -680,3 +691,35 @@ func _reshape_lift(args: Dictionary) -> Dictionary:
 	if not is_instance_valid(result.get("lift")):
 		return _failure("building_missing")
 	return {"ok": true}
+
+func _configure_t(args: Dictionary) -> Dictionary:
+	if not mp.is_host or not executing or not (args.get("target") is Dictionary) or not (args.get("manual") is bool):
+		return _failure("building_invalid")
+	var target: Node3D = world_sync._find_building(args.target)
+	if not is_instance_valid(target) or not target.is_inside_tree() or target.is_queued_for_deletion():
+		return _failure("building_missing")
+	if not (target is ConveyorTSplitter or target is ConveyorTJoiner):
+		return _failure("building_invalid")
+	var now: Node3D
+	if args.manual:
+		if not (args.get("roles") is Array) or args.roles.size() != 3:
+			return _failure("building_invalid")
+		var roles: Array[int] = []
+		for role in args.roles:
+			if not (role is int) or role < ConveyorTSplitter.ROLE_IN or role > ConveyorTSplitter.ROLE_CLOSED:
+				return _failure("building_invalid")
+			roles.append(role)
+		if ConveyorTSplitter.shape_of(roles) == "":
+			return _failure("building_invalid")
+		var result: Dictionary = world_sync.builds.set_t_by_hand(target, roles)
+		if str(result.get("error", "")) != "":
+			return {"ok": false, "message": str(result.error)}
+		now = result.get("t")
+	else:
+		now = world_sync.builds.set_t_by_belts(target)
+	if not is_instance_valid(now) or not now.is_inside_tree() or now.is_queued_for_deletion():
+		return _failure("building_missing")
+	_t_revision = maxi(maxi(_t_revision + 1, int(now.get_meta("mp_t_revision", 0)) + 1), Time.get_ticks_usec())
+	now.set_meta("mp_t_revision", _t_revision)
+	world_sync.machines_sync.send_all(0)
+	return {"ok": true, "target": now.to_dict(), "t_revision": _t_revision}

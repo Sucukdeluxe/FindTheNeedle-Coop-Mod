@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.32"
+const VERSION := "0.19.6-xRangerDE.33"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -97,7 +97,7 @@ func _ready() -> void:
 			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
 			"mp_missions.gd", "mp_player.gd", "mp_power.gd",
 			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
-			"mp_shop.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
+			"mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
 			"mp_tech.gd", "mp_tool_prop.gd", "mp_tools.gd",
 			"mp_trace.gd", "mp_ui.gd", "mp_wire_mode.gd",
 			"mp_world.gd", "mp_yard_vac.gd"]:

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.32
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.33
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,16 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+T-VERTEILER UND T-ZUSAMMENFÜHRER
+- Rollenwechsel, Auto/Manuell und der Wechsel zwischen Verteiler und Zusammenführer
+  laufen über die Hostprüfung. Interne Bandanschlüsse werden danach neu verbunden.
+- Das Bedienfenster wartet auf den bestätigten Änderungsstand. Gleichzeitige
+  Änderungen werden nacheinander verarbeitet; verspätete Prioritätspakete dürfen
+  die Förderrichtung nicht zurücksetzen.
+- Beim Verlassen der Lobby werden ausstehende Bedienelemente wieder freigegeben.
+- Native Transporttests decken 35 Fälle mit drei Drehwinkeln, vollen Ausgängen,
+  Wiederanlauf, Prioritäten und Filtern ab: 84.000 Halme vollständig eingesammelt.
 
 STROMNETZ
 - Verbinden, Trennen und Bearbeiten von Stromgruppen werden vom Host geprüft.

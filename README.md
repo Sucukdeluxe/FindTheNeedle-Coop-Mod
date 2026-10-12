@@ -1,6 +1,17 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.32`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.33`, based on upstream 0.19.5.
+
+T-junction roles, automatic/manual mode and splitter/joiner conversions now run
+through the host transaction queue. Clients rebuild their internal connections
+after confirmed role changes. The panel waits for the confirmed configuration
+revision, and stale priority packets cannot restore an older role layout.
+Pending controls are released when leaving the lobby.
+
+Native splitter and joiner transport tests cover 35 cases, three rotations,
+blocked outputs, resumption, priority routing and smart filters. All 84,000 input
+strands were collected, including cargo converted into physical conveyor riders.
+The fixture checks both material totals and physical ownership.
 
 Pending machine setup and conveyor handoff callbacks now ignore objects that
 have already been removed. Conveyor handoffs retain the original item identity
@@ -21,7 +32,7 @@ Same-frame purchases reserve their accepted spaces; a purchase with no free
 position is removed before replication and refunded in full. Personal tools
 still use the existing inventory path.
 
-The V62 compilation and initial-language menu fixes remain included. All 43
+The V62 compilation and initial-language menu fixes remain included. All 44
 multiplayer scripts compile with the current V62 executable.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling
@@ -82,7 +93,7 @@ a build preview is finalized. Native V62 tests cover scanner/feeder alignment af
 lift record transport under backpressure, and press/wrapper release methods.
 Native tests also cover 18 full press → wrapper → scanner → selling-stand
 routes with left/right 45°, 90° and 135° curves, three rotations and both
-scanner tiers. All 432 wrapped bales (25,920 strands) were sold with the
+scanner tiers. All 442 wrapped bales (25,920 strands) were sold with the
 expected payout after five simulated minutes of blocked output per case.
 The exact original reported save layouts still need reproduction.
 
@@ -122,7 +133,7 @@ are checked before application, and stale parts/materials cannot receive cached
 animation or effect updates. These safeguards do not establish the cause of the
 reported guest crash; the guest log and native runtime confirmation are still missing.
 
-**Maintenance preview:** the current V62 engine compiles all 43 scripts. The
+**Maintenance preview:** the current V62 engine compiles all 44 scripts. The
 selling-stand fix passes 50 native authority/ownership/presentation checks and
 84 checks across three real local processes under packet loss, duplication and
 delay. The previous shop-placement fix remains included. Its
