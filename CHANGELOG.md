@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.20
+
+Keep multiplayer routing settings consistent and prevent guest-only cargo spills during conveyor rebuilds.
+
+- Do not materialize replicated belt records on guests when a native route rebuild clears the old path. Host and single-player spill behavior is retained.
+- Apply T-junction geometry before dependent routing values. Send coupled settings together and defer conflicting stale confirmations as a group.
+- Synchronize silo discharge/resume rates, pelletizer head direction, and T-joiner output/manual settings through their native setters.
+- Preserve existing belt gates, switch boxes, and power-tag memberships during partial building restoration. Include water-tee and tilted pipe-junction geometry in building comparison.
+
+All peers must install this version. Existing saves are retained; optional third-party add-ons remain separate.
+
+Validation: 22 offline regression suites, including 5,400 native splitter setter permutations, 5,000 randomized settings roundtrips, and rebuild cases with up to 20,000 cargo records. REA/Ghidra inspected the current native belt core. Selected production/native methods run through Python adapters with explicit engine, geometry, and network stubs. No game or engine was started.
+
+Remaining work includes mutable pulper taps and power-link/group editing, actual scanner/curve/sale physics, the guest crash without a crash trace, rendering performance, and two-PC Steam/WAN validation. This maintenance preview is not a guarantee that all bugs are resolved.
+
 ## v0.19.6-xRangerDE.19 (maintenance preview)
 
 Keep the host's hay and bale visuals visible to guests while they travel inside a hay lift.

@@ -37,13 +37,13 @@ const MAX_RAW := 4 << 20
 # one.
 const FIELDS := {
 	"generators": ["fuel", "switched_off", "made_kw"],
-	"silos": ["switched_off", "stored", "queued"],
-	"splitters": ["forced_side", "priority_side", "next_side", "filters", "entry", "manual", "closed_lane", "fed"],
-	"joiners": ["next_side"],
+	"silos": ["switched_off", "discharge_rate", "resume_rate", "stored", "queued"],
+	"splitters": ["forced_side", "priority_side", "next_side", "filters", "entry", "manual", "closed_lane", "fed", "stem_wait"],
+	"joiners": ["out_lane", "manual", "next_side"],
 	"tube_launchers": ["switched_off", "aim", "power", "stored"],
 	"piston_rakes": ["switched_off", "throw_distance"],
 	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop"],
-	"pelletizers": ["switched_off", "throw_distance", "stored"],
+	"pelletizers": ["switched_off", "throw_distance", "head_yaw", "stored"],
 	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "paid_cost", "legacy_refit", "pick_order", "mp_links"],
 	"scanners": ["switched_off", "tier_index", "banked", "stored"],
 	"compressors": ["switched_off", "stored"],
@@ -73,12 +73,13 @@ const MOUTH_TICK := 0.25
 # same hay pay twice.
 const SETTINGS := {
 	"generators": ["switched_off"],
-	"silos": ["switched_off"],
+	"silos": ["switched_off", "discharge_rate", "resume_rate"],
+	"joiners": ["out_lane", "manual"],
 	"splitters": ["forced_side", "priority_side", "filters", "entry", "manual", "closed_lane"],
 	"tube_launchers": ["switched_off", "aim", "power"],
 	"piston_rakes": ["switched_off", "throw_distance"],
 	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop"],
-	"pelletizers": ["switched_off", "throw_distance"],
+	"pelletizers": ["switched_off", "throw_distance", "head_yaw"],
 	"robotic_arms": ["switched_off", "accept_mask", "pick_order", "mp_links"],
 	"scanners": ["switched_off", "tier_index"],
 	"compressors": ["switched_off"],
@@ -89,6 +90,9 @@ const SETTINGS := {
 	"boreholes": ["switched_off"],
 	"work_lamps": ["brightness", "_off"],
 }
+
+const FIELD_GROUPS := [["entry", "out_lane", "forced_side", "priority_side", "next_side", "manual", "stem_wait"],
+	["discharge_rate", "resume_rate"]]
 
 var mp: Node
 var world: Node
@@ -532,6 +536,7 @@ func _send_fields() -> void:
 				diff[f] = _copy_value(v)
 		_vals[key] = now
 		if not diff.is_empty():
+			_complete_fields(n, diff, names)
 			batch[key] = diff
 	if batch.is_empty():
 		return
@@ -641,7 +646,10 @@ func on_fields(batch: Dictionary) -> void:
 		# just changed from one the host handed down
 		var known: Dictionary = _theirs.get(key, {})
 		var checked := {}
+		var held := _held_fields(key, diff)
 		for f in _ordered_fields(diff):
+			if f in held:
+				continue
 			if not FIELDS.get(_group.get(key, ""), []).has(f):
 				continue
 			if n is HayDrone and not DroneState.valid(str(f), diff[f]):
@@ -692,9 +700,11 @@ func _send_edits() -> void:
 			if v == null or v == known[f]:
 				continue
 			diff[f] = _copy_value(v)
-			_pending_settings[key + "|" + str(f)] = {"value": _copy_value(v), "time": Time.get_ticks_msec()}
-			known[f] = _copy_value(v)
 		if not diff.is_empty():
+			_complete_fields(n, diff, names)
+			for f in diff:
+				_pending_settings[key + "|" + str(f)] = {"value": _copy_value(diff[f]), "time": Time.get_ticks_msec()}
+				known[f] = _copy_value(diff[f])
 			batch[key] = diff
 	if batch.is_empty():
 		return
@@ -770,11 +780,49 @@ func on_edit(from: int, batch: Dictionary) -> void:
 		_vals[key] = was
 
 
+func _complete_fields(n: Node, diff: Dictionary, allowed: Array) -> void:
+	for group in FIELD_GROUPS:
+		var changed := false
+		for field in group:
+			if diff.has(field) and field not in ["next_side", "stem_wait"]:
+				changed = true
+		if not changed:
+			continue
+		for field in group:
+			if field in allowed:
+				var value: Variant = _read_field(n, field)
+				if value != null:
+					diff[field] = _copy_value(value)
+
+
+func _held_fields(key: String, diff: Dictionary) -> Array:
+	var held: Array = []
+	for field in diff:
+		var pending: Dictionary = _pending_settings.get(key + "|" + str(field), {})
+		if not pending.is_empty() and pending.value != diff[field] and Time.get_ticks_msec() - int(pending.time) < 2000:
+			held.append(field)
+	for group in FIELD_GROUPS:
+		var blocked := false
+		for field in group:
+			if field in held:
+				blocked = true
+		if blocked:
+			for field in group:
+				if field not in held:
+					held.append(field)
+	return held
+
+
 func _ordered_fields(diff: Dictionary) -> Array:
 	var fields: Array = diff.keys()
-	if fields.has("priority_side"):
-		fields.erase("priority_side")
-		fields.append("priority_side")
+	for field in ["out_lane", "entry"]:
+		if fields.has(field):
+			fields.erase(field)
+			fields.push_front(field)
+	for field in ["forced_side", "priority_side", "next_side", "stem_wait", "resume_rate"]:
+		if fields.has(field):
+			fields.erase(field)
+			fields.append(field)
 	return fields
 
 
@@ -796,6 +844,24 @@ func _read_field(n: Node, field: String) -> Variant:
 
 
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if f in ["discharge_rate", "resume_rate", "head_yaw", "out_lane"]:
+		if not (v is int or v is float) or not is_finite(float(v)):
+			return
+	if f == "out_lane":
+		if v != int(v) or int(v) < 0 or int(v) > 2 or not n.has_method("set_out"):
+			return
+		n.set_out(int(v))
+		return
+	if f == "discharge_rate" and n.has_method("set_rate"):
+		var resume: Variant = n.get("resume_rate")
+		n.set_rate(float(v))
+		if not mp.is_host:
+			n.set(f, float(v))
+			n.set("resume_rate", resume)
+		return
+	if f == "resume_rate" and n.has_method("rate_min") and n.has_method("rate_max"):
+		n.set(f, clampf(float(v), n.rate_min(), n.rate_max()) if mp.is_host else float(v))
+		return
 	if n is HayDrone:
 		if not DroneState.valid(f, v):
 			return

@@ -44,8 +44,8 @@ const BUILD_ARRAYS := ["conveyors", "corners", "water_mains", "water_splitters",
 	"compressors", "pulpers", "papers", "briquette_presses", "wrappers", "silos",
 	"pelletizers", "generators", "boreholes", "tube_launchers", "dump_hatches",
 	"hay_stairs", "hay_lifts", "splitters", "joiners", "cabinets", "needle_radars",
-	"paint_boards", "work_lamps", "hay_drones", "piston_rakes", "power_poles"]
-const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried", "port_reach", "riser", "tier", "seat", "down", "head_turn"]
+	"paint_boards", "work_lamps", "hay_drones", "piston_rakes", "power_poles", "belt_gates", "switch_boxes"]
+const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried", "port_reach", "riser", "tier", "seat", "down", "head_turn", "tee", "up", "fwd"]
 
 # Settings the game keeps in a save's meta and reads back when it loads one,
 # as { the name on Cfg: the name in the meta }. The guest builds its yard out
@@ -889,6 +889,18 @@ func _add_buildings(dicts: Array) -> void:
 
 
 func _restore_buildings(dicts: Array) -> void:
+	var tags: Variant = builds.get("tags")
+	var tag_state := {}
+	var replace_tags := false
+	if is_instance_valid(tags):
+		for data in dicts:
+			if data is Dictionary and data.get("type") == "power_tags":
+				replace_tags = not (Cfg.DEMO and "power_tags" in BuildManager.DEMO_WITHHELD_BUILDS)
+		if not replace_tags:
+			for field in ["names", "priorities", "_of", "_machine", "_pending"]:
+				var value: Variant = tags.get(field)
+				if value != null:
+					tag_state[field] = value.duplicate()
 	var parked := {}
 	for a in BUILD_ARRAYS + BUILD_EXTRAS:
 		var arr: Variant = builds.get(a)
@@ -912,6 +924,11 @@ func _restore_buildings(dicts: Array) -> void:
 		arr.clear()
 		arr.append_array(parked[a])
 		arr.append_array(fresh)
+	if is_instance_valid(tags) and builds.get("tags") == tags:
+		for field in tag_state:
+			tags.set(field, tag_state[field])
+		if replace_tags:
+			tags.resolve()
 	if shells != null and is_instance_valid(shells):
 		var made: Variant = builds.get("_enclosed_visuals")
 		if made != null and is_instance_valid(made) and made != shells:

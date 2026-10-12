@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.19`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.20`, based on upstream 0.19.5.
+
+Route changes now keep dependent machine settings together. Guest-side route rebuilds
+do not spawn physical copies of mirrored cargo. Partial building updates retain
+existing gates, switch boxes and power-group assignments. Silo output rates,
+T-joiner outputs and pelletizer head direction are synchronized.
 
 Machine animation no longer moves belt decks, their collision subtrees or fixed belt-port markers.
 Building diagnostics compare internal machine/lift routes and downstream links as well.
