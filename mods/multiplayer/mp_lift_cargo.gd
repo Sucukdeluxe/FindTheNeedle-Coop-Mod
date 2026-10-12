@@ -33,7 +33,7 @@ static func valid(groups: Variant) -> bool:
 
 static func capture(sync: Node) -> Array:
 	var out := []
-	for lift in sync.builds.hay_lifts:
+	for lift in carriers(sync):
 		if not is_instance_valid(lift) or not lift.is_inside_tree() or lift.is_queued_for_deletion() or lift.placement_preview:
 			continue
 		var rows := []
@@ -50,9 +50,12 @@ static func capture(sync: Node) -> Array:
 
 
 func apply(sync: Node, groups: Array) -> void:
+	if not ready(sync, groups):
+		return
 	var lifts := {}
-	for lift in sync.builds.hay_lifts:
+	for lift in carriers(sync):
 		if is_instance_valid(lift) and lift.is_inside_tree() and not lift.is_queued_for_deletion() and not lift.placement_preview:
+			discard_local_records(lift)
 			lifts[sync._bkey(lift.to_dict())] = lift
 	var seen := {}
 	for group in groups:
@@ -104,3 +107,37 @@ func _erase(seq: int) -> void:
 		saved.draw.hide()
 		saved.draw.queue_free()
 	_draws.erase(seq)
+
+
+static func carriers(sync: Node) -> Array:
+	var out := []
+	for collection in ["hay_lifts", "hay_stairs"]:
+		var nodes: Variant = sync.builds.get(collection)
+		if nodes is Array:
+			out.append_array(nodes)
+	return out
+
+
+static func discard_local_records(carrier: Node) -> void:
+	for index in range(carrier._carried.size() - 1, -1, -1):
+		var row: Dictionary = carrier._carried[index]
+		if not row.has("rec"):
+			continue
+		var draw: Variant = row.get("draw")
+		if is_instance_valid(draw):
+			draw.hide()
+		carrier._free_draw(row)
+		carrier._carried.remove_at(index)
+
+
+func ready(sync: Node, groups: Array) -> bool:
+	var counts := {}
+	for carrier in carriers(sync):
+		if not is_instance_valid(carrier) or not carrier.is_inside_tree() or carrier.is_queued_for_deletion() or carrier.placement_preview:
+			continue
+		var key: String = sync._bkey(carrier.to_dict())
+		counts[key] = int(counts.get(key, 0)) + 1
+	for group in groups:
+		if int(counts.get(group.key, 0)) != 1:
+			return false
+	return true

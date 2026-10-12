@@ -1300,7 +1300,7 @@ func _is_transport_part(part: Node) -> bool:
 		var parent := current.get_parent()
 		if parent is HayPulper and current in parent.taps:
 			return true
-		if parent is HayLift:
+		if parent is HayLift or parent is HayStairs:
 			for carried in parent._carried:
 				if carried.get("draw") == current:
 					return true

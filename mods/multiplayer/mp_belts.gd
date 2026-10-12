@@ -159,7 +159,10 @@ func _flush_pending_belts() -> void:
 	if Time.get_ticks_msec() < _retry_at:
 		return
 	var payload: Dictionary = _pending_snapshot
-	if not _apply_belts(payload.paths):
+	var carriers_ready: bool = _lift_cargo.ready(sync, payload.lifts)
+	if not carriers_ready and is_instance_valid(sync.diagnostics):
+		sync.diagnostics.observe("belts", true, payload.lifts.size(), 1)
+	if not carriers_ready or not _apply_belts(payload.paths):
 		_retry_at = Time.get_ticks_msec() + 250
 		return
 	_pending_snapshot = null

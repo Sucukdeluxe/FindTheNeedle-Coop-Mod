@@ -970,14 +970,18 @@ func _restore_buildings(dicts: Array) -> void:
 # flags and the machine is really out of the loop; the host sends us how it
 # moves instead.
 func _freeze_client_machines() -> void:
-	if builds == null:
+	if not is_instance_valid(mp) or not _is_client() or builds == null:
 		return
 	for a in CLIENT_FROZEN:
 		var arr: Variant = builds.get(a)
 		if not (arr is Array):
 			continue
 		for n in arr:
-			if not is_instance_valid(n) or n.has_meta("mp_stopped"):
+			if not is_instance_valid(n):
+				continue
+			if n is HayLift or n is HayStairs:
+				preload("res://mods/multiplayer/mp_lift_cargo.gd").discard_local_records(n)
+			if n.has_meta("mp_stopped"):
 				continue
 			n.set_meta("mp_stopped", true)
 			n.set_process(false)

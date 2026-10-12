@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.27
+
+Synchronize moving cargo on hay stairs and remove stale lift cargo after joining a host.
+
+- Remove native saved-game cargo copies on guests before showing authoritative lift and stair cargo. Keep physical carried objects intact and do not spawn fallback items during this cleanup.
+- Include hay stairs in the existing cargo snapshot channel and exclude their native cargo meshes from generic machine animation.
+- Keep the previous snapshot when a carrier is missing or ambiguous, retry after the building is available, and report repeated mismatches through automatic diagnostics.
+- Ignore deferred guest cleanup after disconnecting or becoming the host. Existing save data and host cargo are preserved.
+
+All players must use this version. Optional third-party add-ons remain outside the public ZIP.
+
+Validation: 34 accepted offline regression suites. The new carrier suite performs 40,080 checks across 2,000 mixed lift/stair scenarios with 32,044 mirrored cargo records, covering saved-game duplicates, late building arrival, ambiguous identities, empty snapshots, physical objects and session changes. Tests execute translated production methods with explicit engine and rendering adapters. No game, Godot or GDRE runtime was started.
+
+Rendered transport physics, GPU/FPS performance, the guest crash without a trace, and two-PC Steam/WAN play still require runtime verification. This maintenance preview is not a guarantee of complete bug freedom.
+
 ## 0.19.6-xRangerDE.26
 
 Keep cargo on its original conveyor when a T-splitter lane transfer is rejected.

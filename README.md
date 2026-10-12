@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.26`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.27`, based on upstream 0.19.5.
+
+Hay stairs now share the authoritative moving-cargo channel with hay lifts.
+Guests discard stale native cargo copies loaded from the host save before applying
+current cargo visuals. Missing or ambiguous carrier mappings wait for the next
+build update instead of applying a partial snapshot.
 
 T-splitter lane transfers retain the original cargo until the receiving lane accepts it.
 A rejected transfer does not send cargo through a fallible reboarding or floor-spawn
