@@ -288,6 +288,8 @@ func _prepare_build_tool(peer: int, args: Dictionary) -> int:
 	return 0
 
 func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
+	if action == "power":
+		return world_sync.power_sync.execute(args)
 	if action == "build_cancel":
 		_cancel_build(peer)
 		return {"ok": true}

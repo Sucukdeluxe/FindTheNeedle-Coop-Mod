@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.21"
+const VERSION := "0.19.6-xRangerDE.22"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -921,6 +921,12 @@ func _rx_machines_big(packed: PackedByteArray, raw_size: int) -> void:
 	if world_sync == null or world_sync.machines_sync == null:
 		return
 	world_sync.machines_sync.on_poses(packed, raw_size)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_power_state(epoch: String, state: Dictionary) -> void:
+	if world_sync != null and is_instance_valid(world_sync.power_sync):
+		world_sync.power_sync.on_state(epoch, state)
 
 
 @rpc("authority", "call_remote", "reliable", 0)

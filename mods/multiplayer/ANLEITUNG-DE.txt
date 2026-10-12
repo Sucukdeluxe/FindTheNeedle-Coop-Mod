@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.21
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.22
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,13 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+STROMNETZ
+- Verbinden, Trennen und Bearbeiten von Stromgruppen werden vom Host geprüft.
+- Gleichzeitige Änderungen an verschiedenen Leitungen oder Gruppenfeldern sind möglich.
+  Veraltete widersprüchliche Aktionen werden abgelehnt und können erneut versucht werden.
+- Leitungen und Gruppenzuordnungen werden automatisch abgeglichen.
+- Stromgruppen bleiben nur dort verfügbar, wo das Spiel sie regulär freigibt.
 
 SAUGER AUTOMATISCH LEEREN
 - Sauger ausrüsten und M drücken. Erneut M, eine Maustaste, Werkzeugwechsel

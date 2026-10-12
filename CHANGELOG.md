@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.6-xRangerDE.22
+
+Synchronize power-line editing and power groups through authoritative host commands.
+
+- Route wire connections, cuts, group names, priorities, membership and group switches through the existing sequenced host queue. Duplicate requests do not repeat native mutations.
+- Reject conflicting stale actions and references to replaced buildings. Independent connection and group-field edits can proceed without a global revision conflict.
+- Apply reliable power snapshots to existing objects, including empty link/cut lists and exact group assignments. Wait for building and grid updates before applying a complete snapshot.
+- Keep wire-mode feedback pending until the host responds, preserve newly opened modes when old responses arrive, and prevent guest-only automatic rewiring after reach upgrades.
+- Include persistent power-state mismatches in the local synchronization diagnostic. Native availability restrictions for power groups remain in effect.
+
+All players must use this version. Existing saves are retained. Optional third-party add-ons remain separate from the public package.
+
+Validation: 27 offline regression suites passed, including 10,310 power-core checks, 3,648 UI-bridge checks and 7,200 simulated queued host transactions. A snapshot with 2,000 poles and 2,000 machines produced one rebuild; repeating it produced no additional rebuild. Tests execute translated production methods with explicit native, engine and transport stubs. No game, Godot or GDRE runtime was started.
+
+Still unverified: actual scanner/curve/sale physics and pipe flow, rendering performance, the reported guest crash without a trace, and two-PC Steam/WAN play. This maintenance preview does not establish complete bug freedom.
+
 ## 0.19.6-xRangerDE.21
 
 Preserve Pulper pipe anchors across multiplayer build requests and synchronize confirmed pipe fittings.

@@ -10,6 +10,7 @@ const FALLBACK := "en"
 
 const STRINGS := {
 "en": {
+	"power_changed": "Power network action not completed. The network changed or the action is unavailable; wait for synchronization and try again.",
 	"sync_diagnostic_warning": "Persistent synchronization issue detected. Details saved locally in mp_diagnostics.jsonl.",
 	"building_missing": "The building is no longer present on the host. Wait for synchronization and try again.",
 	"building_invalid": "This building action could not be performed. Check the target and try again.",
@@ -210,6 +211,7 @@ const STRINGS := {
 	"no_debug_menu": "Esta versión no tiene menú de depuración.",
 },
 "de": {
+	"power_changed": "Stromnetzaktion nicht ausgeführt. Das Netz wurde geändert oder die Aktion ist nicht verfügbar; Synchronisierung abwarten und erneut versuchen.",
 	"sync_diagnostic_warning": "Anhaltendes Synchronisationsproblem erkannt. Details lokal in mp_diagnostics.jsonl gespeichert.",
 	"building_missing": "Das Gebäude ist beim Host nicht mehr vorhanden. Synchronisierung abwarten und erneut versuchen.",
 	"building_invalid": "Diese Gebäudeaktion konnte nicht ausgeführt werden. Ziel prüfen und erneut versuchen.",

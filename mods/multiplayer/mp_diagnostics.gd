@@ -6,7 +6,7 @@ const PREV := "user://mp_diagnostics.prev.jsonl"
 const MAX_BYTES := 524288
 const TICK := 2.0
 const GRACE_MS := 10000
-const CATEGORIES := ["belts", "props", "buildings", "hay", "economy", "tools", "state", "machines"]
+const CATEGORIES := ["belts", "props", "buildings", "hay", "economy", "tools", "state", "machines", "power"]
 
 var mp: Node
 var sync: Node

@@ -74,6 +74,7 @@ var contracts_sync: Node  # the delivery truck and its contract
 var _tech_script: Script
 var tools_sync: Node
 var economy: Node
+var power_sync: Node
 var diagnostics: Node
 var boards_sync: Node  # what is drawn on the paint boards
 var _pose_t := 0.0
@@ -162,6 +163,9 @@ func _ready() -> void:
 	economy = load(mp.base_dir + "/mp_economy.gd").new()
 	add_child(economy)
 	economy.start(mp, self)
+	power_sync = load(mp.base_dir + "/mp_power.gd").new()
+	add_child(power_sync)
+	power_sync.start(mp, self)
 	diagnostics = load(mp.base_dir + "/mp_diagnostics.gd").new()
 	add_child(diagnostics)
 	if field != null:
@@ -179,6 +183,8 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if is_instance_valid(power_sync):
+		power_sync.shutdown()
 	if is_instance_valid(economy):
 		economy.shutdown()
 	if _tech_script != null:
@@ -632,10 +638,14 @@ func _flush_builds() -> void:
 
 
 func on_builds(adds: Array, removes: Array) -> void:
+	if is_instance_valid(power_sync):
+		power_sync.invalidate_builds()
 	if builds == null or _frozen:
 		return
 	while _applying_builds:
 		await get_tree().process_frame
+	if is_instance_valid(power_sync):
+		power_sync.invalidate_builds()
 	# anything we built locally goes out first so the rescan below can't swallow it
 	if _builds_dirty:
 		_flush_builds()
@@ -1314,9 +1324,13 @@ func send_full_sync(pid: int) -> void:
 		boards_sync.send_all(pid)
 	if machines_sync != null and is_instance_valid(machines_sync):
 		machines_sync.send_all(pid)
+	if is_instance_valid(power_sync):
+		power_sync.publish(pid, true)
 
 
 func on_full_sync(heights: PackedFloat32Array, host_builds: Array, tech: Dictionary, needles: Array = []) -> void:
+	if is_instance_valid(power_sync):
+		power_sync.invalidate_builds()
 	# what we spent or earned since the last state tick goes out now: the
 	# rebaseline at the end of this used to drop it on the floor
 	if _is_client():

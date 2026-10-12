@@ -62,3 +62,9 @@ func reshape_hay_lift(lift: HayLift, carries_down: bool, turn: int) -> Dictionar
 			"body": actor.global_transform, "camera": actor.camera.global_transform}) == 0:
 		out["error"] = mp_world.mp.t("economy_wait")
 	return out
+
+
+func restring_for_reach() -> void:
+	if is_instance_valid(mp_world) and mp_world._is_client():
+		return
+	super.restring_for_reach()
