@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.6-xRangerDE.25
+
+Keep conveyor cargo intact when creating a physical item fails.
+
+- Create the physical item before removing its conveyor record. Failed or already-discarded items leave the original record untouched.
+- Guard recursive requests for the same record and resolve the final removal by its identity if callbacks changed queue positions. Remove a provisional item if a callback has already consumed the original record.
+- Preserve complete cargo state in the corrected offline native adapter and recheck 600,000 snapshot rows, including custom state.
+
+Correction to the earlier native-core analysis: the insert function copies its state argument through Godot's variant_new_copy API. The decompiler omitted that argument from its displayed signature. The claim that the core discards this state was incorrect; native host record IDs remain the pickup identity.
+
+All players must use this version. Existing saves remain compatible. Optional third-party add-ons are not included in the public ZIP.
+
+Validation: 32 offline regression suites passed. The new item-creation suite includes 50,073 checks and 2,000 stress cycles, covering failed creation, failed native rollback, queue changes during callbacks and recursive requests. Tests run translated production methods with explicit engine/native/transport adapters. REA and assembly were used to inspect the native state-copy path; the game, Godot and GDRE were not started.
+
+Actual rendered transport physics, GPU/FPS behavior, the guest crash without a trace, and two-PC Steam/WAN play still need runtime validation. This maintenance preview is not a guarantee of complete bug freedom.
+
 ## 0.19.6-xRangerDE.24
 
 Preserve unfinished press and wrapper batches when saving or creating a multiplayer world snapshot.
@@ -22,7 +38,7 @@ Preserve authoritative conveyor cargo on guests and prevent local materializatio
 - Match cargo snapshots to the owning building and complete conveyor curve, rather than a nearby pair of endpoints. Keep the previous snapshot when a route is missing or ambiguous, and retry after rebuilding.
 - Import confirmed cargo without running the normal new-item admission test. Preserve product kind, amount, needle, spacing, lateral position, height, speed and host record identity; update native draw events and clocks.
 - Prevent active guests from materializing machine-belt records into local physical duplicates. Host and single-player behavior remains native.
-- Use native host record IDs for guest belt pickup. The current game core does not retain the custom state marker previously used for this request.
+- Use native host record IDs for guest belt pickup. Pickup uses the native record identity independently of custom state.
 - Invalidate queued cargo and pickup identities when a building update starts.
 
 All players must use this version. Existing saves are retained. Optional third-party add-ons remain separate from this public package.
