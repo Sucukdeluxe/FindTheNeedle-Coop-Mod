@@ -316,6 +316,8 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 			return _fetch(actor, args)
 		"arm_upgrade":
 			return _upgrade_arm(args)
+		"lift_reshape":
+			return _reshape_lift(args)
 		"place":
 			return _build(actor, action, args)
 		"demolish", "demolish_tile", "reverse":
@@ -549,4 +551,24 @@ func _pickup_tool(peer: int, actor: Player, args: Dictionary) -> Dictionary:
 		return _failure("tool_capacity")
 	BeltPath.release(item)
 	props.props.remove(item)
+	return {"ok": true}
+
+func _reshape_lift(args: Dictionary) -> Dictionary:
+	if not mp.is_host or not executing:
+		return _failure("purchase_declined")
+	if not (args.get("target") is Dictionary) or not (args.get("down") is bool) \
+			or not (args.get("turn") is int):
+		return _failure("building_invalid")
+	var turn := int(args.turn)
+	if turn < 0 or turn > 3:
+		return _failure("building_invalid")
+	var lift: Node3D = world_sync._find_building(args.target)
+	if not is_instance_valid(lift) or not (lift is HayLift) or not lift.is_inside_tree() or lift.is_queued_for_deletion():
+		return _failure("building_missing")
+	var result: Dictionary = world_sync.builds.reshape_hay_lift(lift, args.down, turn)
+	var error := str(result.get("error", ""))
+	if error != "":
+		return {"ok": false, "message": error}
+	if not is_instance_valid(result.get("lift")):
+		return _failure("building_missing")
 	return {"ok": true}

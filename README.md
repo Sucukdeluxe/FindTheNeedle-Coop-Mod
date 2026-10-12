@@ -4,6 +4,8 @@ Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op m
 
 Machine animation no longer moves belt decks, their collision subtrees or fixed belt-port markers.
 Building diagnostics compare internal machine/lift routes and downstream links as well.
+Lift direction and head rotation are synchronized; reshaping goes through the host
+transaction queue with native cargo transfer and placement checks.
 Failed native prop output keeps its production batch and needles for retry. Host
 construction requests wait for cooperatively prepared previews; joining restores
 player input once after loading, respecting focus, pause and open menus.
@@ -58,7 +60,8 @@ reported guest crash; the guest log and native runtime confirmation are still mi
 
 **Maintenance preview:** this revision was checked without launching the game.
 Validation covers script grammar and selected production methods executed through
-a local Python adapter with engine stubs. Earlier revisions had local multiplayer
+a local Python adapter with engine stubs. The current V62 scripts and model port
+transforms were inspected statically. Earlier revisions had local multiplayer
 runs with simulated packet loss; those runs do not validate this revision. The current press intake and connected-seam fixes still need native runtime
 verification; graphics performance and the reported guest crash also remain
 unverified. Two-PC Steam/WAN validation is
@@ -97,7 +100,7 @@ file: [README.es.md](README.es.md).
 
 ## Requirements
 
-* Find The Needle demo (free on Steam), build V26 or newer
+* Find The Needle demo (free on Steam), V62 / Steam build 25867630 for this revision. Older builds have not been validated with these native API hooks.
 * Windows 64-bit
 * The same mod version on every machine
 * The game has to be launched from Steam, or the invites will not work

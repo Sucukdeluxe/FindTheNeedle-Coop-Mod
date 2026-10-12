@@ -25,8 +25,10 @@ ANSCHLÜSSE UND NEU GEBAUTE MASCHINEN
 - Maschinenanimationen verändern keine Bandflächen oder festen Anschlussmarker.
 - Fehlschlagende Produktionsausgaben behalten Charge und Nadeln für einen neuen Versuch.
 - Die Diagnose berücksichtigt auch interne Maschinen- und Liftverbindungen.
-- Lift-Reichweite, Sockelhöhe, Maschinenstufe und Band-Anschlussmarkierung
-  werden beim Bauabgleich berücksichtigt.
+- Lift-Reichweite, Sockelhöhe, Förderrichtung, Kopfdrehung, Maschinenstufe und
+  Band-Anschlussmarkierung werden beim Bauabgleich berücksichtigt.
+- Lift-Umbauten laufen über den Host. Veraltete widersprüchliche Anfragen
+  werden abgelehnt; native Bauprüfung und Ladungsübergabe bleiben erhalten.
 - Der Schutz von Presse und Wickler greift nach dem Aufbau ihrer internen Bänder
   und beim endgültigen Platzieren. Der tatsächliche V62-Übergang bleibt im Spiel
   nachzuprüfen; ein Offline-Test bestätigt keine fehlerfreie Physik.

@@ -6,6 +6,7 @@ Improve transport isolation, production retries and the first multiplayer intera
 
 - Keep belt decks, their collision subtrees and fixed belt-port markers out of machine animation packets, including stale cached updates.
 - Check actual internal machine/lift paths and downstream links in building diagnostics.
+- Synchronize lift travel direction and head rotation. Route lift reshaping through the host transaction queue; reject stale conflicting requests and retain native cargo-transfer and placement checks.
 - Restore press/wrapper filters after a filter or deck is replaced. Hold raw tufts at the wrapper without capturing needle objects.
 - Preserve a production batch and its needles when native prop creation fails. Confirm output through the native success signals before accepting completion; keep native behavior if that signal contract is unavailable.
 - Wait for cooperatively prepared construction previews before executing a host-authorized building transaction. Handle timeout, disconnect and retries without a second charge.
@@ -13,10 +14,9 @@ Improve transport isolation, production retries and the first multiplayer intera
 
 Existing saves and personal inventories are retained. Every peer must use the same version.
 
-Validation: offline GDScript grammar checks and source-translated regression tests with explicit engine stubs. The reference lift method was exercised through 124,387 handoff attempts, including full outputs and retries, without losing or duplicating tested payloads. No game, Godot or GDRE runtime was launched. These tests do not verify current native physics, FPS, two-PC Steam/WAN play, or the exact reported scanner/lift alignment in gameplay. This remains a maintenance preview.
+Validation: offline GDScript grammar checks and source-translated regression tests with explicit engine stubs. The currently installed V62 scripts and scanner/wrapper/press model ports were inspected statically. The current lift method was exercised through 124,387 handoff attempts, including full outputs and retries, without losing or duplicating tested payloads. Duplicate and conflicting lift edits, all direction/rotation combinations, and invalid lifecycle states are covered. No game, Godot or GDRE runtime was launched. These tests do not verify current native physics, FPS, two-PC Steam/WAN play, or the exact reported scanner/lift alignment in gameplay. This remains a maintenance preview.
 
 The optional private Production Speed add-on receives separate compatibility fixes for derived multiplayer scripts and typed cargo filters; automatic side-ejection is removed. Third-party add-ons are not included in this public ZIP.
-
 
 ## v0.19.6-xRangerDE.17 (maintenance preview)
 
