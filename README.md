@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.23`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.24`, based on upstream 0.19.5.
+
+Saving during an unfinished press or wrapper cycle now retains its material.
+The native loader receives the unfinished batch in the normal stock or queue;
+already released products are not added again. Bale amounts and needle ownership
+remain attached to their original queue entries.
 
 Power-line connections, cuts and power-group edits now use host-checked commands.
 Reliable snapshots update existing poles and group assignments, including deleted

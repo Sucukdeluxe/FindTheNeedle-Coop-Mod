@@ -59,3 +59,11 @@ func _mp_unwatch_release(signal_names: Array, watch: Callable) -> void:
 
 func _mp_release_seen(_value: Variant, confirmation: Array) -> void:
 	confirmation[0] = true
+
+func to_dict() -> Dictionary:
+	var data := super.to_dict()
+	if _wrap >= 0.0 and not _released:
+		data["queued"].push_front(_batch)
+		data["queued_needles"].push_front(_batch_needle)
+		data["wrapping_needle"] = -1
+	return data

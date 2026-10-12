@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.24
+
+Preserve unfinished press and wrapper batches when saving or creating a multiplayer world snapshot.
+
+- Return an unreleased press batch to the serialized stock without changing the running machine.
+- Put an unreleased wrapper bale at the front of the serialized queue with its original amount and needle. Avoid recording the same needle as an orphan as well.
+- Leave released batches out of the machine's saved inventory so loading cannot duplicate an existing output product.
+- Keep the native save format and existing save compatibility; a restored unfinished batch restarts its production cycle.
+
+All players must use this version. Optional third-party add-ons remain separate from the public package.
+
+Validation: 31 offline regression suites passed. The new production persistence suite runs 92,002 checks, including 8,000 randomized save/load cases and 10,000 blocked-output cycles. It reproduces the previous loss using the decoded native serializers and exercises the actual new overrides via a Python AST adapter. No game, Godot or GDRE runtime was started.
+
+The rendered scanner/curve/sale transitions, exact reported press incident, GPU/FPS behavior, guest crash without a trace, and two-PC Steam/WAN play still need runtime validation. This maintenance preview does not establish complete bug freedom.
+
 ## 0.19.6-xRangerDE.23
 
 Preserve authoritative conveyor cargo on guests and prevent local materialization at machine outlets.
