@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.19.6-xRangerDE.26
+
+Keep cargo on its original conveyor when a T-splitter lane transfer is rejected.
+
+- Accept the record on the receiving lane before removing it from the source. A rejected transfer no longer depends on reboarding the source or spawning a physical fallback item.
+- Lock the cargo identity at both ends during transfer, protecting against recursive transfer and materialization callbacks. Resolve final removal by identity after queue changes.
+- Retain existing saves and optional add-on compatibility. All players must use this version; third-party add-ons remain outside the public ZIP.
+
+Validation: 33 offline regression suites passed. The new transfer suite runs 530,107 checks across 144,000 transfer attempts and 2,000 stress cycles, including rejected admission, callback reentry, shifted queue indices and preservation of amounts and identities. Tests execute translated production methods with explicit engine/native adapters.
+
+REA inspection confirms that the native tick advances directly imported BACK records and promotes eligible records to its free-moving group. No additional movement patch was justified by that branch. The game, Godot and GDRE were not started.
+
+Rendered transport physics, GPU/FPS behavior, the guest crash without a trace, and two-PC Steam/WAN play remain unverified. This maintenance preview does not guarantee complete bug freedom.
+
 ## 0.19.6-xRangerDE.25
 
 Keep conveyor cargo intact when creating a physical item fails.
