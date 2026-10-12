@@ -14,6 +14,7 @@ const TICK := 0.25
 const FULL_TICK := 2.0  # the list goes out at least this often, changed or not
 const MAX_RAW := 8 << 20
 const Snapshot = preload("res://mods/multiplayer/mp_belt_snapshot.gd")
+const LiftCargo = preload("res://mods/multiplayer/mp_lift_cargo.gd")
 
 var mp: Node
 var world: Node
@@ -28,6 +29,7 @@ var _cleanup_scripts := {}
 var _mirror_holds := {}
 var _pending_snapshot: Variant = null
 var _stopped := false
+var _lift_cargo := LiftCargo.new()
 
 
 func start(mp_node: Node, world_node: Node) -> void:
@@ -60,6 +62,7 @@ func shutdown() -> void:
 	if is_instance_valid(_carry) and _carry_script != null:
 		_replace_carry_script(_carry_script)
 	_release_mirror_holds()
+	_lift_cargo.clear()
 	_pending_snapshot = null
 	_stopped = true
 	set_process(false)
@@ -67,6 +70,7 @@ func shutdown() -> void:
 
 func _process(delta: float) -> void:
 	_flush_pending_belts()
+	_lift_cargo.step(delta)
 	if mp == null or not mp.is_host or not mp.active():
 		return
 	if multiplayer.multiplayer_peer == null:
@@ -99,7 +103,7 @@ func send_all(pid: int = 0) -> void:
 			row["state"]["_mp_belt_seq"] = int(row["seq"])
 			rows.append(row)
 		entries.append({"a": ends[0], "b": ends[1], "records": rows})
-	var raw := var_to_bytes(entries)
+	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync)})
 	if pid == 0:
 		var h := hash(raw)
 		if h == _last_hash and _since < FULL_TICK:
@@ -121,10 +125,12 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	var raw := packed.decompress(raw_size, FileAccess.COMPRESSION_ZSTD)
 	if raw.size() != raw_size:
 		return
-	var entries: Variant = bytes_to_var(raw)
-	if not (entries is Array) or not Snapshot.valid(entries):
+	var payload: Variant = bytes_to_var(raw)
+	var entries: Variant = payload.get("paths") if payload is Dictionary else payload
+	var lifts: Variant = payload.get("lifts", []) if payload is Dictionary else []
+	if not (entries is Array) or not Snapshot.valid(entries) or not LiftCargo.valid(lifts):
 		return
-	_pending_snapshot = entries
+	_pending_snapshot = {"paths": entries, "lifts": lifts}
 	_flush_pending_belts()
 
 
@@ -140,9 +146,10 @@ func _flush_pending_belts() -> void:
 		return
 	if mp.phase != mp.Phase.IN_WORLD or sync._frozen or sync._applying_builds or sync._builds_dirty:
 		return
-	var entries: Array = _pending_snapshot
+	var payload: Dictionary = _pending_snapshot
 	_pending_snapshot = null
-	_apply_belts(entries)
+	_apply_belts(payload.paths)
+	_lift_cargo.apply(sync, payload.lifts)
 
 
 func _apply_belts(entries: Array) -> void:

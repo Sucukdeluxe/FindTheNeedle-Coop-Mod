@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.19.6-xRangerDE.19 (maintenance preview)
+
+Keep the host's hay and bale visuals visible to guests while they travel inside a hay lift.
+
+- Include native lift cargo in the same authoritative snapshot as conveyor records. Preserve product type, strand count and the host's position, rotation and compression.
+- Create and reuse client stand-ins without running a second lift simulation or changing inventories. Remove completed, replaced and demolished lift visuals; retry unavailable visuals on a later snapshot.
+- Keep lift cargo out of generic machine animation packets. Reject malformed lift data before applying either half of the transport snapshot; defer both halves together during rebuilding and loading.
+- Use stable visual identities even when native lifted items have no conveyor sequence ID.
+
+All peers must use this version. Existing saves are retained. Third-party add-ons remain separate.
+
+Validation: 18 existing offline regression suites plus new lift snapshot/lifecycle tests, including 4,507 synthetic transits. The current native belt-core DLL was inspected with REA/Ghidra for quantity updates, spacing checks and handoff failure handling. Tests translate selected production methods with engine and rendering stubs. No game or engine was launched; native physics, actual rendered motion, FPS and two-PC Steam/WAN remain unverified. This is not a guarantee that every reported issue is resolved.
+
 ## v0.19.6-xRangerDE.18 (maintenance preview)
 
 Improve transport isolation, production retries and the first multiplayer interaction.

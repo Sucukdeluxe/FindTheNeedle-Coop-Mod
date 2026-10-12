@@ -1149,9 +1149,14 @@ func _live_part(key: String, part: Variant) -> bool:
 func _is_transport_part(part: Node) -> bool:
 	var current := part
 	while is_instance_valid(current):
-		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut":
+		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut" or current.has_meta("mp_lift_cargo"):
 			return true
-		current = current.get_parent()
+		var parent := current.get_parent()
+		if parent is HayLift:
+			for carried in parent._carried:
+				if carried.get("draw") == current:
+					return true
+		current = parent
 	return false
 
 
