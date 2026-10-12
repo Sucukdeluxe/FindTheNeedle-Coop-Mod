@@ -298,7 +298,7 @@ func _apply_pending() -> void:
 			var node: Node3D = resolved[row.id]
 			expected_members[node.get_instance_id()] = row.tag
 			expected_machines[node.get_instance_id()] = node
-	var tags_changed := tags._of != expected_members or tags._machine != expected_machines or Array(tags.names) != _pending.names or Array(tags.priorities) != _pending.priority or not tags._pending.is_empty()
+	var tags_changed: bool = tags._of != expected_members or tags._machine != expected_machines or Array(tags.names) != _pending.names or Array(tags.priorities) != _pending.priority or not tags._pending.is_empty()
 	applying = true
 	_client_nodes.clear()
 	for row in _pending.rows:

@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.28"
+const VERSION := "0.19.6-xRangerDE.29"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -41,6 +41,8 @@ var tool_profile := ""
 var _tool_identities := {}
 var _belt_visuals: Script
 var _last_scene: Node = null
+var _menu_button: WeakRef
+var _menu_retry := 0.0
 var _world_rx := {}
 var _pending_world: Variant = null
 var _mp_world_load := false  # client is loading a world sent by the host
@@ -84,13 +86,20 @@ func _ready() -> void:
 			var test: Node = test_script.new()
 			test.mp = self
 			add_child(test)
-	for f in ["mp_world.gd", "mp_avatar.gd", "mp_i18n.gd", "mp_props.gd",
-			"mp_machines.gd", "mp_strands.gd", "mp_contracts.gd", "mp_trace.gd", "mp_boards.gd",
-			"mp_belts.gd", "mp_carry.gd", "mp_builds.gd", "mp_missions.gd",
-			"mp_tools.gd", "mp_player.gd", "mp_tool_prop.gd", "mp_tech.gd",
-			"mp_economy.gd", "mp_shop.gd", "mp_build_tool.gd", "mp_build_actor.gd",
-			"mp_game_state.gd", "mp_prop_manager.gd", "mp_belt_visuals.gd",
-			"mp_diagnostics.gd", "mp_diagnostic_state.gd"]:
+	for f in ["mp_avatar.gd", "mp_belt_items.gd", "mp_belt_routes.gd",
+			"mp_belt_snapshot.gd", "mp_belt_visuals.gd", "mp_belts.gd",
+			"mp_boards.gd", "mp_build_actor.gd", "mp_build_tool.gd",
+			"mp_builds.gd", "mp_carry.gd", "mp_contracts.gd",
+			"mp_diagnostic_state.gd", "mp_diagnostics.gd", "mp_drone_state.gd",
+			"mp_economy.gd", "mp_game_state.gd", "mp_hay_compressor.gd",
+			"mp_hay_wrapper.gd", "mp_i18n.gd", "mp_lift_cargo.gd",
+			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
+			"mp_missions.gd", "mp_player.gd", "mp_power.gd",
+			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
+			"mp_shop.gd", "mp_steam.gd", "mp_strands.gd",
+			"mp_tech.gd", "mp_tool_prop.gd", "mp_tools.gd",
+			"mp_trace.gd", "mp_ui.gd", "mp_wire_mode.gd",
+			"mp_world.gd", "mp_yard_vac.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
@@ -118,6 +127,7 @@ func _process(_delta: float) -> void:
 	if cs != _last_scene:
 		_last_scene = cs
 		_on_scene_changed(cs)
+	_update_menu_hook(cs, _delta)
 	if _world_watch != null and is_instance_valid(_world_watch) and world_sync == null:
 		if bool(_world_watch.get("_built")):
 			_start_world_sync(_world_watch)
@@ -134,12 +144,31 @@ func is_menu(n: Node) -> bool:
 	return n != null and (n.scene_file_path == MENU_SCENE or n.has_method("_on_multiplayer"))
 
 
+func _update_menu_hook(menu: Node, delta: float) -> void:
+	if not is_instance_valid(menu) or not is_menu(menu):
+		_menu_button = null
+		_menu_retry = 0.0
+		return
+	var button: Variant = _menu_button.get_ref() if _menu_button != null else null
+	if is_instance_valid(button) and button.is_inside_tree() and menu.is_ancestor_of(button):
+		return
+	_menu_button = null
+	_menu_retry -= delta
+	if _menu_retry > 0.0:
+		return
+	_menu_retry = 0.25
+	button = ui._find_mp_button(menu)
+	if button == null:
+		return
+	_menu_button = weakref(button)
+	ui.hook_menu(menu)
+
+
 func _on_scene_changed(cs: Node) -> void:
 	_stop_world_sync()
 	_stay_last.call_deferred()
 	_world_watch = null
 	if is_menu(cs):
-		ui.hook_menu(cs)
 		if active() and not is_host and phase == Phase.IN_WORLD:
 			# client walked back to the title: that ends its session
 			leave(t("left_game"))

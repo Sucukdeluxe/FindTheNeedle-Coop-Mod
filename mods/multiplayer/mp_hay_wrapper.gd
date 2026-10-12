@@ -35,7 +35,7 @@ func _release_product() -> void:
 	_mp_unwatch_release(signal_names, watch)
 	if _released and not confirmation[0]:
 		_released = false
-		pending_needles.assign(pending_before)
+		pending_needles = pending_before
 		_batch_needle = needle_before
 
 func _mp_watch_release(signal_names: Array, confirmation: Array) -> Callable:

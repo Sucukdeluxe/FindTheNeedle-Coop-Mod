@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.28`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.29`, based on upstream 0.19.5.
+
+This revision fixes five V62 script compilation errors, including the press/wrapper
+needle rollback, and retries the multiplayer-menu hook after the initial language
+selection. All 42 multiplayer scripts are preloaded so startup checks cover the
+full shipped module set.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling
 and prop cleanup by its current carrier ownership. Original temporary hold
@@ -56,8 +61,9 @@ The old standalone `drop_all.gd` is not required.
 Building reconciliation now includes lift port reach, riser height, machine tier
 and conveyor seat markers. Replicated straight belts preserve their machine-seat
 marker. Press/wrapper protection is installed after their native setup and when
-a build preview is finalized. These address specific code defects; the reported
-V62 scanner/lift geometry and press behavior still require an in-game check.
+a build preview is finalized. Native V62 tests cover scanner/feeder alignment after saving and loading,
+lift record transport under backpressure, and press/wrapper release methods.
+The original reported machine layouts still need a full production run.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
@@ -95,14 +101,17 @@ are checked before application, and stale parts/materials cannot receive cached
 animation or effect updates. These safeguards do not establish the cause of the
 reported guest crash; the guest log and native runtime confirmation are still missing.
 
-**Maintenance preview:** this revision was checked without launching the game.
-Validation covers script grammar and selected production methods executed through
-a local Python adapter with engine stubs. The current V62 scripts and model port
-transforms were inspected statically. Earlier revisions had local multiplayer
-runs with simulated packet loss; those runs do not validate this revision. The current press intake and connected-seam fixes still need native runtime
-verification; graphics performance and the reported guest crash also remain
-unverified. Two-PC Steam/WAN validation is
-also outstanding. Use the same mod version on every peer.
+**Maintenance preview:** checked with the current V62 executable. All 42 scripts
+compile. Native press/wrapper tests passed 1,065 assertions; isolated transport
+and intake tests passed 509 assertions, including real physics frames for 24
+objects through 45°, 90° and 135° curves. Three local game processes passed
+72 tool, 216 transaction and 607 quest checks under injected network faults.
+The quest checks cover all 46 steps with controlled triggers. An offscreen rendered
+benchmark passed 81 checks with 24, 240 and 1,200 cargo records; the detailed-hay
+rendering costs additional GPU work. Native resource warnings at exit and a physics
+contact limit reached by the dense purchase fixture remain unresolved. These checks do not reproduce every original save layout,
+a complete scanner production cycle, or the historical guest crash. Two-PC
+Steam/WAN validation remains outstanding. Use the same mod version on every peer.
 
 Raw hay now waits at the press intake for consumption, including newly created
 physical tufts that are temporarily absent from collision queries. The press

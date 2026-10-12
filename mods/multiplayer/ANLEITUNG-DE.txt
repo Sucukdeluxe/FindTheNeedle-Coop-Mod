@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.28
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.29
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -37,8 +37,9 @@ ANSCHLÜSSE UND NEU GEBAUTE MASCHINEN
 - Lift-Umbauten laufen über den Host. Veraltete widersprüchliche Anfragen
   werden abgelehnt; native Bauprüfung und Ladungsübergabe bleiben erhalten.
 - Der Schutz von Presse und Wickler greift nach dem Aufbau ihrer internen Bänder
-  und beim endgültigen Platzieren. Der tatsächliche V62-Übergang bleibt im Spiel
-  nachzuprüfen; ein Offline-Test bestätigt keine fehlerfreie Physik.
+  und beim endgültigen Platzieren. Native V62-Tests prüfen die Ausgabe sowie
+  Scanner-Anschlussgeometrie und Lift-Ladung. Die konkreten ursprünglichen
+  Problemaufbauten bleiben gesondert nachzuprüfen.
 
 BEITRITT UND ERSTE BAUAKTION
 - Die Steuerung wird nach dem Laden unter Beachtung von Fensterfokus, Pause
@@ -54,8 +55,10 @@ QUESTS, KÄUFE UND PERSÖNLICHE WERKZEUGE
 - Beim Sitzungswechsel werden alte Inventaränderungen und Werkzeugaktionen
   verworfen. Werkzeuge bleiben persönlich; der Host erfasst gemeinsame Freischaltungen.
 - Technikkäufe sind während des Weltwechsels und Ladens gesperrt.
-- Gleichzeitige Käufe, Rückerstattungen, doppelte Nachrichten und die Übertragung
-  aller 46 Quest-IDs sind offline geprüft. Echte Quest-Durchläufe bleiben offen.
+- Drei lokale Spielprozesse wurden mit Paketverlust, Paketduplikaten und Verzögerung
+  geprüft: 72 Werkzeug-, 216 Transaktions- und 607 Questprüfungen über 46 Schritte.
+  Die Questbedingungen wurden gezielt ausgelöst; ein vollständiger manueller
+  Spieldurchlauf und die Prüfung über zwei Rechner stehen noch aus.
 
 DROHNEN UND MASCHINENANIMATION
 - Bestätigte Drohneneinstellungen werden beim Gast ohne eigene Routenplanung
@@ -65,7 +68,8 @@ DROHNEN UND MASCHINENANIMATION
 - Der gemeldete Gastabsturz ist noch nicht als behoben bestätigt. Dafür fehlen
   die Logs des Mitspielers: mp_trace.log, mp_trace.prev.log, mp_diagnostics.jsonl
   sowie der passende Eintrag aus logs und crashes im Benutzerordner des Spiels.
-- Diese Fassung wurde ohne Spielstart geprüft; echte Laufzeittests bleiben offen.
+- Diese Fassung wurde mit der V62-Engine geprüft. Das ersetzt keinen Nachweis
+  für den früher gemeldeten Absturz auf dem Rechner des Mitspielers.
 
 PRESSE UND BANDÜBERGÄNGE
 - Rohheu wartet am Presseneinzug, bis es verarbeitet wird. Das gilt auch für
@@ -77,8 +81,9 @@ PRESSE UND BANDÜBERGÄNGE
 - Offene, nicht verbundene Bandenden behalten das native Verhalten.
 - Fehlt vorübergehend die Gegenstandsverwaltung für ein Produkt, bleibt die
   Ausgabe ausstehend. Puffer, enthaltene Nadeln und laufende Zyklen bleiben erhalten.
-- Diese Eingriffe sind offline geprüft; ein aktueller Test der echten Physik und
-  des vollständigen Produktionsdurchsatzes steht noch aus.
+- Isolierte native Physiktests transportierten 24 Gegenstände aller acht Typen
+  durch 45°-, 90°- und 135°-Kurven vollständig. Der gesamte Produktionsdurchsatz
+  der ursprünglichen Anlage ist damit noch nicht bestätigt.
 
 BESTEHENDE SPIELSTÄNDE
 - Den vorhandenen Spielstand normal laden. Ein neuer Spielstand oder Zurücksetzen

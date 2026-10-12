@@ -144,7 +144,7 @@ func shutdown() -> void:
 	_processors_enabled = false
 	if is_instance_valid(builds) and builds.changed.is_connected(_protect_processors):
 		builds.changed.disconnect(_protect_processors)
-	if get_tree().node_added.is_connected(_processor_added):
+	if is_inside_tree() and get_tree().node_added.is_connected(_processor_added):
 		get_tree().node_added.disconnect(_processor_added)
 	for saved in _processor_hooks.values():
 		var node: Variant = saved["node"].get_ref()
@@ -666,7 +666,7 @@ func on_fields(batch: Dictionary) -> void:
 			checked[String(f)] = diff[f]
 		_theirs[key] = known
 		for f in checked:
-			var matches := _tap_state_matches(n, checked[f]) if f == "mp_taps" else _read_field(n, f) == checked[f]
+			var matches: bool = _tap_state_matches(n, checked[f]) if f == "mp_taps" else _read_field(n, f) == checked[f]
 			if not matches:
 				diagnostic_errors += 1
 	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):

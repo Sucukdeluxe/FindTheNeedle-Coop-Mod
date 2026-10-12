@@ -52,7 +52,7 @@ func start(mp_node: Node, world_node: Node) -> void:
 
 # Hand the belt ends back, in case the world outlives the session.
 func shutdown() -> void:
-	if get_tree().node_added.is_connected(_protect_belt_cleanup):
+	if is_inside_tree() and get_tree().node_added.is_connected(_protect_belt_cleanup):
 		get_tree().node_added.disconnect(_protect_belt_cleanup)
 	for path in BeltPath._live:
 		if not is_instance_valid(path):

@@ -91,7 +91,7 @@ func prepare_mode(mode: Mode, inputs: Dictionary) -> void:
 	var anchor := _tap_anchor
 	var pulper := _tap_anchor_pulper
 	var requested: Variant = inputs.get("_anchor")
-	var keep := _mode == Mode.WATER_PIPE and mode == Mode.WATER_PIPE and inputs.get("_state") == State.RUNNING \
+	var keep: bool = _mode == Mode.WATER_PIPE and mode == Mode.WATER_PIPE and inputs.get("_state") == State.RUNNING \
 		and requested is Vector3 and requested.is_finite() \
 		and is_instance_valid(anchor) and is_instance_valid(pulper) \
 		and anchor.is_inside_tree() and not anchor.is_queued_for_deletion() \

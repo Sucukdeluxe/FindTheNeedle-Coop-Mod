@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.19.6-xRangerDE.29
+
+Fix V62 script compilation and restore the multiplayer menu after initial language selection.
+
+- Correct three Variant-related boolean declarations and use PackedInt32Array-compatible rollback for press and wrapper needles. The current V62 engine now compiles all 42 multiplayer scripts.
+- Preload the full shipped script set so startup validation covers previously omitted modules.
+- Retry menu integration when the native menu becomes available after language selection, without repeatedly reconnecting an existing button.
+- Avoid accessing an already detached scene tree during conveyor and machine shutdown. A native before/after test removes both mod-generated null-tree errors.
+- Retain existing save formats and personal tools. Every player needs the same version. Third-party add-ons remain separate from the public ZIP.
+
+Validation includes 36 offline regression suites, 1,065 native press/wrapper release assertions, 509 native transport and intake assertions, and a real rendered menu check. Isolated physical curve tests delivered all 20,064 strands in 24 objects across 45°, 90° and 135° turns. The intake checks cover raw cargo records and physical bodies after rebuilding the machines. These are controlled fixtures, not every historical save layout.
+
+Three real local game processes passed 72 personal-tool checks, 216 transaction checks and 607 quest checks covering all 46 quest steps. Their loopback links had 2% configured packet loss, 2% packet duplication and injected delay. Quest conditions were driven by controlled test actions rather than a full manual playthrough.
+
+Rendered benchmark validation passed 81 checks with 24, 240 and 1,200 cargo records, preserving counts and quantities. The detailed-hay fix costs additional GPU work; this controlled offscreen test is not a gameplay-FPS guarantee.
+
+The dense simultaneous-purchase fixture also reached the native physics contact limit. This revision does not claim to remove that overload limit.
+
+Some engine shutdown resource warnings were reproduced in an unmodified native world and remain outside this fix.
+
+The historical guest crash without a trace and two-PC Steam/WAN play remain unverified. This maintenance preview does not guarantee complete bug freedom.
+
 ## 0.19.6-xRangerDE.28
 
 Protect physical hay cargo while it is waiting inside a hay lift or hay stairs.
