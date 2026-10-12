@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.30"
+const VERSION := "0.19.6-xRangerDE.31"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -56,6 +56,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	base_dir = get_script().resource_path.get_base_dir()
 	_install_game_state()
+	get_tree().node_added.connect(_guard_sale_stand)
 	_belt_visuals = load(base_dir + "/mp_belt_visuals.gd")
 	trace = load(base_dir + "/mp_trace.gd").new()
 	trace.name = "MPTrace"
@@ -96,7 +97,7 @@ func _ready() -> void:
 			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
 			"mp_missions.gd", "mp_player.gd", "mp_power.gd",
 			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
-			"mp_shop.gd", "mp_steam.gd", "mp_strands.gd",
+			"mp_shop.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
 			"mp_tech.gd", "mp_tool_prop.gd", "mp_tools.gd",
 			"mp_trace.gd", "mp_ui.gd", "mp_wire_mode.gd",
 			"mp_world.gd", "mp_yard_vac.gd"]:
@@ -104,6 +105,13 @@ func _ready() -> void:
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
 	print("[MPMod] v%s loaded from %s" % [VERSION, base_dir])
+
+
+func _guard_sale_stand(node: Node) -> void:
+	if not (node is HaySellingStand):
+		return
+	var patch: Script = load(base_dir + "/mp_selling_stand.gd")
+	patch.install(node, patch)
 
 
 # One line in the trace for a message that just arrived: which one, from whom
@@ -1221,6 +1229,18 @@ func _rx_economy_result(epoch: String, seq: int, result: Dictionary) -> void:
 func _rx_economy_state(epoch: String, state: Dictionary) -> void:
 	if world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_state(epoch, state)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_stand_visuals(epoch: String, sequence: int, hay: int, worth: float,
+		combo: int, gap: float, payouts: Array) -> void:
+	if is_host or not active() or not is_instance_valid(world_sync) \
+			or not is_instance_valid(world_sync.economy) or epoch != world_sync.economy.epoch \
+			or not is_instance_valid(world_sync.builds):
+		return
+	var stand: Node = world_sync.builds.get("stand") as Node
+	if is_instance_valid(stand) and stand.has_method("apply_visuals"):
+		stand.apply_visuals(epoch, sequence, hay, worth, combo, gap, payouts)
 
 
 @rpc("authority", "call_remote", "reliable")

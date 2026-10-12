@@ -972,6 +972,9 @@ func _restore_buildings(dicts: Array) -> void:
 func _freeze_client_machines() -> void:
 	if not is_instance_valid(mp) or not _is_client() or builds == null:
 		return
+	var stand: Node = builds.get("stand") as Node
+	if is_instance_valid(stand):
+		mp._guard_sale_stand(stand)
 	for a in CLIENT_FROZEN:
 		var arr: Variant = builds.get(a)
 		if not (arr is Array):

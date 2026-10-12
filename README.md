@@ -1,6 +1,14 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.30`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.31`, based on upstream 0.19.5.
+
+The selling stand now processes cargo and payments only on the host. Guests keep
+the native stand presentation but cannot consume mirrored belt cargo or sell it
+a second time. The guard also applies while a guest world is loading. Released
+items placed directly in the stand by a guest are transferred to the host for
+native collection; items still held by a player remain theirs. Hay-sale scale, sack and till effects
+are sent separately as sequenced cosmetic events, without crediting money or
+spawning collectible coins on guests.
 
 Shop purchases now check the item's actual collision shapes before publishing it.
 If the usual drop point is occupied, the host looks for nearby free space.
@@ -8,7 +16,7 @@ Same-frame purchases reserve their accepted spaces; a purchase with no free
 position is removed before replication and refunded in full. Personal tools
 still use the existing inventory path.
 
-The V62 compilation and initial-language menu fixes remain included. All 42
+The V62 compilation and initial-language menu fixes remain included. All 43
 multiplayer scripts compile with the current V62 executable.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling
@@ -67,9 +75,11 @@ and conveyor seat markers. Replicated straight belts preserve their machine-seat
 marker. Press/wrapper protection is installed after their native setup and when
 a build preview is finalized. Native V62 tests cover scanner/feeder alignment after saving and loading,
 lift record transport under backpressure, and press/wrapper release methods.
-Additional native tests now cover the full press → wrapper → scanner chain,
-a 90° output curve, backpressure and both scanner tiers. The exact original
-reported save layouts still need reproduction.
+Native tests also cover 18 full press → wrapper → scanner → selling-stand
+routes with left/right 45°, 90° and 135° curves, three rotations and both
+scanner tiers. All 432 wrapped bales (25,920 strands) were sold with the
+expected payout after five simulated minutes of blocked output per case.
+The exact original reported save layouts still need reproduction.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
@@ -107,7 +117,10 @@ are checked before application, and stale parts/materials cannot receive cached
 animation or effect updates. These safeguards do not establish the cause of the
 reported guest crash; the guest log and native runtime confirmation are still missing.
 
-**Maintenance preview:** the current V62 engine compiles all 42 scripts. The new
+**Maintenance preview:** the current V62 engine compiles all 43 scripts. The
+selling-stand fix passes 50 native authority/ownership/presentation checks and
+84 checks across three real local processes under packet loss, duplication and
+delay. The previous shop-placement fix remains included. Its
 shop-placement checks pass 23 native assertions and 216 transaction checks with
 three local processes under injected packet loss, duplication and delay. They
 cover occupied space, simultaneous purchases, refunds and world reloads.
@@ -236,6 +249,9 @@ Tool names are not translated by the mod: they go through the game's own
 translations, so they read the same as in the rest of the UI.
 
 ## Known limitations
+
+* The new selling-stand visual channel covers hay sales. Tool-sale and
+  needle-scrap receipts are not yet mirrored through this channel.
 
 * Machines run on the host only, so the same hay cannot be counted twice.
   Clients see them move, smoke and light up, and their settings match, but the

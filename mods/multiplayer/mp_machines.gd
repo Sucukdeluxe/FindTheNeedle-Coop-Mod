@@ -64,7 +64,7 @@ const SETTINGS_ONLY := ["work_lamps"]
 # because a machine's other areas are the scanner's beam and the stairs' climb
 # zone, which have nothing to do with taking hay in.
 const MOUTHS := ["_intake", "_hopper", "_mouth", "_mouth_area", "_wad_mouth",
-	"_brick_mouth", "_catch"]
+	"_brick_mouth", "_catch", "_payout_area", "_skirt_area"]
 const MOUTH_TICK := 0.25
 
 # What a panel lets a player change, as opposed to what a machine works out for
@@ -727,8 +727,11 @@ func _feed_mouths() -> void:
 	var watchers := _watchers()
 	if watchers.is_empty():
 		return
-	for key in _nodes:
-		var n: Variant = _nodes[key]
+	var feeders: Array = _nodes.values()
+	var stand: Node = builds.get("stand") as Node if is_instance_valid(builds) else null
+	if is_instance_valid(stand):
+		feeders.append(stand)
+	for n in feeders:
 		if n == null or not is_instance_valid(n) or not (n as Node3D).is_inside_tree():
 			continue
 		if not _near((n as Node3D).global_position, watchers):

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.31
+
+Prevent guests from selling mirrored hay twice and restore host collection of guest-delivered items at the selling stand.
+
+- Run selling-stand cargo consumption and payment only on the host, including during guest world loading. Keep the native stand presentation active.
+- Transfer released guest-owned items inside the stand intake to the host for native collection. Held items remain with their player.
+- Replicate hay-sale scale, sack and till effects as sequenced cosmetic events. Reject stale-world or duplicate events without adding money, consuming cargo or creating extra collectible coins.
+- Preserve existing saves, personal tools and optional add-on support. Everyone needs the same version; third-party add-ons are not included in the public ZIP.
+
+Validation: all 43 scripts compile with V62. Native before/after and visual tests pass 50 checks. Eighteen press/wrapper/scanner/selling-stand routes pass 3,525 checks across both curve directions at 45°, 90° and 135°, three rotations and both scanner tiers. All 432 wrapped bales, representing 25,920 strands, reach the real sale collector with the expected payout after five simulated minutes of blocked output per case. A final 135° run with the cosmetic channel enabled passes another 194 checks.
+
+Three real local game processes pass 84 network checks with injected loss, duplication and delay (6,859 packets, 134 dropped and 127 duplicated). Guest delivery, mirrored cargo, exact shared balances, removal on every peer and hay-sale visual events are covered; all three processes exit successfully.
+
+The original historical layouts, the reported guest crash without a trace, and two-PC Steam/WAN play remain unverified. Native shutdown resource warnings remain. The new visual channel covers hay sales; tool-sale and needle-scrap receipts are not yet mirrored. This is a maintenance preview, not a guarantee of complete bug freedom.
+
 ## 0.19.6-xRangerDE.30
 
 Prevent shop purchases from creating overlapping physical objects.
