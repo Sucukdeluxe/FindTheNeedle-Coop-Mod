@@ -14,6 +14,7 @@ const TICK := 0.25
 const FULL_TICK := 2.0  # the list goes out at least this often, changed or not
 const MAX_RAW := 8 << 20
 const Snapshot = preload("res://mods/multiplayer/mp_belt_snapshot.gd")
+const Routes = preload("res://mods/multiplayer/mp_belt_routes.gd")
 const LiftCargo = preload("res://mods/multiplayer/mp_lift_cargo.gd")
 
 var mp: Node
@@ -29,6 +30,8 @@ var _cleanup_scripts := {}
 var _mirror_holds := {}
 var _pending_snapshot: Variant = null
 var _stopped := false
+var _retry_at := 0
+var _host_sequences := {}
 var _lift_cargo := LiftCargo.new()
 
 
@@ -64,6 +67,7 @@ func shutdown() -> void:
 	_release_mirror_holds()
 	_lift_cargo.clear()
 	_pending_snapshot = null
+	_host_sequences.clear()
 	_stopped = true
 	set_process(false)
 
@@ -98,11 +102,11 @@ func send_all(pid: int = 0) -> void:
 		var rows: Array = []
 		for i in range(path.run.first(), path.run.first() + path.run.count()):
 			var row: Dictionary = path.run.record(i)
+			row["gap"] = path.run.gap_of(i)
 			var state: Dictionary = row.get("state") if row.get("state") is Dictionary else {}
 			row["state"] = state.duplicate(true)
-			row["state"]["_mp_belt_seq"] = int(row["seq"])
 			rows.append(row)
-		entries.append({"a": ends[0], "b": ends[1], "records": rows})
+		entries.append({"a": ends[0], "b": ends[1], "line": path._line, "owner": Routes.owner_key(mp.world_sync, path), "records": rows})
 	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync)})
 	if pid == 0:
 		var h := hash(raw)
@@ -130,8 +134,14 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	var lifts: Variant = payload.get("lifts", []) if payload is Dictionary else []
 	if not (entries is Array) or not Snapshot.valid(entries) or not LiftCargo.valid(lifts):
 		return
+	_retry_at = 0
 	_pending_snapshot = {"paths": entries, "lifts": lifts}
 	_flush_pending_belts()
+
+
+func invalidate_builds() -> void:
+	_pending_snapshot = null
+	_host_sequences.clear()
 
 
 func _flush_pending_belts() -> void:
@@ -146,13 +156,22 @@ func _flush_pending_belts() -> void:
 		return
 	if mp.phase != mp.Phase.IN_WORLD or sync._frozen or sync._applying_builds or sync._builds_dirty:
 		return
+	if Time.get_ticks_msec() < _retry_at:
+		return
 	var payload: Dictionary = _pending_snapshot
+	if not _apply_belts(payload.paths):
+		_retry_at = Time.get_ticks_msec() + 250
+		return
 	_pending_snapshot = null
-	_apply_belts(payload.paths)
 	_lift_cargo.apply(sync, payload.lifts)
 
 
-func _apply_belts(entries: Array) -> void:
+func _apply_belts(entries: Array) -> bool:
+	var resolved: Dictionary = Routes.resolve(mp.world_sync, entries, BeltPath._live)
+	if not resolved.ready:
+		if is_instance_valid(mp.world_sync.diagnostics):
+			mp.world_sync.diagnostics.observe("belts", true, entries.size(), 1)
+		return false
 	mp.trace.note("belts begin: %d paths" % entries.size())
 	for id in _mirror_holds.keys():
 		if not is_instance_valid(_mirror_holds[id]["path"].get_ref()):
@@ -162,15 +181,24 @@ func _apply_belts(entries: Array) -> void:
 			continue
 		item.run.clear()
 		_hold_mirrored_path(item)
-	var got: Dictionary = BeltPath.belts_from_array(entries, null)
+	_host_sequences.clear()
+	var restored := 0
+	for assignment in resolved.assignments:
+		Routes.restore(assignment[0], assignment[1])
+		for row in assignment[1]:
+			_host_sequences[row.seq] = true
+		restored += assignment[1].size()
+	var got := {"boarded": restored, "lost": 0}
 	mp.trace.note("belts end: %d restored, %d unmatched" % [int(got.get("boarded", 0)), int(got.get("lost", 0))])
 	if is_instance_valid(mp.world_sync) and is_instance_valid(mp.world_sync.diagnostics):
+		mp.world_sync.diagnostics.observe("belts", false, 0, 1)
 		mp.world_sync.diagnostics.check_belts(entries)
 	if OS.get_environment("MP_DEBUG_PROPS") != "":
 		var rows := 0
 		for entry in entries:
 			rows += entry["records"].size()
 		print("[MPBELTS] %d paths, %d rows -> %s" % [entries.size(), rows, got])
+	return true
 
 
 func _hold_mirrored_path(item: Node) -> void:
@@ -210,12 +238,12 @@ func _replace_carry_script(script: Script) -> void:
 func request_pick(record: Dictionary, onto_stack: bool) -> bool:
 	if _pick_pending:
 		return true
-	var state: Variant = record.get("state")
-	if not (state is Dictionary) or not state.has("_mp_belt_seq"):
+	var seq := int(record.get("seq", -1))
+	if not _host_sequences.has(seq):
 		return false
 	_pick_pending = true
 	_pick_stack = onto_stack
-	mp._rx_belt_pick.rpc_id(1, int(state["_mp_belt_seq"]))
+	mp._rx_belt_pick.rpc_id(1, seq)
 	return true
 
 
@@ -263,7 +291,7 @@ func _protect_belt_cleanup(node: Node) -> void:
 		return
 	if not _cleanup_scripts.has(original):
 		var patch := GDScript.new()
-		patch.source_code = "extends %s\nfunc _shed_over_cap() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active():\n\t\tif not session.is_host or not Cfg.auto_clean:\n\t\t\treturn\n\tsuper._shed_over_cap()\nfunc _spill_records() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\trun.clear()\n\t\treturn\n\tsuper._spill_records()\nfunc _keeps_at_seam(r: Rider) -> bool:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and is_instance_valid(downstream) and downstream.is_inside_tree() and not downstream.is_queued_for_deletion():\n\t\tvar body = r.body\n\t\tif is_instance_valid(body) and body.is_inside_tree() and not body.is_queued_for_deletion() and is_same(body.get_meta(LiveStrandManager.META_RIDER, null), self):\n\t\t\treturn true\n\treturn super._keeps_at_seam(r)\n" % JSON.stringify(original.resource_path)
+		patch.source_code = "extends %s\nfunc _shed_over_cap() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active():\n\t\tif not session.is_host or not Cfg.auto_clean:\n\t\t\treturn\n\tsuper._shed_over_cap()\nfunc _spill_records() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\trun.clear()\n\t\treturn\n\tsuper._spill_records()\nfunc _materialize_head() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\treturn\n\tsuper._materialize_head()\nfunc _keeps_at_seam(r: Rider) -> bool:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and is_instance_valid(downstream) and downstream.is_inside_tree() and not downstream.is_queued_for_deletion():\n\t\tvar body = r.body\n\t\tif is_instance_valid(body) and body.is_inside_tree() and not body.is_queued_for_deletion() and is_same(body.get_meta(LiveStrandManager.META_RIDER, null), self):\n\t\t\treturn true\n\treturn super._keeps_at_seam(r)\n" % JSON.stringify(original.resource_path)
 		if patch.reload() != OK:
 			return
 		_cleanup_scripts[original] = patch

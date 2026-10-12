@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.6-xRangerDE.23
+
+Preserve authoritative conveyor cargo on guests and prevent local materialization at machine outlets.
+
+- Match cargo snapshots to the owning building and complete conveyor curve, rather than a nearby pair of endpoints. Keep the previous snapshot when a route is missing or ambiguous, and retry after rebuilding.
+- Import confirmed cargo without running the normal new-item admission test. Preserve product kind, amount, needle, spacing, lateral position, height, speed and host record identity; update native draw events and clocks.
+- Prevent active guests from materializing machine-belt records into local physical duplicates. Host and single-player behavior remains native.
+- Use native host record IDs for guest belt pickup. The current game core does not retain the custom state marker previously used for this request.
+- Invalidate queued cargo and pickup identities when a building update starts.
+
+All players must use this version. Existing saves are retained. Optional third-party add-ons remain separate from this public package.
+
+Validation: 30 accepted offline suites, including 600,000 cargo rows across 30 randomized bulk cycles, 1,203,145 snapshot assertions and 784 materialization/pickup checks. REA/Ghidra inspected the installed native belt core. Tests use translated production methods with explicit engine/native/transport adapters; no game, Godot or GDRE runtime was started.
+
+Still unverified: rendered conveyor and machine physics, the exact reported scanner/press incident, GPU/FPS behavior, the guest crash without a trace, and two-PC Steam/WAN play. This maintenance preview is not a guarantee of complete bug freedom.
+
 ## 0.19.6-xRangerDE.22
 
 Synchronize power-line editing and power groups through authoritative host commands.

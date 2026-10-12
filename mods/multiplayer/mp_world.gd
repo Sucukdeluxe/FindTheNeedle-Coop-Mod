@@ -638,6 +638,8 @@ func _flush_builds() -> void:
 
 
 func on_builds(adds: Array, removes: Array) -> void:
+	if is_instance_valid(belts_sync):
+		belts_sync.invalidate_builds()
 	if is_instance_valid(power_sync):
 		power_sync.invalidate_builds()
 	if builds == null or _frozen:
