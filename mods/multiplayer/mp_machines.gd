@@ -280,7 +280,7 @@ func _walk(n: Node, out: Array) -> void:
 	for child in n.get_children():
 		if out.size() >= MAX_PARTS:
 			return
-		if child is Node3D and not child.is_queued_for_deletion():
+		if child is Node3D and not child.is_queued_for_deletion() and not _is_transport_part(child):
 			out.append(child)
 			_walk(child, out)
 
@@ -1093,6 +1093,10 @@ func _protect_processor(node: Node) -> void:
 	if node.placement_preview:
 		return
 	var original: Script = node.get_script()
+	var saved: Dictionary = _processor_hooks.get(node.get_instance_id(), {})
+	if not saved.is_empty() and original == saved["replacement"]:
+		_refresh_processor_belt(node)
+		return
 	if original == null:
 		return
 	var replacement: Script
@@ -1123,9 +1127,14 @@ func _refresh_processor_belt(node: Node) -> void:
 	var belt: Variant = node.get("_belt")
 	if not is_instance_valid(belt) or not belt.is_inside_tree():
 		return
-	belt.hold_records(Callable(node, "_parks"))
+	var parks := Callable(node, "_parks")
+	if belt.get("_eats") != parks or not bool(belt.get("_records_held")) \
+			or belt.run.hold_for != Callable(belt, "_eats_kind"):
+		belt.hold_records(parks)
 	if node is HayCompressor:
-		belt.set_hold_filter(Callable(node, "_held_in_mouth"))
+		var holds := Callable(node, "_held_in_mouth")
+		if belt.get("_hold_for") != holds:
+			belt.set_hold_filter(holds)
 
 
 func _live_part(key: String, part: Variant) -> bool:
@@ -1134,7 +1143,16 @@ func _live_part(key: String, part: Variant) -> bool:
 		and machine.is_inside_tree() and not machine.is_queued_for_deletion() \
 		and is_instance_valid(part) and part is Node3D \
 		and part.is_inside_tree() and not part.is_queued_for_deletion() \
-		and machine.is_ancestor_of(part)
+		and machine.is_ancestor_of(part) and not _is_transport_part(part)
+
+
+func _is_transport_part(part: Node) -> bool:
+	var current := part
+	while is_instance_valid(current):
+		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut":
+			return true
+		current = current.get_parent()
+	return false
 
 
 func _observe_packet(rejected: bool) -> void:

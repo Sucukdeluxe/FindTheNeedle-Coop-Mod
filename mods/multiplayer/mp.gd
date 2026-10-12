@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.17"
+const VERSION := "0.19.6-xRangerDE.18"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -171,6 +171,7 @@ func _start_world_sync(world: Node) -> void:
 		_mp_world_load = false
 		phase = Phase.IN_WORLD
 		world_sync.place_at_spawn()
+		ui.restore_world_input(world_sync.player)
 		ui.notify(t("connected_yard"))
 		_rx_client_ready.rpc_id(1)
 
@@ -646,6 +647,7 @@ func _rx_world_end() -> void:
 
 
 func _enter_mp_world(payload: Dictionary) -> void:
+	ui.prepare_world_load()
 	_world_watch = null
 	_stop_world_sync()
 	SaveManager.use_scratch_dir(SESSION_DIR)
@@ -661,7 +663,6 @@ func _enter_mp_world(payload: Dictionary) -> void:
 	_mp_world_load = true
 	phase = Phase.LOADING
 	ui.set_status(t("loading_world"))
-	ui.close_panel()
 	Loading.show_screen("FIND THE NEEDLE", t("entering_yard") % player_name(1).to_upper())
 	Loading.enter_scene(GAME_SCENE)
 

@@ -1,6 +1,12 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.17`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.18`, based on upstream 0.19.5.
+
+Machine animation no longer moves belt decks, their collision subtrees or fixed belt-port markers.
+Building diagnostics compare internal machine/lift routes and downstream links as well.
+Failed native prop output keeps its production batch and needles for retry. Host
+construction requests wait for cooperatively prepared previews; joining restores
+player input once after loading, respecting focus, pause and open menus.
 
 Press **M** with the yard vacuum equipped to empty it automatically. Press M again,
 use a mouse button, change tools or open a menu to cancel. Output is limited to

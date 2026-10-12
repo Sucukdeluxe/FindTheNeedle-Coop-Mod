@@ -3,6 +3,7 @@ extends Node
 signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
+const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
 var epoch := ""
@@ -14,6 +15,7 @@ var _queued := {}
 var _last := {}
 var _results := {}
 var _actors := {}
+var _preparing := {}
 var _originals := {}
 var _retry := 0.0
 
@@ -57,14 +59,13 @@ func shutdown() -> void:
 		if is_instance_valid(actor):
 			actor.queue_free()
 	_actors.clear()
+	_preparing.clear()
 	_queue.clear()
+	_queued.clear()
 	pending.clear()
 
 func peer_gone(pid: int) -> void:
-	var actor: Variant = _actors.get(pid)
-	if is_instance_valid(actor):
-		actor.queue_free()
-	_actors.erase(pid)
+	_discard_actor(pid)
 	_results.erase(pid)
 	_last.erase(pid)
 	for i in range(_queue.size() - 1, -1, -1):
@@ -110,9 +111,16 @@ func on_request(peer: int, token: String, seq: int, action: String, args: Dictio
 func _physics_process(_delta: float) -> void:
 	if mp == null or not mp.active() or not mp.is_host or _queue.is_empty():
 		return
-	var entry: Dictionary = _queue.pop_front()
+	var entry: Dictionary = _queue[0]
 	var peer := int(entry.peer)
 	var seq := int(entry.seq)
+	var preparation := 1
+	if mp.players.has(peer) and seq > int(_last.get(peer, 0)) and not world_sync._frozen \
+			and entry.action in ["place", "demolish", "demolish_tile", "reverse"]:
+		preparation = _prepare_build_tool(peer, entry.args)
+		if preparation == 0:
+			return
+	_queue.pop_front()
 	_queued.erase(str(peer) + ":" + str(seq))
 	if not mp.players.has(peer):
 		return
@@ -121,7 +129,9 @@ func _physics_process(_delta: float) -> void:
 		return
 	var before := float(GameState.money)
 	executing = true
-	var result := _failure("economy_wait") if world_sync._frozen else _execute(peer, entry.action, entry.args)
+	var result := _failure("economy_wait")
+	if not world_sync._frozen:
+		result = _failure("purchase_declined") if preparation < 0 else _execute(peer, entry.action, entry.args)
 	executing = false
 	result["money_change"] = float(GameState.money) - before
 	result["action"] = entry.action
@@ -239,7 +249,7 @@ func _actor(peer: int, args: Dictionary) -> Player:
 	if not is_instance_valid(actor):
 		actor = load(mp.base_dir + "/mp_build_actor.gd").new()
 		actor.name = "MPBuildActor" + str(peer)
-		actor.defer_tools = false
+		actor.defer_tools = true
 		actor.camera = Camera3D.new()
 		actor.add_child(actor.camera)
 		actor.warehouse = world_sync.world.warehouse
@@ -249,6 +259,33 @@ func _actor(peer: int, args: Dictionary) -> Player:
 	actor.global_transform = body.orthonormalized()
 	actor.camera.global_transform = camera.orthonormalized()
 	return actor
+
+func _discard_actor(peer: int) -> void:
+	var actor: Variant = _actors.get(peer)
+	if is_instance_valid(actor):
+		actor.queue_free()
+	_actors.erase(peer)
+	_preparing.erase(peer)
+
+func _prepare_build_tool(peer: int, args: Dictionary) -> int:
+	var actor := _actor(peer, args)
+	if not is_instance_valid(actor):
+		return -1
+	if not _preparing.has(peer):
+		_preparing[peer] = Time.get_ticks_msec()
+	var tool := _build_tool(actor)
+	if not is_instance_valid(tool) or tool.is_queued_for_deletion() or not tool.is_inside_tree() \
+			or not ("previews_ready" in tool):
+		_discard_actor(peer)
+		return -1
+	if bool(tool.previews_ready):
+		_preparing.erase(peer)
+		return 1
+	if Time.get_ticks_msec() - int(_preparing[peer]) >= BUILD_PREPARE_TIMEOUT_MSEC:
+		push_warning("[MP] Build preview preparation timed out")
+		_discard_actor(peer)
+		return -1
+	return 0
 
 func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	if args.has("inputs") and not (args.inputs is Dictionary):

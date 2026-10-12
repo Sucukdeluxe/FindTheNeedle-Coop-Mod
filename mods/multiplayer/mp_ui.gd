@@ -60,6 +60,8 @@ var _chat_edit: LineEdit
 var _roster: RichTextLabel
 var _roster_on := false
 var _mouse_was_captured := false
+var _mouse_release_active := false
+var _mouse_restore_player: WeakRef
 
 # last notification, so the same message twice counts up instead of stacking
 var _last_note: Control = null
@@ -679,9 +681,24 @@ func _world_player() -> Node:
 	return null
 
 
+func _mouse_overlay_open() -> bool:
+	if (_root != null and _root.visible) or (_chat_box != null and _chat_box.visible):
+		return true
+	if mp.world_sync != null:
+		var menu: Variant = mp.world_sync.world.get("debug_menu")
+		if is_instance_valid(menu) and menu.has_method("is_open") and menu.is_open():
+			return true
+	return false
+
+
 func _release_mouse() -> void:
 	var p := _world_player()
-	_mouse_was_captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if not _mouse_release_active and _mouse_restore_player == null:
+		_mouse_was_captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		if p != null and p.has_method("is_mouse_captured"):
+			_mouse_was_captured = _mouse_was_captured or p.is_mouse_captured()
+	_mouse_release_active = true
+	_mouse_restore_player = null
 	if p != null and p.has_method("capture_mouse"):
 		p.capture_mouse(false)
 	else:
@@ -689,11 +706,55 @@ func _release_mouse() -> void:
 
 
 func _restore_mouse() -> void:
+	if _mouse_overlay_open():
+		return
+	_mouse_release_active = false
 	if not _mouse_was_captured:
 		return
 	var p := _world_player()
 	if p != null and p.has_method("capture_mouse"):
-		p.capture_mouse(true)
+		_mouse_restore_player = weakref(p)
+		_try_restore_mouse()
+
+
+func _try_restore_mouse() -> void:
+	if _mouse_restore_player == null:
+		return
+	var p: Node = _mouse_restore_player.get_ref()
+	if not is_instance_valid(p) or p != _world_player() or not p.is_inside_tree():
+		_mouse_restore_player = null
+		return
+	if _mouse_overlay_open() or Loading.is_active() or get_tree().paused or not get_window().has_focus():
+		return
+	if bool(p.get("scripted")) or (p.has_method("cursor_is_held") and p.cursor_is_held()):
+		return
+	p.capture_mouse(true)
+	if p.has_method("is_mouse_captured") and not p.is_mouse_captured():
+		return
+	_mouse_restore_player = null
+	_mouse_was_captured = false
+	_mouse_release_active = false
+
+
+func prepare_world_load() -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused != null and is_ancestor_of(focused):
+		focused.release_focus()
+	_root.visible = false
+	_chat_box.visible = false
+	_mouse_restore_player = null
+	_mouse_was_captured = false
+	_mouse_release_active = false
+
+
+func restore_world_input(p: Node) -> void:
+	if not is_instance_valid(p) or not p.has_method("capture_mouse"):
+		return
+	_mouse_was_captured = true
+	_mouse_restore_player = weakref(p)
+	if _mouse_overlay_open():
+		p.capture_mouse(false)
+	_try_restore_mouse()
 
 
 func open_panel() -> void:
@@ -868,6 +929,7 @@ func _forget_note() -> void:
 # session state instead: it is a handful of reads and it also catches the host
 # dropping back to the menu.
 func _process(delta: float) -> void:
+	_try_restore_mouse()
 	if _wait == null:
 		return
 	_wait_clock += delta

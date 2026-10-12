@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.17
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.18
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -22,11 +22,20 @@ SAUGER AUTOMATISCH LEEREN
 - Die neue Funktion ist offline geprüft, noch nicht im laufenden V62-Multiplayer.
 
 ANSCHLÜSSE UND NEU GEBAUTE MASCHINEN
+- Maschinenanimationen verändern keine Bandflächen oder festen Anschlussmarker.
+- Fehlschlagende Produktionsausgaben behalten Charge und Nadeln für einen neuen Versuch.
+- Die Diagnose berücksichtigt auch interne Maschinen- und Liftverbindungen.
 - Lift-Reichweite, Sockelhöhe, Maschinenstufe und Band-Anschlussmarkierung
   werden beim Bauabgleich berücksichtigt.
 - Der Schutz von Presse und Wickler greift nach dem Aufbau ihrer internen Bänder
   und beim endgültigen Platzieren. Der tatsächliche V62-Übergang bleibt im Spiel
   nachzuprüfen; ein Offline-Test bestätigt keine fehlerfreie Physik.
+
+BEITRITT UND ERSTE BAUAKTION
+- Die Steuerung wird nach dem Laden unter Beachtung von Fensterfokus, Pause
+  und offenen Menüs einmalig wiederhergestellt.
+- Bauaktionen warten auf vorbereitete Vorschauen, statt alle Vorschauen
+  während der ersten Transaktion synchron zu erzeugen.
 
 QUESTS, KÄUFE UND PERSÖNLICHE WERKZEUGE
 - „Herholen“ im Shop versetzt bestehende Gegenstände über den Host und löst

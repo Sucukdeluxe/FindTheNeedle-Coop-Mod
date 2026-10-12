@@ -740,16 +740,47 @@ func _build_digest() -> int:
 		return 0
 	for data in builds.to_array():
 		rows.append(_bkey(data))
-	for path in builds.conveyors + builds.corners:
-		if not is_instance_valid(path) or not path.is_inside_tree():
-			continue
-		var points := PackedStringArray()
-		for point in path._line:
-			points.append(_qv(point))
-		rows.append("path:" + ";".join(points))
+	var keys := {}
+	for path in BeltPath._live:
+		if _diagnostic_path_live(path):
+			keys[path] = _diagnostic_path_key(path)
+	for path in keys:
+		var next: Variant = path.downstream
+		var onward := "none"
+		if is_instance_valid(next) and next is BeltPath:
+			onward = str(keys[next]) if keys.has(next) else "untracked:" + _diagnostic_path_key(next)
+		rows.append("path:" + str(keys[path]) + "->" + onward)
 	rows.sort()
 	return hash(rows)
 
+
+func _diagnostic_path_live(path: Variant) -> bool:
+	if not is_instance_valid(path) or not (path is BeltPath) or not path.is_inside_tree() or path.is_queued_for_deletion():
+		return false
+	var node: Node = path
+	while is_instance_valid(node):
+		if node.is_queued_for_deletion() or ("placement_preview" in node and bool(node.get("placement_preview"))):
+			return false
+		if node == world:
+			return true
+		node = node.get_parent()
+	return false
+
+
+func _diagnostic_path_key(path: BeltPath) -> String:
+	var points := PackedStringArray()
+	for point in path._line:
+		points.append(_qv(point))
+	var build_key := ""
+	var node: Node = path
+	while is_instance_valid(node) and node != world:
+		if node.has_method("to_dict"):
+			var data: Variant = node.to_dict()
+			if data is Dictionary and data.has("type"):
+				build_key = _bkey(data)
+				break
+		node = node.get_parent()
+	return build_key + ":" + ";".join(points)
 
 func on_build_digest(digest: int) -> void:
 	if not _is_client() or _frozen or _applying_builds or _builds_dirty:
