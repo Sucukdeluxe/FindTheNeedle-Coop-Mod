@@ -1,11 +1,15 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.29`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.30`, based on upstream 0.19.5.
 
-This revision fixes five V62 script compilation errors, including the press/wrapper
-needle rollback, and retries the multiplayer-menu hook after the initial language
-selection. All 42 multiplayer scripts are preloaded so startup checks cover the
-full shipped module set.
+Shop purchases now check the item's actual collision shapes before publishing it.
+If the usual drop point is occupied, the host looks for nearby free space.
+Same-frame purchases reserve their accepted spaces; a purchase with no free
+position is removed before replication and refunded in full. Personal tools
+still use the existing inventory path.
+
+The V62 compilation and initial-language menu fixes remain included. All 42
+multiplayer scripts compile with the current V62 executable.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling
 and prop cleanup by its current carrier ownership. Original temporary hold
@@ -63,7 +67,9 @@ and conveyor seat markers. Replicated straight belts preserve their machine-seat
 marker. Press/wrapper protection is installed after their native setup and when
 a build preview is finalized. Native V62 tests cover scanner/feeder alignment after saving and loading,
 lift record transport under backpressure, and press/wrapper release methods.
-The original reported machine layouts still need a full production run.
+Additional native tests now cover the full press → wrapper → scanner chain,
+a 90° output curve, backpressure and both scanner tiers. The exact original
+reported save layouts still need reproduction.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes
@@ -101,17 +107,24 @@ are checked before application, and stale parts/materials cannot receive cached
 animation or effect updates. These safeguards do not establish the cause of the
 reported guest crash; the guest log and native runtime confirmation are still missing.
 
-**Maintenance preview:** checked with the current V62 executable. All 42 scripts
-compile. Native press/wrapper tests passed 1,065 assertions; isolated transport
-and intake tests passed 509 assertions, including real physics frames for 24
-objects through 45°, 90° and 135° curves. Three local game processes passed
-72 tool, 216 transaction and 607 quest checks under injected network faults.
-The quest checks cover all 46 steps with controlled triggers. An offscreen rendered
-benchmark passed 81 checks with 24, 240 and 1,200 cargo records; the detailed-hay
-rendering costs additional GPU work. Native resource warnings at exit and a physics
-contact limit reached by the dense purchase fixture remain unresolved. These checks do not reproduce every original save layout,
-a complete scanner production cycle, or the historical guest crash. Two-PC
-Steam/WAN validation remains outstanding. Use the same mod version on every peer.
+**Maintenance preview:** the current V62 engine compiles all 42 scripts. The new
+shop-placement checks pass 23 native assertions and 216 transaction checks with
+three local processes under injected packet loss, duplication and delay. They
+cover occupied space, simultaneous purchases, refunds and world reloads.
+
+Native production tests pass 1,860 assertions across eight chain runs, delivering
+192 complete wrapped bales and recovering all 24 injected needles. Physical
+feeding waits for enough space at the inlet. Deliberately dropping another tuft
+onto an occupied inlet invokes the game's native "No room" ejection; that behavior
+is not changed by this revision. Lift and stairs tests pass 281 single-body and
+76 mixed-load checks, plus 5,780 material-ledger checks, including a ten-section
+lift, blocked outputs and resumption.
+
+These controlled scenes do not reproduce every original save layout or the
+historical guest crash. Native shutdown resource warnings remain, and two-PC
+Steam/WAN testing is outstanding. The previous offscreen benchmark showed
+additional GPU cost for detailed hay; no gameplay-FPS guarantee is implied.
+Use the same mod version on every peer.
 
 Raw hay now waits at the press intake for consumption, including newly created
 physical tufts that are temporarily absent from collision queries. The press

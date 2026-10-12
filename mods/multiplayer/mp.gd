@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.29"
+const VERSION := "0.19.6-xRangerDE.30"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000

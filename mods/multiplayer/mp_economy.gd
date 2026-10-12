@@ -18,6 +18,7 @@ var _actors := {}
 var _preparing := {}
 var _originals := {}
 var _retry := 0.0
+var _purchase_spots: Array = []
 
 func start(session: Node, sync: Node) -> void:
 	mp = session
@@ -60,6 +61,7 @@ func shutdown() -> void:
 			actor.queue_free()
 	_actors.clear()
 	_preparing.clear()
+	_purchase_spots.clear()
 	_queue.clear()
 	_queued.clear()
 	pending.clear()
@@ -357,13 +359,105 @@ func _buy(peer: int, actor: Player, args: Dictionary) -> Dictionary:
 			GameState.add_money(price)
 			return _failure("purchase_declined")
 	else:
-		var item: Variant = world_sync.props_sync.props.spawn_at_feet(id, actor)
+		var item: Variant = _spawn_purchase(id, actor)
 		if not is_instance_valid(item):
 			GameState.add_money(price)
 			return _failure("purchase_declined")
 		Tech.note_bought(id)
 	GameState.note_purchase("tool", id, 0, price)
 	return {"ok": true}
+
+func _spawn_purchase(id: String, actor: Player) -> Carryable:
+	var props: Node = world_sync.props_sync.props
+	var blocked := props.is_blocking_signals()
+	props.set_block_signals(true)
+	var item: Carryable = props.spawn_at_feet(id, actor)
+	if not is_instance_valid(item):
+		props.set_block_signals(blocked)
+		return null
+	if not _place_purchase(item, actor):
+		props.remove(item)
+		props.set_block_signals(blocked)
+		return null
+	props.set_block_signals(blocked)
+	if not blocked:
+		props.emit_signal("item_added", item)
+		props.emit_signal("changed")
+	return item
+
+func _purchase_shapes(item: Carryable) -> Array:
+	var shapes: Array = []
+	for owner in item.get_shape_owners():
+		if item.is_shape_owner_disabled(owner):
+			continue
+		for index in item.shape_owner_get_shape_count(owner):
+			var shape: Shape3D = item.shape_owner_get_shape(owner, index)
+			if shape == null:
+				continue
+			shapes.append({"shape": shape, "transform": item.shape_owner_get_transform(owner)})
+	return shapes
+
+func _place_purchase(item: Carryable, actor: Player) -> bool:
+	var shapes := _purchase_shapes(item)
+	if shapes.is_empty():
+		return false
+	var bounds: AABB
+	for index in shapes.size():
+		var local_bounds: AABB = shapes[index].transform * shapes[index].shape.get_debug_mesh().get_aabb()
+		bounds = local_bounds if index == 0 else bounds.merge(local_bounds)
+	bounds = bounds.grow(0.025)
+	var frame := Engine.get_physics_frames()
+	for index in range(_purchase_spots.size() - 1, -1, -1):
+		var previous: Variant = _purchase_spots[index]
+		var previous_item: Variant = previous.item.get_ref()
+		if not is_instance_valid(previous_item) or previous_item.is_queued_for_deletion() or frame > int(previous.frame) + 2:
+			_purchase_spots.remove_at(index)
+	var desired := item.global_transform
+	var space := actor.get_world_3d().direct_space_state
+	var exclude: Array[RID] = [actor.get_rid(), item.get_rid()]
+	var mask: int = Cfg.L_WORLD | Cfg.L_BUILD | Cfg.L_PROP | Cfg.L_PILE
+	var step := clampf(maxf(bounds.size.x, bounds.size.z) + 0.1, 0.5, 1.0)
+	var offsets: Array[Vector3] = [Vector3.ZERO]
+	for ring in 3:
+		var radius := step * float(ring + 1)
+		for index in 8:
+			var angle := float(index) * TAU / 8.0
+			offsets.append(Vector3(cos(angle) * radius, 0.0, sin(angle) * radius))
+	for offset in offsets:
+		var candidate := desired
+		candidate.origin += offset
+		var chest := actor.global_position + Vector3.UP * 0.9
+		var ray := PhysicsRayQueryParameters3D.create(chest, candidate.origin + Vector3.UP * 0.15, Cfg.L_WORLD | Cfg.L_BUILD, exclude)
+		if not space.intersect_ray(ray).is_empty():
+			continue
+		var candidate_bounds: AABB = candidate * bounds
+		var occupied := false
+		for previous in _purchase_spots:
+			var previous_item: Variant = previous.item.get_ref()
+			if not is_instance_valid(previous_item):
+				continue
+			var previous_bounds: AABB = previous_item.global_transform * previous.bounds
+			if candidate_bounds.intersects(previous_bounds):
+				occupied = true
+				break
+		if occupied:
+			continue
+		for entry in shapes:
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = entry.shape
+			query.transform = candidate * entry.transform
+			query.collision_mask = mask
+			query.exclude = exclude
+			query.margin = 0.025
+			if not space.intersect_shape(query, 1).is_empty():
+				occupied = true
+				break
+		if occupied:
+			continue
+		item.global_transform = candidate
+		_purchase_spots.append({"item": weakref(item), "bounds": bounds, "frame": frame})
+		return true
+	return false
 
 func _sell(actor: Player, args: Dictionary) -> Dictionary:
 	if not world_sync.world.shop.is_near(actor.global_position):

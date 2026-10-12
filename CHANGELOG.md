@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.30
+
+Prevent shop purchases from creating overlapping physical objects.
+
+- Check the purchased item's native solid collision shapes against nearby obstacles and props. Try bounded nearby positions when the original drop point is occupied.
+- Reserve accepted positions for purchases in the same physics frame. Publish item-added and changed signals only after successful placement.
+- Remove unplaced provisional objects and refund their full price. Keep personal-tool inventory purchases and save formats unchanged.
+- Retain the V62 compilation, menu, conveyor and production fixes from earlier maintenance versions.
+
+Validation: all 42 scripts compile; 23 native shop-placement checks and 216 transaction checks across three local processes pass. Network tests include packet loss, duplicates, concurrent purchases, insufficient space and world reloads. The native contact-limit warning was reproduced without the mod using 63 overlapping buckets; it does not occur in the corrected purchase run. This does not remove the engine's finite physics limits.
+
+Additional native transport validation passes 1,860 assertions across eight full press/wrapper/scanner chains, delivering 192 wrapped bales and all 24 injected needles. Physical input is admitted only when the inlet has space. A separate overfill case confirms that the native game deliberately ejects a newly dropped tuft from an occupied inlet; this revision does not change that behavior. Lift/stairs validation passes 281 single-body checks, 76 mixed-load checks and 5,780 material-ledger checks, including ten-section lifts, blocked outputs and resumption.
+
+The exact historical save layouts, the reported guest crash without a trace, and two-PC Steam/WAN play remain unverified. Native shutdown resource warnings remain. This is a maintenance preview, not a guarantee of complete bug freedom.
+
 ## 0.19.6-xRangerDE.29
 
 Fix V62 script compilation and restore the multiplayer menu after initial language selection.

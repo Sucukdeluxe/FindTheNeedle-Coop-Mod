@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.29
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.30
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -48,6 +48,9 @@ BEITRITT UND ERSTE BAUAKTION
   während der ersten Transaktion synchron zu erzeugen.
 
 QUESTS, KÄUFE UND PERSÖNLICHE WERKZEUGE
+- Gekaufte Gegenstände werden an einer freien Stelle in der Nähe abgelegt.
+  Gleichzeitige Käufe reservieren ihren Platz. Fehlt freier Platz, wird der
+  Kauf vollständig erstattet und kein Gegenstand bei den Gästen erzeugt.
 - „Herholen“ im Shop versetzt bestehende Gegenstände über den Host und löst
   deren alte Bandzuordnung. Getragene oder von Maschinen benutzte Gegenstände
   werden nicht hergeholt.
@@ -152,14 +155,20 @@ WEITERE SYNCHRONISIERUNG
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
 PRÜFUMFANG
-Diese Fassung wurde ohne Spiel- oder Engine-Start geprüft: GDScript-Grammatik
-und ausgewählte Produktionsfunktionen über einen Python-Adapter mit Engine-Stubs.
-Frühere Fassungen hatten lokale Mehrspielertests mit simulierten Paketverlusten;
-diese ersetzen keinen Laufzeittest der jetzigen Änderungen. Presse/Wickler,
-scharfe Kurven, Verkaufsübergang, Grafikleistung und der gemeldete Gastabsturz
-sind weiterhin nicht durch aktuelle Laufzeittests bestätigt.
-Ein Test über zwei getrennte Steam-Konten und unterschiedliche Internetanschlüsse
-steht weiterhin aus. Fehlerfreiheit für sämtliche Spielzustände ist nicht garantiert.
+Alle 42 Mod-Skripte kompilieren mit der aktuellen V62-Engine. Die neue Kaufablage
+besteht 23 native Prüfungen und 216 Transaktionsprüfungen mit drei lokalen
+Spielprozessen, einschließlich Paketverlust, Duplikaten und Welt-Neuladen.
+Acht Produktionsketten bestehen 1.860 Prüfungen: 192 gewickelte Ballen und alle
+24 eingebrachten Nadeln kommen an. Geprüft sind beide Scannerstufen, gedrehte
+Aufbauten, eine 90°-Auslaufkurve, Rückstau und Wiederanlauf. Physisches Heu wird
+nur bei ausreichend freiem Einlass aufgelegt. Wird ein weiterer Haufen bewusst
+auf einen belegten Einlass geworfen, stößt ihn das native Spiel mit „Kein Platz“
+ab. Dieses Überfüllungsverhalten wird nicht geändert.
+Lift und Heutreppe bestehen 281 Einzelkörperprüfungen, 76 Prüfungen gemischter
+Ladung und 5.780 Mengenabgleiche, auch mit zehn Liftsektionen und blockiertem Auslauf.
+Die ursprünglichen Problemspielstände und der frühere Gastabsturz sind damit
+nicht vollständig reproduziert. Native Ressourcenwarnungen beim Beenden und
+der Test über zwei Rechner mit getrennten Steam-Konten bleiben offen.
 
 Der Host führt Maschinen und Spielstand. Gäste speichern den gemeinsamen Hof
 nicht in ihre eigenen Spielstände. Öffentliche Bestenlisten bleiben deaktiviert.
@@ -189,5 +198,5 @@ AUTOMATISCHE FEHLERDIAGNOSE
 - Die Diagnose selbst ändert keine Spielstände, wiederholt keine Käufe und löst
   keinen vollständigen Welt-Neuladevorgang aus. Bestehende Synchronisations- und
   Reparaturmechanismen bleiben aktiv.
-- Diese Fassung wurde ohne Spielstart auf Syntax und isolierte Diagnoselogik
-  geprüft. Eine neue Prüfung in einer laufenden Mehrspielersitzung steht aus.
+- Die Diagnose läuft in den lokalen Mehrspielertests mit. Ein Test über zwei
+  getrennte Rechner und Internetanschlüsse steht weiterhin aus.

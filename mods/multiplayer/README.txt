@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.29
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.30
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -91,3 +91,6 @@ CREDITS
 Visual fix: loose hay on belts keeps its detailed geometry at distance. Normal
 perspective still makes distant objects smaller. Large visible belt networks
 can require more GPU work. This maintenance preview needs further two-PC testing.
+
+Physical shop purchases use nearby free space and same-frame reservations.
+If no space is available, the purchase is fully refunded before replication.
