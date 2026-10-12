@@ -3,6 +3,10 @@ extends Node
 const TOOL_IDS := ["spade", "pitchfork", "broom", "sand_shovel", "metal_detector", "yard_vac", "lighter"]
 var mp: Node
 var player: Node
+var _vacuum_enabled := false
+var _vacuum: Node
+var _vacuum_original: Script
+var _vacuum_replacement: Script
 var original: Script
 var epoch := ""
 var _observed := {}
@@ -21,6 +25,8 @@ func start(session: Node, world: Node) -> void:
 	original = player.get_script()
 	_replace(load(mp.base_dir + "/mp_player.gd"))
 	player.mp_tools = self
+	_vacuum_enabled = true
+	_install_vacuum()
 	_observed = _local()
 	diagnostic_inventory = _observed.duplicate()
 	if mp.is_host:
@@ -39,6 +45,14 @@ func _replace(script: Script) -> void:
 			player.set(key, values[key])
 
 func shutdown() -> void:
+	_vacuum_enabled = false
+	if is_instance_valid(_vacuum) and _vacuum.get_script() == _vacuum_replacement:
+		_vacuum.mp_cancel_dump()
+		_vacuum.mp_release_flights()
+		_replace_vacuum(_vacuum_original)
+	_vacuum = null
+	_vacuum_original = null
+	_vacuum_replacement = null
 	if GameState.tools_changed.is_connected(_changed):
 		GameState.tools_changed.disconnect(_changed)
 	if is_instance_valid(player) and original != null:
@@ -126,6 +140,8 @@ func _send_pending() -> void:
 		mp._rx_tools_request.rpc_id(1, epoch, int(seq), change.added, change.removed)
 
 func _process(delta: float) -> void:
+	if _vacuum_enabled and not is_instance_valid(_vacuum) and is_instance_valid(player):
+		_install_vacuum()
 	if mp == null or not mp.active() or mp.is_host or _pending.is_empty():
 		return
 	_retry += delta
@@ -225,3 +241,52 @@ func accept_result(seq: int, _result: Dictionary) -> void:
 
 func reset_actions() -> void:
 	_actions.clear()
+
+func _install_vacuum() -> void:
+	var vacuum: Variant = player.get("yard_vac")
+	if not is_instance_valid(vacuum):
+		return
+	var script: Script = vacuum.get_script()
+	if script == null or script.resource_path != "res://scripts/tools/yard_vac.gd":
+		return
+	_vacuum = vacuum
+	_vacuum_original = script
+	_vacuum_replacement = load(mp.base_dir + "/mp_yard_vac.gd")
+	_replace_vacuum(_vacuum_replacement)
+	_vacuum.mp_tools = self
+
+func _replace_vacuum(script: Script) -> void:
+	var values := {}
+	for property in _vacuum.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = _vacuum.get(property.name)
+	_vacuum.set_script(script)
+	for key in values:
+		if key in _vacuum:
+			_vacuum.set(key, values[key])
+
+func _input(event: InputEvent) -> void:
+	if not is_instance_valid(_vacuum) or _vacuum.get_script() != _vacuum_replacement:
+		return
+	if event is InputEventMouseButton and event.pressed:
+		_vacuum.mp_cancel_dump()
+		return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.physical_keycode != KEY_M:
+		return
+	if not mp.active() or not is_instance_valid(player) or player.menu_is_up() or not player.is_mouse_captured():
+		return
+	if not _vacuum.get("_active") or not _vacuum.is_loaded():
+		return
+	if _vacuum.mp_dump_all:
+		_vacuum.mp_cancel_dump()
+	else:
+		_vacuum.mp_dump_all = true
+	get_viewport().set_input_as_handled()
+
+func owns_poured_heap(heap: Node) -> bool:
+	if mp == null or not mp.active() or not heap.has_meta("mp_id"):
+		return true
+	var props: Node = mp.world_sync.props_sync
+	return is_instance_valid(props) and props._mine(int(heap.get_meta("mp_id")))

@@ -115,6 +115,7 @@ var _edit_t := 0.0
 var _mouth_t := 0.0
 var _pending_settings := {}
 var _processor_hooks := {}
+var _processors_enabled := false
 var _theirs := {}   # guest: key -> the settings as the host last stated them
 var _alias := {}    # a key from the host -> our key for the same machine
 var _rescan_at := -100000  # msec, last rescan forced by a key we did not know
@@ -129,13 +130,18 @@ func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
 	builds = world.get("builds")
-	get_tree().node_added.connect(_protect_processor)
+	_processors_enabled = true
+	get_tree().node_added.connect(_processor_added)
+	builds.changed.connect(_protect_processors)
 	_rescan()
 
 
 func shutdown() -> void:
-	if get_tree().node_added.is_connected(_protect_processor):
-		get_tree().node_added.disconnect(_protect_processor)
+	_processors_enabled = false
+	if is_instance_valid(builds) and builds.changed.is_connected(_protect_processors):
+		builds.changed.disconnect(_protect_processors)
+	if get_tree().node_added.is_connected(_processor_added):
+		get_tree().node_added.disconnect(_processor_added)
 	for saved in _processor_hooks.values():
 		var node: Variant = saved["node"].get_ref()
 		if is_instance_valid(node) and node.get_script() == saved["replacement"]:
@@ -1066,8 +1072,25 @@ func _part_name(n: Node) -> String:
 	return "%s#%d" % [n.get_class(), seen]
 
 
+func _protect_processors() -> void:
+	for group in ["compressors", "wrappers"]:
+		var nodes: Variant = builds.get(group)
+		if nodes is Array:
+			for node in nodes:
+				_protect_processor(node)
+
+
+func _processor_added(node: Node) -> void:
+	if node is HayCompressor or node is HayWrapper:
+		_protect_processor.call_deferred(node)
+
+
 func _protect_processor(node: Node) -> void:
+	if not _processors_enabled or not is_instance_valid(node) or not node.is_inside_tree() or not node.is_node_ready() or node.is_queued_for_deletion():
+		return
 	if not (node is HayCompressor or node is HayWrapper):
+		return
+	if node.placement_preview:
 		return
 	var original: Script = node.get_script()
 	if original == null:

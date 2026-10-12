@@ -45,7 +45,7 @@ const BUILD_ARRAYS := ["conveyors", "corners", "water_mains", "water_splitters",
 	"pelletizers", "generators", "boreholes", "tube_launchers", "dump_hatches",
 	"hay_stairs", "hay_lifts", "splitters", "joiners", "cabinets", "needle_radars",
 	"paint_boards", "work_lamps", "hay_drones", "piston_rakes", "power_poles"]
-const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried"]
+const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried", "port_reach", "riser", "tier", "seat"]
 
 # Settings the game keeps in a save's meta and reads back when it loads one,
 # as { the name on Cfg: the name in the meta }. The guest builds its yard out
@@ -847,6 +847,8 @@ func _add_buildings(dicts: Array) -> void:
 		await _restore_buildings(other)
 	for d in normal:
 		var belt: Node = builds.add_conveyor(d["a"], d["b"], int(d.get("line", 0)))
+		if belt != null and d.get("seat") is Vector3:
+			belt.seat_port = d["seat"]
 		if belt != null and d.has("paid"):
 			belt.paid_cost = float(d["paid"])
 	if not normal.is_empty():

@@ -1,6 +1,18 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.16`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.17`, based on upstream 0.19.5.
+
+Press **M** with the yard vacuum equipped to empty it automatically. Press M again,
+use a mouse button, change tools or open a menu to cancel. Output is limited to
+64 strands per 0.1 seconds and waits when the aimed belt or container is full.
+Container output uses physical straw instead of changing a guest's local stock.
+The old standalone `drop_all.gd` is not required.
+
+Building reconciliation now includes lift port reach, riser height, machine tier
+and conveyor seat markers. Replicated straight belts preserve their machine-seat
+marker. Press/wrapper protection is installed after their native setup and when
+a build preview is finalized. These address specific code defects; the reported
+V62 scanner/lift geometry and press behavior still require an in-game check.
 
 The ZIP does not replace `override.cfg`; retain your existing renderer and other mod settings.
 Includes automatic building reconciliation, guest quest completion, and fixes

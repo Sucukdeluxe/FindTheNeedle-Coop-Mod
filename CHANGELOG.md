@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.19.6-xRangerDE.17 (maintenance preview)
+
+Add an integrated M-key vacuum dump and preserve more machine connection data during replication.
+
+- Automatically pour from the equipped vacuum with bounded output, cancellation and full-target backpressure. Use physical straw for container delivery, reserve in-flight capacity and avoid merging into another peer's heap. The standalone Drop All script is no longer needed.
+- Include lift port reach, riser height, machine tier and conveyor seat markers in building comparison; retain seat markers when creating replicated straight belts.
+- Install press/wrapper protection after native node setup and final placement, skip previews, and reject deferred installation after shutdown.
+- Preserve existing save data. All peers need the same version.
+
+Validation uses GDScript grammar checks and direct production-method translation with explicit native/engine stubs. It covers input, bounded output, conservation, full targets, ownership, connection keys and machine lifecycle, plus the existing offline transaction, drone, transport and diagnostic suites. No game, Godot or GDRE runtime was launched.
+
+The specific V62 scanner/lift alignment and raw hay report are not reproduced in native gameplay. Native physics, two-PC Steam/WAN behavior and the previously reported guest crash remain unverified.
+
+
 ## v0.19.6-xRangerDE.16 (maintenance preview)
 
 Shop retrieval, personal tools and quest action tracking now use confirmed host transactions more consistently.

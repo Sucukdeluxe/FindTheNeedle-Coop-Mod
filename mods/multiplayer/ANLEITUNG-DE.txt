@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.16
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.17
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,21 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+SAUGER AUTOMATISCH LEEREN
+- Sauger ausrüsten und M drücken. Erneut M, eine Maustaste, Werkzeugwechsel
+  oder ein geöffnetes Menü brechen ab.
+- Ausgabe: höchstens 64 Halme je 0,1 Sekunden; volle Ziele halten die Ausgabe an.
+- Behälter erhalten physisches Heu. Es wird kein fremder lokaler Füllstand geändert.
+- Die alte separate drop_all.gd wird nicht benötigt und sollte entfernt werden.
+- Die neue Funktion ist offline geprüft, noch nicht im laufenden V62-Multiplayer.
+
+ANSCHLÜSSE UND NEU GEBAUTE MASCHINEN
+- Lift-Reichweite, Sockelhöhe, Maschinenstufe und Band-Anschlussmarkierung
+  werden beim Bauabgleich berücksichtigt.
+- Der Schutz von Presse und Wickler greift nach dem Aufbau ihrer internen Bänder
+  und beim endgültigen Platzieren. Der tatsächliche V62-Übergang bleibt im Spiel
+  nachzuprüfen; ein Offline-Test bestätigt keine fehlerfreie Physik.
 
 QUESTS, KÄUFE UND PERSÖNLICHE WERKZEUGE
 - „Herholen“ im Shop versetzt bestehende Gegenstände über den Host und löst
