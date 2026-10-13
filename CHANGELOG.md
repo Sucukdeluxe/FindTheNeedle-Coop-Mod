@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.19.6-xRangerDE.35
+
+Make technology replication host-authoritative and validate loose-straw ownership.
+
+- Reject guest-published technology ranks and remove the legacy refund path that could credit money without a purchase.
+- Apply valid host rank reductions as well as upgrades, keeping the technology tree consistent.
+- Accept loose-straw movement and deletion only from the recorded owner.
+- Confirm straw positions with periodic reliable snapshots and reject older movement sequences, so missed final motion can recover automatically.
+- Reject malformed straw additions, invalid transforms or rotations, and oversized update batches.
+- Retain the host-checked purchase flow and existing save format. Every player needs the same mod version.
+
+Validation: 45 GDScripts compile in the V62 engine. Three isolated local processes pass 69 ownership/technology/reliable-position checks, 216 purchase checks, 607 quest-synchronization checks and 178 floor-hay checks, with injected packet loss, duplication and latency.
+
+The existing three-process press → wrapper → scanner → curve → selling-stand regression also passes all 181 checks, including rebuilds and resynchronization.
+
+The historical guest crash without a matching trace, two-PC Steam/WAN play and full visible gameplay frame times remain unverified. Native dummy-renderer diagnostics during reload/tool handling and resource warnings at shutdown remain; these controlled tests do not establish complete bug freedom.
+
 ## 0.19.6-xRangerDE.34
 
 Synchronize drone collection and status through the host.

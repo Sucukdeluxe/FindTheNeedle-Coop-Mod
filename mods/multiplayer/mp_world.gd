@@ -1213,44 +1213,39 @@ func _emit_state_signals(before: Dictionary) -> void:
 # a grant (bundled cards, rewards) never records one. So collect this frame's
 # changes and send them at the end of it, marked bought or granted.
 func _on_tech_changed(id: String, rank: int) -> void:
-	if _tech_mute or not mp.active() or _frozen:
+	if _tech_mute or not mp.active() or not mp.is_host or _frozen:
 		return
 	_tech_queue[id] = rank
 
 
 func _on_purchased(kind: String, id: String) -> void:
-	if kind == "card":
+	if kind == "card" and mp.is_host:
 		_tech_paid[id] = true
 
 
 func _flush_tech() -> void:
+	if not mp.is_host:
+		_tech_queue.clear()
+		_tech_paid.clear()
+		return
 	for id in _tech_queue:
 		mp._rx_tech.rpc(String(id), int(_tech_queue[id]), bool(_tech_paid.get(id, false)))
 	_tech_queue.clear()
 	_tech_paid.clear()
 
 
-func on_tech(sender: int, id: String, rank: int, paid: bool = false) -> void:
-	var have := int(Tech.ranks.get(id, 0))
-	if rank > 0 and rank <= have:
-		# Two players bought the same rank at once and both paid for it. The
-		# host puts the second payment back into the shared money.
-		if mp.is_host and paid and sender != 1:
-			var cost := float(TechTree.cost_at(id, rank - 1))
-			if cost > 0.0:
-				tech_refunds += 1
-				GameState.money += cost
-				GameState.money_changed.emit(GameState.money)
-				print("[MPMod] %s rank %d was bought twice, refunded %.0f" % [id, rank, cost])
+func on_tech(sender: int, id: String, rank: int, _paid: bool = false) -> void:
+	if sender != 1 or mp.is_host or not TechTree.has_id(id):
+		return
+	if rank < 0 or rank > TechTree.max_rank(id) or rank == int(Tech.ranks.get(id, 0)):
 		return
 	_tech_mute = true
-	if rank <= 0:
+	if rank == 0:
 		Tech.ranks.erase(id)
 	else:
 		Tech.ranks[id] = rank
 	Tech.tech_changed.emit(id, rank)
 	_tech_mute = false
-
 
 # ---------------------------------------------------------------- full sync / pile swaps
 

@@ -1,6 +1,12 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.34`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.35`, based on upstream 0.19.5.
+
+Technology updates now come only from the host. Legacy guest rank messages cannot
+change research or credit refunds. Loose-straw moves and removals are accepted only
+from their recorded owner; invalid transforms and oversized packets are rejected.
+Periodic reliable snapshots recover missed final movement, and sequence checks
+prevent older packets from overwriting newer straw positions.
 
 T-junction roles, automatic/manual mode and splitter/joiner conversions now run
 through the host transaction queue. Clients rebuild their internal connections
@@ -34,7 +40,7 @@ Same-frame purchases reserve their accepted spaces; a purchase with no free
 position is removed before replication and refunded in full. Personal tools
 still use the existing inventory path.
 
-The V62 compilation and initial-language menu fixes remain included. All 44
+The V62 compilation and initial-language menu fixes remain included. All 45
 multiplayer scripts compile with the current V62 executable.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling
@@ -135,7 +141,7 @@ are checked before application, and stale parts/materials cannot receive cached
 animation or effect updates. These safeguards do not establish the cause of the
 reported guest crash; the guest log and native runtime confirmation are still missing.
 
-**Maintenance preview:** the current V62 engine compiles all 44 scripts. The
+**Maintenance preview:** the current V62 engine compiles all 45 scripts. The
 selling-stand fix passes 50 native authority/ownership/presentation checks and
 84 checks across three real local processes under packet loss, duplication and
 delay. The previous shop-placement fix remains included. Its

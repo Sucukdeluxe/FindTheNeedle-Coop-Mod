@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.34"
+const VERSION := "0.19.6-xRangerDE.35"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -789,7 +789,7 @@ func _rx_state_snap(ack: int, snap: Dictionary) -> void:
 		world_sync.on_state_snap(ack, snap)
 
 
-@rpc("any_peer", "call_remote", "reliable", 0)
+@rpc("authority", "call_remote", "reliable", 0)
 func _rx_tech(id: String, rank: int, paid: bool) -> void:
 	_trace("tech")
 	if world_sync != null:
@@ -1020,11 +1020,11 @@ func _rx_straw_add(adds: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_straw_move(ids: PackedInt64Array, rows: PackedFloat32Array) -> void:
+func _rx_straw_move(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
 	_trace("straw_move", ids.size())
 	var s := _straws()
 	if s != null:
-		s.on_move(ids, rows)
+		s.on_move(multiplayer.get_remote_sender_id(), ids, rows, sequence)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
@@ -1032,15 +1032,15 @@ func _rx_straw_del(ids: PackedInt64Array) -> void:
 	_trace("straw_del", ids.size())
 	var s := _straws()
 	if s != null:
-		s.on_del(ids)
+		s.on_del(multiplayer.get_remote_sender_id(), ids)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_straw_census(ids: PackedInt64Array) -> void:
+func _rx_straw_census(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
 	_trace("straw_census", ids.size())
 	var s := _straws()
 	if s != null:
-		s.on_census(multiplayer.get_remote_sender_id(), ids)
+		s.on_census(multiplayer.get_remote_sender_id(), ids, rows, sequence)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

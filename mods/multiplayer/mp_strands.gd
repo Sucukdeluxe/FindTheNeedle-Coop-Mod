@@ -34,6 +34,8 @@ var _sent := {}      # sid -> last transform broadcast
 var _owner := {}     # sid -> peer, for ghosts
 var _goal := {}      # sid -> where a copy is heading, eased so it does not jump
 var _next := 0
+var _pose_sequence := 0
+var _received_pose := {}
 var _watched := {}   # instance id -> true, bodies whose tree_exiting we listen to
 var _scan_t := 0.0
 var _move_t := 0.0
@@ -69,6 +71,7 @@ func shutdown() -> void:
 	_mine.clear()
 	_sent.clear()
 	_owner.clear()
+	_received_pose.clear()
 
 
 func _me() -> int:
@@ -98,6 +101,7 @@ func _on_body_left(b: Node) -> void:
 		_ghost.erase(gid)
 		_goal.erase(gid)
 		_owner.erase(gid)
+		_received_pose.erase(gid)
 	var sid := int(b.get_meta("mp_sid", 0))
 	if sid != 0 and _mine.get(sid) == b:
 		_mine.erase(sid)
@@ -237,29 +241,45 @@ func _send_moves() -> void:
 		if ids.size() >= MOVE_BUDGET:
 			break
 	if ids.size() > 0:
-		mp._rx_straw_move.rpc(ids, rows)
+		_pose_sequence += 1
+		mp._rx_straw_move.rpc(ids, rows, _pose_sequence)
 
 
 func _census() -> void:
 	var ids := PackedInt64Array()
+	var rows := PackedFloat32Array()
 	for sid in _mine:
-		if is_instance_valid(_mine[sid]):
-			ids.append(sid)
-	mp._rx_straw_census.rpc(ids)
+		var b: Variant = _mine[sid]
+		if not is_instance_valid(b) or not b.is_inside_tree():
+			continue
+		var xf: Transform3D = b.global_transform
+		var q := xf.basis.get_rotation_quaternion()
+		ids.append(sid)
+		rows.append_array(PackedFloat32Array([xf.origin.x, xf.origin.y, xf.origin.z,
+			q.x, q.y, q.z, q.w]))
+	_pose_sequence += 1
+	mp._rx_straw_census.rpc(ids, rows, _pose_sequence)
 
 
 # ------------------------------------------------------------------ from the net
 
 func on_add(sender: int, adds: Array) -> void:
-	if live == null or not is_instance_valid(live):
+	if sender <= 0 or live == null or not is_instance_valid(live) or adds.size() > ADD_BUDGET:
 		return
 	for row in adds:
-		if not (row is Array) or (row as Array).size() < 3:
+		if not (row is Array) or (row as Array).size() != 3:
+			continue
+		if not (row[0] is int) or not (row[1] is Transform3D) or not (row[2] is Color):
 			continue
 		var sid: int = row[0]
-		if _ghost.has(sid) or _mine.has(sid):
+		if sid <= 0 or _ghost.has(sid) or _mine.has(sid):
 			continue
 		var xf: Transform3D = row[1]
+		var tint: Color = row[2]
+		if not xf.origin.is_finite() or not xf.basis.is_finite() or xf.basis.determinant() <= 0.0001:
+			continue
+		if not is_finite(tint.r) or not is_finite(tint.g) or not is_finite(tint.b) or not is_finite(tint.a):
+			continue
 		var b: Variant = live.spawn(xf.origin, xf.basis, Vector3.ZERO, row[2], true)
 		if b == null:
 			continue
@@ -272,26 +292,40 @@ func on_add(sender: int, adds: Array) -> void:
 		_watch(b)
 
 
-func on_move(ids: PackedInt64Array, rows: PackedFloat32Array) -> void:
+func on_move(sender: int, ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
+	if sender <= 0 or sequence <= 0 or ids.size() > MOVE_BUDGET or rows.size() != ids.size() * 7:
+		return
+	_apply_moves(sender, ids, rows, sequence)
+
+
+func _apply_moves(sender: int, ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
 	for i in ids.size():
+		if int(_owner.get(ids[i], 0)) != sender or sequence <= int(_received_pose.get(ids[i], 0)):
+			continue
 		var b: Variant = _ghost.get(ids[i])
 		if b == null or not is_instance_valid(b) or not (b as Node3D).is_inside_tree():
 			continue
 		var k := i * 7
-		if k + 6 >= rows.size():
-			return
-		var to := Transform3D(
-			Basis(Quaternion(rows[k + 3], rows[k + 4], rows[k + 5], rows[k + 6])),
-			Vector3(rows[k], rows[k + 1], rows[k + 2]))
+		var at := Vector3(rows[k], rows[k + 1], rows[k + 2])
+		var rotation := Quaternion(rows[k + 3], rows[k + 4], rows[k + 5], rows[k + 6])
+		if not at.is_finite() or not rotation.is_finite() or absf(rotation.length_squared() - 1.0) > 0.01:
+			continue
+		var to := Transform3D(Basis(rotation.normalized()), at)
+		_received_pose[ids[i]] = sequence
 		_goal[ids[i]] = [(b as Node3D).global_transform, to, 0.0]
 
 
-func on_del(ids: PackedInt64Array) -> void:
+func on_del(sender: int, ids: PackedInt64Array) -> void:
+	if sender <= 0 or ids.size() > MINE_CAP:
+		return
 	for sid in ids:
-		_drop_ghost(sid)
+		if int(_owner.get(sid, 0)) == sender:
+			_drop_ghost(sid)
 
-
-func on_census(sender: int, ids: PackedInt64Array) -> void:
+func on_census(sender: int, ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
+	if sender <= 0 or sequence <= 0 or ids.size() > MINE_CAP or rows.size() != ids.size() * 7:
+		return
+	_apply_moves(sender, ids, rows, sequence)
 	var theirs := {}
 	for sid in ids:
 		theirs[sid] = true
@@ -308,6 +342,7 @@ func _drop_ghost(sid: int) -> void:
 	_ghost.erase(sid)
 	_goal.erase(sid)
 	_owner.erase(sid)
+	_received_pose.erase(sid)
 	if b != null and is_instance_valid(b) and live != null:
 		_revive(b)
 		live.consume(b)
@@ -444,6 +479,7 @@ func _watch_hand() -> void:
 		_ghost.erase(sid)
 		_goal.erase(sid)
 		_owner.erase(sid)
+		_received_pose.erase(sid)
 		b.remove_meta("mp_ghost")
 		b.remove_meta("mp_gid")
 		# a real straw again: it can fall, be carried and be put in a bucket
@@ -465,6 +501,7 @@ func host_take(b: Variant) -> bool:
 	_ghost.erase(sid)
 	_goal.erase(sid)
 	_owner.erase(sid)
+	_received_pose.erase(sid)
 	b.remove_meta("mp_ghost")
 	b.remove_meta("mp_gid")
 	# a copy is made as a protected, visual only straw; this one is loose hay
