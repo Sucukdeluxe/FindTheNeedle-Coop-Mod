@@ -1,6 +1,16 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.35`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.36`, based on upstream 0.19.5.
+
+World teardown now stops the old synchronization components before they can run
+another update. Machine rescans reject missing or replaced world references,
+preventing the reproduced native `get_script()` null-receiver crash.
+
+Guest world transfers now wait for an in-progress native load to finish and then
+apply the newest complete world. The host only accepts readiness for the latest
+sent generation. Leaving during a load keeps the temporary save directory and
+profile protection until the borrowed world has been removed. A requested session
+switch from an already loaded guest world resumes automatically after cleanup.
 
 Technology updates now come only from the host. Legacy guest rank messages cannot
 change research or credit refunds. Loose-straw moves and removals are accepted only
@@ -138,8 +148,10 @@ layer does not alter saves, retry purchases or force a world reload.
 Guests apply host-confirmed drone settings without local placement rejection or route
 planning. The host continues to validate new commands. Machine animation packets
 are checked before application, and stale parts/materials cannot receive cached
-animation or effect updates. These safeguards do not establish the cause of the
-reported guest crash; the guest log and native runtime confirmation are still missing.
+animation or effect updates. A later teardown test reproduced a native
+`get_script()` null-receiver crash with the same native fault signature as the
+local historical dump. The teardown fix prevents that reproduced path; the
+original historical GDScript call site cannot be recovered from that dump.
 
 **Maintenance preview:** the current V62 engine compiles all 45 scripts. The
 selling-stand fix passes 50 native authority/ownership/presentation checks and

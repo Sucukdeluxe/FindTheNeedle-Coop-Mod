@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.35
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.36
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -52,6 +52,14 @@ ANSCHLÜSSE UND NEU GEBAUTE MASCHINEN
   Problemaufbauten bleiben gesondert nachzuprüfen.
 
 BEITRITT UND ERSTE BAUAKTION
+- Beim Weltwechsel werden alte Synchronisierungsaufgaben vor dem Abbau gestoppt.
+  Maschinenabfragen greifen nicht mehr auf eine bereits entfernte Welt zu.
+- Neue Weltübertragungen warten auf einen bereits laufenden Aufbau. Danach wird
+  der neueste vollständige Stand geladen; ältere Bestätigungen werden verworfen.
+- Beim Verlassen während des Ladens bleiben temporärer Speicherpfad und
+  Profilschutz bis zur Entfernung der Gastwelt aktiv.
+- Ein Sitzungswechsel aus einer bereits geladenen Gastwelt wird nach der
+  Bereinigung automatisch mit den angeforderten Verbindungsdaten fortgesetzt.
 - Die Steuerung wird nach dem Laden unter Beachtung von Fensterfokus, Pause
   und offenen Menüs einmalig wiederhergestellt.
 - Bauaktionen warten auf vorbereitete Vorschauen, statt alle Vorschauen

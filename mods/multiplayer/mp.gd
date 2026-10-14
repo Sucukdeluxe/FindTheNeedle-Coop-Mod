@@ -3,7 +3,7 @@
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.35"
+const VERSION := "0.19.6-xRangerDE.36"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -45,6 +45,11 @@ var _menu_button: WeakRef
 var _menu_retry := 0.0
 var _world_rx := {}
 var _pending_world: Variant = null
+var _next_world_generation := 0
+var _sent_world_generation := {}
+var _world_load_generation := 0
+var _world_load_aborted := false
+var _pending_session := {}
 var _mp_world_load := false  # client is loading a world sent by the host
 var _world_watch: Node = null
 var _steam_hosting := false  # waiting for our own lobby to be created
@@ -177,6 +182,19 @@ func _on_scene_changed(cs: Node) -> void:
 	_stay_last.call_deferred()
 	_world_watch = null
 	if is_menu(cs):
+		if _world_load_aborted and not _mp_world_load:
+			_world_load_aborted = false
+			SaveManager.use_player_saves()
+			SaveManager.block_save = false
+			release_profile()
+			if not _pending_session.is_empty():
+				_start_pending_session()
+				return
+			var next: Variant = _pending_world
+			_pending_world = null
+			if next != null and active() and not is_host and _world_rx.is_empty():
+				_enter_mp_world(next.payload, next.generation)
+				return
 		if active() and not is_host and phase == Phase.IN_WORLD:
 			# client walked back to the title: that ends its session
 			leave(t("left_game"))
@@ -191,6 +209,23 @@ func _on_scene_changed(cs: Node) -> void:
 
 
 func _start_world_sync(world: Node) -> void:
+	if not is_instance_valid(world) or world.is_queued_for_deletion() or not world.is_inside_tree() or world != get_tree().current_scene or not bool(world.get("_built")):
+		return
+	if _mp_world_load:
+		if _world_load_aborted:
+			_return_client_to_menu()
+			return
+		if not _world_rx.is_empty():
+			get_tree().paused = true
+			if not Loading.is_active():
+				Loading.show_screen("FIND THE NEEDLE", t("receiving_world"))
+			return
+		if _pending_world != null:
+			var next: Dictionary = _pending_world
+			_pending_world = null
+			_mp_world_load = false
+			_enter_mp_world(next.payload, next.generation)
+			return
 	trace.note("world sync starts (%s, %s)" % ["host" if is_host else "guest", "steam" if over_steam else "ip"])
 	world_sync = load(base_dir + "/mp_world.gd").new()
 	world_sync.name = "MPWorld"
@@ -210,7 +245,7 @@ func _start_world_sync(world: Node) -> void:
 		world_sync.place_at_spawn()
 		ui.restore_world_input(world_sync.player)
 		ui.notify(t("connected_yard"))
-		_rx_client_ready.rpc_id(1)
+		_rx_client_ready.rpc_id(1, _world_load_generation)
 
 
 # When the game quits, Godot takes the scene tree down from the last child of
@@ -231,6 +266,7 @@ func _exit_tree() -> void:
 
 func _stop_world_sync() -> void:
 	if world_sync != null:
+		world_sync.process_mode = Node.PROCESS_MODE_DISABLED
 		world_sync.shutdown()
 		world_sync.queue_free()
 		world_sync = null
@@ -270,11 +306,16 @@ func steam_ready() -> bool:
 
 
 func host_steam() -> bool:
+	if not _session_switch_ready():
+		return false
 	if not steam_ready():
 		ui.notify(t("steam_unavailable_long"))
 		return false
 	if active():
 		leave()
+	if _world_load_aborted:
+		_pending_session = {"action": "host_steam"}
+		return true
 	_steam_hosting = true
 	_steam_joining = false
 	ui.notify(t("steam_creating"))
@@ -283,11 +324,16 @@ func host_steam() -> bool:
 
 
 func join_steam(lobby_id: int) -> bool:
+	if not _session_switch_ready():
+		return false
 	if not steam_ready():
 		ui.notify(t("steam_unavailable"))
 		return false
 	if active():
 		leave()
+	if _world_load_aborted:
+		_pending_session = {"action": "join_steam", "lobby": lobby_id}
+		return true
 	ui.notify(t("steam_entering"))
 	_steam_joining = true
 	_steam_hosting = false
@@ -362,8 +408,13 @@ func _become_host() -> void:
 
 
 func host(port: int) -> bool:
+	if not _session_switch_ready():
+		return false
 	if active():
 		leave()
+	if _world_load_aborted:
+		_pending_session = {"action": "host", "port": port}
+		return true
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(port, MAX_PEERS - 1)
 	if err != OK:
@@ -379,8 +430,13 @@ func host(port: int) -> bool:
 
 
 func join(ip: String, port: int) -> bool:
+	if not _session_switch_ready():
+		return false
 	if active():
 		leave()
+	if _world_load_aborted:
+		_pending_session = {"action": "join", "ip": ip, "port": port}
+		return true
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(ip, port)
 	if err != OK:
@@ -401,7 +457,7 @@ func join(ip: String, port: int) -> bool:
 func leave(reason: String = "") -> void:
 	trace.note("leave session")
 	var was_client := active() and not is_host
-	var was_in_mp_world := was_client and in_world()
+	var was_in_mp_world := was_client and (in_world() or _mp_world_load)
 	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
@@ -414,19 +470,62 @@ func leave(reason: String = "") -> void:
 	is_host = false
 	players.clear()
 	_world_rx.clear()
-	_mp_world_load = false
+	_pending_world = null
+	_sent_world_generation.clear()
+	_pending_session.clear()
 	if world_sync != null:
 		world_sync.clear_avatars()
-	if was_client:
-		SaveManager.block_save = false
-		SaveManager.use_player_saves()
-	release_profile()
+	if was_in_mp_world:
+		_exit_client_world()
+	elif not _world_load_aborted:
+		_mp_world_load = false
+		if was_client:
+			SaveManager.block_save = false
+			SaveManager.use_player_saves()
+		release_profile()
 	if reason != "":
 		ui.notify(reason)
 	ui.refresh()
-	if was_in_mp_world:
-		# the client's world is a borrowed copy; never let it linger or save
-		get_tree().change_scene_to_file(MENU_SCENE)
+
+
+func _exit_client_world() -> void:
+	_pending_world = null
+	_world_rx.clear()
+	_world_load_aborted = true
+	SaveManager.block_save = true
+	if _mp_world_load:
+		return
+	_return_client_to_menu()
+
+
+func _return_client_to_menu() -> void:
+	_mp_world_load = false
+	_world_watch = null
+	_stop_world_sync()
+	get_tree().paused = false
+	Loading.hide_screen()
+	get_tree().change_scene_to_file(MENU_SCENE)
+
+
+func _start_pending_session() -> void:
+	var request := _pending_session
+	_pending_session = {}
+	match request.get("action", ""):
+		"host":
+			host(request.port)
+		"join":
+			join(request.ip, request.port)
+		"host_steam":
+			host_steam()
+		"join_steam":
+			join_steam(request.lobby)
+
+
+func _session_switch_ready() -> bool:
+	if _mp_world_load or _world_load_aborted:
+		ui.notify(t("loading_world"))
+		return false
+	return true
 
 
 func _mp_guard_online_services() -> void:
@@ -479,6 +578,7 @@ func _on_peer_connected(id: int) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	trace.note("peer %d disconnected" % id)
+	_sent_world_generation.erase(id)
 	if players.has(id):
 		ui.notify(t("left") % players[id]["name"], players[id]["color"])
 		players.erase(id)
@@ -508,6 +608,8 @@ func _on_server_disconnected() -> void:
 
 
 func _broadcast_host_in_world(on: bool) -> void:
+	if not on:
+		_sent_world_generation.clear()
 	if players.has(1):
 		players[1]["state"] = "world" if on else "menu"
 	_rx_players.rpc(players)
@@ -584,12 +686,14 @@ func _rx_players(list: Dictionary) -> void:
 		for id in before:
 			if not players.has(id):
 				world_sync.remove_avatar(id)
-	if not is_host and players.has(1) and phase == Phase.IN_WORLD and in_world() 	and str(players[1].get("state", "")) == "menu":
+	if not is_host and players.has(1) and phase in [Phase.IN_WORLD, Phase.LOADING] and str(players[1].get("state", "")) == "menu":
 		phase = Phase.LOBBY
-		SaveManager.block_save = false
-		SaveManager.use_player_saves()
 		ui.notify(t("host_back_menu"))
-		get_tree().change_scene_to_file(MENU_SCENE)
+		if in_world() or _mp_world_load:
+			_exit_client_world()
+		else:
+			_pending_world = null
+			_world_rx.clear()
 	elif not is_host and players.has(1) and phase == Phase.LOBBY:
 		if str(players[1].get("state", "")) != "world":
 			ui.set_status(t("host_in_menu"))
@@ -597,11 +701,14 @@ func _rx_players(list: Dictionary) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rx_client_ready() -> void:
+func _rx_client_ready(generation: int) -> void:
 	_trace("client_ready")
-	if not is_host:
+	if not is_host or not is_instance_valid(world_sync) or not is_instance_valid(world_sync.world) or world_sync.world != get_tree().current_scene:
 		return
 	var id := multiplayer.get_remote_sender_id()
+	if generation <= 0 or int(_sent_world_generation.get(id, -1)) != generation or not players.has(id) or players[id].get("state") != "loading":
+		return
+	_sent_world_generation.erase(id)
 	if players.has(id):
 		players[id]["state"] = "world"
 		_rx_players.rpc(players)
@@ -629,25 +736,29 @@ func send_chat(text: String) -> void:
 # ---------------------------------------------------------------- world hand-off
 
 func send_world(id: int) -> void:
-	if world_sync == null:
+	if not is_host or not active() or not is_instance_valid(world_sync) or not players.has(id):
 		return
 	if players.has(id):
 		players[id]["state"] = "loading"
+	_next_world_generation += 1
+	_sent_world_generation[id] = _next_world_generation
 	var payload: Dictionary = world_sync.build_payload(id)
 	var raw := var_to_bytes(payload)
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	var n := int(ceil(float(packed.size()) / WORLD_CHUNK))
 	print("[MPMod] sending world to %d: %d KB (%d KB raw), %d chunks" % [id, packed.size() / 1024, raw.size() / 1024, n])
-	_rx_world_begin.rpc_id(id, raw.size(), packed.size(), n)
+	_rx_world_begin.rpc_id(id, raw.size(), packed.size(), n, _next_world_generation)
 	for i in n:
 		_rx_world_chunk.rpc_id(id, i, packed.slice(i * WORLD_CHUNK, mini((i + 1) * WORLD_CHUNK, packed.size())))
 	_rx_world_end.rpc_id(id)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_world_begin(raw_size: int, packed_size: int, chunks: int) -> void:
+func _rx_world_begin(raw_size: int, packed_size: int, chunks: int, generation: int) -> void:
 	_trace("world_begin")
-	_world_rx = {"raw": raw_size, "size": packed_size, "n": chunks, "parts": {}}
+	if not active() or is_host or generation <= 0:
+		return
+	_world_rx = {"raw": raw_size, "size": packed_size, "n": chunks, "parts": {}, "generation": generation}
 	phase = Phase.LOADING
 	ui.set_status(t("receiving_world"))
 	ui.set_progress(0.0)
@@ -674,16 +785,22 @@ func _rx_world_end() -> void:
 			return
 		packed.append_array(_world_rx["parts"][i])
 	var raw := packed.decompress(int(_world_rx["raw"]), FileAccess.COMPRESSION_ZSTD)
+	var generation: int = _world_rx["generation"]
 	_world_rx.clear()
 	var payload: Variant = bytes_to_var(raw)
 	if typeof(payload) != TYPE_DICTIONARY:
 		leave(t("world_unreadable"))
 		return
 	ui.set_progress(-1.0)
-	_enter_mp_world(payload)
+	_enter_mp_world(payload, generation)
 
 
-func _enter_mp_world(payload: Dictionary) -> void:
+func _enter_mp_world(payload: Dictionary, generation: int) -> void:
+	if _mp_world_load or _world_load_aborted:
+		_pending_world = {"payload": payload, "generation": generation}
+		return
+	_world_load_generation = generation
+	hold_profile()
 	ui.prepare_world_load()
 	_world_watch = null
 	_stop_world_sync()
@@ -691,13 +808,17 @@ func _enter_mp_world(payload: Dictionary) -> void:
 	var path := SaveManager.slot_path(0)
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
+		_world_load_aborted = true
+		SaveManager.block_save = true
 		leave(t("world_write_failed") % FileAccess.get_open_error())
+		_return_client_to_menu()
 		return
 	f.store_var(payload, true)
 	f.close()
 	SaveManager.block_save = false
 	SaveManager.begin_load(0)
 	_mp_world_load = true
+	get_tree().paused = true
 	phase = Phase.LOADING
 	ui.set_status(t("loading_world"))
 	Loading.show_screen("FIND THE NEEDLE", t("entering_yard") % player_name(1).to_upper())

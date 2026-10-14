@@ -135,6 +135,7 @@ func start(mp_node: Node, world_node: Node) -> void:
 	world = world_node
 	builds = world.get("builds")
 	_processors_enabled = true
+	set_process(true)
 	get_tree().node_added.connect(_processor_added)
 	builds.changed.connect(_protect_processors)
 	_rescan()
@@ -142,6 +143,7 @@ func start(mp_node: Node, world_node: Node) -> void:
 
 func shutdown() -> void:
 	_processors_enabled = false
+	set_process(false)
 	if is_instance_valid(builds) and builds.changed.is_connected(_protect_processors):
 		builds.changed.disconnect(_protect_processors)
 	if is_inside_tree() and get_tree().node_added.is_connected(_processor_added):
@@ -175,15 +177,17 @@ func shutdown() -> void:
 # Every machine worth sending, under a key both sides work out the same way:
 # the array it lives in and where it stands.
 func _rescan() -> void:
+	if not _processors_enabled or not is_instance_valid(mp) or not is_instance_valid(builds):
+		return
+	var ws: Node = mp.world_sync
+	if not is_instance_valid(ws) or ws.get("world") != world:
+		return
 	for id in _processor_hooks.keys():
 		if not is_instance_valid(_processor_hooks[id]["node"].get_ref()):
 			_processor_hooks.erase(id)
 	for key in _pending_settings.keys():
 		if Time.get_ticks_msec() - int(_pending_settings[key].time) > 10000:
 			_pending_settings.erase(key)
-	if builds == null or not is_instance_valid(builds):
-		return
-	var ws: Node = mp.world_sync
 	var groups: Array = ws.get_script().get_script_constant_map().get("CLIENT_FROZEN", [])
 	_nodes.clear()
 	# walk the models again: the game adds and drops nodes as it runs
@@ -292,6 +296,8 @@ func _walk(n: Node, out: Array) -> void:
 # ------------------------------------------------------------------ ticks
 
 func _process(delta: float) -> void:
+	if not _processors_enabled:
+		return
 	_ease(delta)
 	if mp == null or not mp.active() or multiplayer.multiplayer_peer == null:
 		return

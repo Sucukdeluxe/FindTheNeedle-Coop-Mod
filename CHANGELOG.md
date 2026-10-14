@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.6-xRangerDE.36
+
+Serialize guest world loading and stop synchronization before world teardown.
+
+- Stop the old synchronization subtree before releasing it. Machine updates and rescans reject missing or replaced world references, preventing the reproduced native `get_script()` null-receiver crash.
+- Queue the newest complete world transfer while a native world is still loading. Never start overlapping native loads or acknowledge an obsolete world generation.
+- Keep temporary-save and profile protection active until an abandoned guest world is removed, including disconnects, host menu transitions and failed temporary-save writes.
+- Resume a requested session switch after the previous guest world has been removed.
+- Preserve existing save formats, personal tools and host-checked transactions. Every player needs this version.
+
+Validation: all 45 multiplayer scripts compile in the native V62 engine. Five three-process local suites pass 1,273 checks (124 repeated world loading, 145 lifecycle/abort, 216 purchases, 607 quest synchronization and 181 rebuilt production-chain checks) with packet loss, duplication and delay. A targeted teardown reproduction passes 8 checks after previously crashing at the same native fault address as a local historical dump. The original historical GDScript call site is still unknown.
+
+A rendered offscreen test runs eight native press → wrapper → scanner → curve → sale chains at 2560×1440 using D3D12 Forward+ on an RTX 5090. All 12,000 input strands become 200 wrapped bales and are sold with exact payout; 1,746 checks pass. Three 20-second distant-overview windows average 228.2, 259.2 and 267.8 FPS, with 99th-percentile frame times of 7.96, 6.60 and 6.91 ms. This is an isolated scene with no full yard, player input or network load, not a full-game FPS guarantee.
+
+Two-PC Steam/WAN testing and reproduction of every historical save layout remain open. Native reload diagnostics and resource warnings at process shutdown remain; these results do not prove complete bug freedom.
+
 ## 0.19.6-xRangerDE.35
 
 Make technology replication host-authoritative and validate loose-straw ownership.
