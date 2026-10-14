@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.39
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.40
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this

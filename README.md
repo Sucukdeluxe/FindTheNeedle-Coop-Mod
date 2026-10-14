@@ -1,6 +1,13 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.39`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.40`, based on upstream 0.19.5.
+
+Missing pulper water taps are restored from pipe endpoints on the native drum
+connection surface, including existing saves. Only the host commits those
+connections; unfinished previews and disconnected pipes are not activated.
+Building diagnostics now compare a splitter’s available physical routes instead
+of treating its current alternating outlet as a changed building connection.
+Actual missing outputs and broken fixed connections still change the topology.
 
 The compressor now keeps raw hay at its intake even when restored belt records
 start beyond the normal stop line. A separate outlet gate prevents large transport

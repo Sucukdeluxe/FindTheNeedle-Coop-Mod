@@ -125,6 +125,7 @@ func _ready() -> void:
 		_build_script = builds.get_script()
 		_replace_build_script(load(mp.base_dir + "/mp_builds.gd"))
 		builds.set("mp_world", self)
+		builds.rebuild_water_joints()
 	player = world.get("player")
 	var missions: Variant = world.get("missions")
 	if is_instance_valid(missions):
@@ -750,23 +751,46 @@ func _apply_reversals(adds: Array, removes: Array) -> void:
 
 
 func _build_digest() -> int:
+	return hash(_build_digest_rows())
+
+func _build_digest_rows() -> PackedStringArray:
 	var rows := PackedStringArray()
 	if not is_instance_valid(builds):
-		return 0
+		return rows
 	for data in BuildSnapshot.buildings(builds):
 		rows.append(_bkey(data))
 	var keys := {}
 	for path in BeltPath._live:
 		if _diagnostic_path_live(path):
 			keys[path] = _diagnostic_path_key(path)
+	var branches := {}
+	for splitter in builds.splitters:
+		if not is_instance_valid(splitter) or not splitter.has_method("feeder") or not splitter.has_method("routes"):
+			continue
+		var feeder: Variant = splitter.feeder()
+		if not keys.has(feeder):
+			continue
+		var choices := PackedStringArray()
+		var routes: Array = splitter.routes()
+		for route in routes:
+			if keys.has(route):
+				choices.append(str(keys[route]))
+			elif is_instance_valid(route):
+				choices.append("untracked:" + _diagnostic_path_key(route))
+		choices.sort()
+		var selected: Variant = feeder.downstream
+		if is_instance_valid(selected) and selected not in routes:
+			choices.append("invalid:" + _diagnostic_path_key(selected))
+		branches[feeder] = "branches:" + ",".join(choices)
 	for path in keys:
-		var next: Variant = path.downstream
-		var onward := "none"
-		if is_instance_valid(next) and next is BeltPath:
-			onward = str(keys[next]) if keys.has(next) else "untracked:" + _diagnostic_path_key(next)
+		var onward := str(branches.get(path, "none"))
+		if not branches.has(path):
+			var next: Variant = path.downstream
+			if is_instance_valid(next) and next is BeltPath:
+				onward = str(keys[next]) if keys.has(next) else "untracked:" + _diagnostic_path_key(next)
 		rows.append("path:" + str(keys[path]) + "->" + onward)
 	rows.sort()
-	return hash(rows)
+	return rows
 
 
 func _diagnostic_path_live(path: Variant) -> bool:

@@ -4,6 +4,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 
 
 var mp_world: Node
+var _mp_repairing_water := false
 
 
 func _clear_mirrored_records() -> void:
@@ -107,3 +108,35 @@ func _swap_t(old: Node3D, made: Node3D) -> void:
 	if revision > int(made.get_meta("mp_t_revision", 0)):
 		made.set_meta("mp_t_revision", revision)
 	super._swap_t(old, made)
+
+
+func rebuild_water_joints() -> void:
+	var repaired := false
+	if not _mp_repairing_water and not ghost_reading and is_instance_valid(mp_world) \
+			and mp_world.mp.active() and mp_world.mp.is_host:
+		_mp_repairing_water = true
+		for pulper in pulpers:
+			if not is_instance_valid(pulper) or not pulper.is_inside_tree() or pulper.is_queued_for_deletion() or pulper.placement_preview:
+				continue
+			for tap in pulper.taps:
+				if is_instance_valid(tap) and pulper.is_pending_tap(tap) and _mp_pipe_ends_at(tap.global_position):
+					pulper.commit_tap(tap)
+					repaired = true
+			var before: int = pulper.taps.size()
+			pulper.adopt_loose_ends()
+			repaired = repaired or pulper.taps.size() != before
+		_mp_repairing_water = false
+	super.rebuild_water_joints()
+	if repaired:
+		if water != null:
+			water.rebuild()
+		changed.emit()
+
+func _mp_pipe_ends_at(point: Vector3) -> bool:
+	for main in water_mains:
+		if not is_instance_valid(main) or not main.is_inside_tree() or main.is_queued_for_deletion():
+			continue
+		for endpoint in main.endpoints():
+			if endpoint.distance_to(point) <= Cfg.PIPE_JOIN_TOLERANCE:
+				return true
+	return false
