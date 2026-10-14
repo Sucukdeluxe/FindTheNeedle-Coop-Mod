@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.40
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.41
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,11 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+OPTIONALE MÄUSE-ERWEITERUNG
+- Mit installiertem Mice-Zusatzmod sehen Gäste die Mäuse des Hosts.
+- Nur der Host führt Verhalten und Nadelaufnahme aus. Gäste erhalten die Darstellung.
+- Das Mäusemodell muss auch bei den Gästen installiert sein (Add-on-ZIP).
 
 T-VERTEILER UND T-ZUSAMMENFÜHRER
 - Rollenwechsel, Auto/Manuell und der Wechsel zwischen Verteiler und Zusammenführer
@@ -33,7 +38,9 @@ STROMNETZ
 SAUGER AUTOMATISCH LEEREN
 - Sauger ausrüsten und M drücken. Erneut M, eine Maustaste, Werkzeugwechsel
   oder ein geöffnetes Menü brechen ab.
-- Ausgabe: höchstens 64 Halme je 0,1 Sekunden; volle Ziele halten die Ausgabe an.
+- Ausgabe: bis zu 2.000 Halme je 0,1 Sekunden in Heuhaufen mit höchstens 100 Halmen.
+- Volle Ziele halten die Ausgabe an. Auf Bändern wartet die nächste Portion,
+  bis die vorherige gelandet ist und Platz hat; dort begrenzt das Band den Durchsatz.
 - Behälter erhalten physisches Heu. Es wird kein fremder lokaler Füllstand geändert.
 - Die alte separate drop_all.gd wird nicht benötigt und sollte entfernt werden.
 - Die neue Funktion ist offline geprüft, noch nicht im laufenden V62-Multiplayer.

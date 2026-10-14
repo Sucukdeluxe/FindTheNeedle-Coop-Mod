@@ -1,6 +1,15 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.40`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.41`, based on upstream 0.19.5.
+
+Guests can now see Autonomous Mice when the optional add-on model is installed on
+both sides. The host alone runs mouse behavior; bounded snapshots reproduce their
+position, model transform, animation and visibility without adding guest physics.
+
+M empties the yard vacuum in batches of up to 2,000 strands every 0.1 seconds.
+Output uses native hay tufts of up to 100 strands each. Container space limits
+the batch; conveyor output waits for the previous tuft to land and for free space.
+Only successfully created hay is deducted from the vacuum.
 
 Missing pulper water taps are restored from pipe endpoints on the native drum
 connection surface, including existing saves. Only the host commits those

@@ -80,6 +80,7 @@ var economy: Node
 var power_sync: Node
 var diagnostics: Node
 var boards_sync: Node  # what is drawn on the paint boards
+var mice_sync: Node
 var _pose_t := 0.0
 
 var _hay_base := PackedFloat32Array()
@@ -167,6 +168,9 @@ func _ready() -> void:
 	economy = load(mp.base_dir + "/mp_economy.gd").new()
 	add_child(economy)
 	economy.start(mp, self)
+	mice_sync = load(mp.base_dir + "/mp_mice.gd").new()
+	add_child(mice_sync)
+	mice_sync.start(mp, self)
 	power_sync = load(mp.base_dir + "/mp_power.gd").new()
 	add_child(power_sync)
 	power_sync.start(mp, self)
@@ -187,6 +191,8 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if is_instance_valid(mice_sync):
+		mice_sync.shutdown()
 	if is_instance_valid(power_sync):
 		power_sync.shutdown()
 	if is_instance_valid(economy):
@@ -1340,6 +1346,8 @@ func build_payload(pid: int) -> Dictionary:
 func send_full_sync(pid: int) -> void:
 	if is_instance_valid(economy):
 		economy.publish(pid)
+	if is_instance_valid(mice_sync):
+		mice_sync.publish(pid)
 	if is_instance_valid(tools_sync):
 		tools_sync.send_all(pid)
 	# loose needles the late joiner missed: [index, position, who holds it]

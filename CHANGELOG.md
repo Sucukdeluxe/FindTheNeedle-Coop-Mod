@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.6-xRangerDE.41
+
+Show optional Autonomous Mice to guests and increase vacuum M-dump batches.
+
+- Replicate the host mouse poses, model transforms, animation and visibility. Guest replicas are cosmetic and do not simulate needle pickup, physics or persistence. Full snapshots recover late joins and removed replicas; epoch and sequence checks reject stale state. Both sides need the mouse model from the add-on package.
+- Empty up to 2,000 vacuum strands per 0.1-second step as native tufts, keeping the 100-strand tuft limit. Container capacity and pending cargo limit output; conveyors wait for a previous tuft to land. Failed creation does not debit the vacuum, and ordinary manual pouring remains unchanged.
+
+Validation: 85 isolated mouse-model checks, 58 checks across a test host and two guests with packet loss, and 78 vacuum contract checks passed. These ran in a standalone GDRE/Godot test environment, not the game. Full V62 gameplay, physical landing and Steam/WAN validation for these changes remain outstanding.
+
 ## 0.19.6-xRangerDE.40
 
 Restore valid pulper water connections and distinguish splitter operation from building changes.

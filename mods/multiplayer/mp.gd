@@ -6,7 +6,7 @@ extends Node
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 
-const VERSION := "0.19.6-xRangerDE.40"
+const VERSION := "0.19.6-xRangerDE.41"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -104,7 +104,7 @@ func _ready() -> void:
 			"mp_economy.gd", "mp_game_state.gd", "mp_hay_compressor.gd",
 			"mp_hay_wrapper.gd", "mp_i18n.gd", "mp_lift_cargo.gd",
 			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
-			"mp_missions.gd", "mp_player.gd", "mp_power.gd",
+			"mp_mice.gd", "mp_missions.gd", "mp_player.gd", "mp_power.gd",
 			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
 			"mp_robotic_arm.gd", "mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
 			"mp_tech.gd", "mp_tech_panel.gd", "mp_tool_prop.gd", "mp_tools.gd",
@@ -1099,6 +1099,12 @@ func _rx_machines_big(packed: PackedByteArray, raw_size: int) -> void:
 	if world_sync == null or world_sync.machines_sync == null:
 		return
 	world_sync.machines_sync.on_poses(packed, raw_size)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_mice(epoch: String, sequence: int, packed: PackedByteArray, raw_size: int) -> void:
+	if world_sync != null and is_instance_valid(world_sync.mice_sync):
+		world_sync.mice_sync.on_state(epoch, sequence, packed, raw_size)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
