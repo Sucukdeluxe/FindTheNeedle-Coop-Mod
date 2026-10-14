@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.42
+
+Extend vacuum capacity and suction upgrades with bounded prices.
+
+- Preserve capacity effects through rank 27 and add 14 ranks of 2,500 strands, reaching 50,000 at rank 41. Suction keeps ranks 0–6 and rises through rank 20 to 1,000 strands per second.
+- Keep the first six native prices and scale later vacuum prices smoothly to a maximum of 100,000 per rank. Previously purchased ranks remain unchanged; no refunds or free ranks are applied.
+- Install capacity rules before world loading so saved vacuum contents are not truncated to the old capacity. Extend the existing native upgrade cards without requiring the optional tool-upgrade add-on. Purchases continue through the existing host-authoritative handler.
+
+Validation: 315 isolated checks passed, covering legacy effects, both full price curves, card rebuilding, German/English labels, the actual tech overrides and concurrent requests through the existing host purchase handler. Native dependencies were represented by explicit test doubles; full V62 gameplay and Steam/WAN were not run.
+
 ## 0.19.6-xRangerDE.41
 
 Show optional Autonomous Mice to guests and increase vacuum M-dump batches.

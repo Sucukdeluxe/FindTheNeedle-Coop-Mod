@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.41
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.42
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,14 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+SAUGER-UPGRADES
+- Kapazität: 41 Stufen bis 50.000 Halme. Nach Stufe 27 kommen
+  14 zusätzliche Stufen mit jeweils 2.500 Halmen hinzu.
+- Saugkraft: 20 Stufen bis 1.000 Halme pro Sekunde.
+- Die ersten sechs Kaufpreise bleiben erhalten. Weitere Preise steigen
+  gleichmäßig bis höchstens 100.000 pro Stufe. Bereits gekaufte Stufen bleiben.
+- Käufe werden weiterhin vom Host geprüft und gemeinsam synchronisiert.
 
 OPTIONALE MÄUSE-ERWEITERUNG
 - Mit installiertem Mice-Zusatzmod sehen Gäste die Mäuse des Hosts.

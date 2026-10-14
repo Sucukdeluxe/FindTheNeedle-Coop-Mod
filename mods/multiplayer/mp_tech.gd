@@ -1,4 +1,4 @@
-extends "res://autoload/tech.gd"
+extends "res://mods/multiplayer/mp_vac_tech.gd"
 
 var mp_world: Node
 var pending := {}

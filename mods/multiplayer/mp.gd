@@ -5,8 +5,9 @@
 extends Node
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.41"
+const VERSION := "0.19.6-xRangerDE.42"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -43,6 +44,7 @@ var tools_sequence := 0
 var tool_profile := ""
 var _tool_identities := {}
 var _belt_visuals: Script
+var _vac_upgrades := VacUpgrades.new()
 var _last_scene: Node = null
 var _menu_button: WeakRef
 var _menu_retry := 0.0
@@ -62,8 +64,10 @@ var _steam_joining := false  # we asked to join someone else (Steam also
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_vac_upgrades.ensure_cards()
 	base_dir = get_script().resource_path.get_base_dir()
 	_install_game_state()
+	_install_vacuum_tech()
 	get_tree().node_added.connect(_guard_sale_stand)
 	get_tree().node_added.connect(_guard_tech_panel)
 	_belt_visuals = load(base_dir + "/mp_belt_visuals.gd")
@@ -108,7 +112,7 @@ func _ready() -> void:
 			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
 			"mp_robotic_arm.gd", "mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
 			"mp_tech.gd", "mp_tech_panel.gd", "mp_tool_prop.gd", "mp_tools.gd",
-			"mp_trace.gd", "mp_ui.gd", "mp_wire_mode.gd",
+			"mp_trace.gd", "mp_ui.gd", "mp_vac_tech.gd", "mp_vac_upgrades.gd", "mp_wire_mode.gd",
 			"mp_world.gd", "mp_yard_vac.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
@@ -154,6 +158,7 @@ func t(key: String) -> String:
 
 
 func _process(_delta: float) -> void:
+	_vac_upgrades.ensure_cards()
 	if _belt_visuals != null:
 		_belt_visuals.install_current(_belt_visuals)
 	var cs := get_tree().current_scene
@@ -1405,6 +1410,17 @@ func _install_game_state() -> void:
 	for key in values:
 		if key in GameState:
 			GameState.set(key, values[key])
+
+
+func _install_vacuum_tech() -> void:
+	var values := {}
+	for property in Tech.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = Tech.get(property.name)
+	Tech.set_script(load(base_dir + "/mp_vac_tech.gd"))
+	for key in values:
+		if key in Tech:
+			Tech.set(key, values[key])
 
 
 func tool_identity(pid: int) -> String:
