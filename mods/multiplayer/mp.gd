@@ -8,7 +8,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.51"
+const VERSION := "0.19.6-xRangerDE.52"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000

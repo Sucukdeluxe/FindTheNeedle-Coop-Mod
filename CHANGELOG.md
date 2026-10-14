@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.52
+
+Preserve loose hay when automatic cleanup is disabled and stabilize personal-tool pickup.
+
+- Apply the host’s cleanup policy to loose-strand reclamation, draining and stranded-hay folding. Recover fallen strands instead of silently returning them to the pile. Explicit floor sweeping and enabled automatic cleanup remain available.
+- Expand an exhausted straw pool in small batches while cleanup is disabled, preserving existing hay and allowing the new output to spawn.
+- Retain dropped-tool materials through native removal to prevent a rendering-resource error during pickup.
+
+Targeted native Demo V62 headless tests cover Q/drop/pickup with a host and two guests, repeated input, separate tool inventories, cleanup disabled/enabled, pool exhaustion and fallen hay. These checks do not establish complete crash recovery, Steam/WAN reliability or rendered GPU performance.
+
 ## 0.19.6-xRangerDE.51
 
 Keep temporarily held straw available while the vacuum finishes placing it on the floor.

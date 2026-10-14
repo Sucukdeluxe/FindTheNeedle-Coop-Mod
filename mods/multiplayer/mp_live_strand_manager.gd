@@ -12,12 +12,16 @@ func _hold_transport() -> Array:
 
 
 func _reclaim_pass() -> void:
+	if not _automatic_cleanup_enabled():
+		return
 	var saved := _hold_transport()
 	super._reclaim_pass()
 	Cargo.release_bodies(saved)
 
 
 func _drain(budget: int, here: Vector3, keep: float) -> int:
+	if not _automatic_cleanup_enabled():
+		return 0
 	var saved := _hold_transport()
 	var retired := super._drain(budget, here, keep)
 	Cargo.release_bodies(saved)
@@ -25,6 +29,16 @@ func _drain(budget: int, here: Vector3, keep: float) -> int:
 
 
 func _take_body() -> RigidBody3D:
+	if not _automatic_cleanup_enabled():
+		if _pool.is_empty():
+			_grow_pool(_active.size() + 64)
+			var needed := _active.size() + _pool.size()
+			if needed > _capacity:
+				_capacity = needed
+				_mm.instance_count = _capacity
+				_mm.visible_instance_count = 0
+				_shown = 0
+		return _pool.pop_back()
 	var saved := _hold_transport()
 	var body := super._take_body()
 	Cargo.release_bodies(saved)
@@ -66,4 +80,25 @@ func _mp_sweep(consume_only: bool) -> Array:
 func _is_lost(body: RigidBody3D) -> bool:
 	if _is_held(body):
 		return false
+	if not _automatic_cleanup_enabled():
+		if super._is_lost(body):
+			var position := body.global_position
+			position.y = maxf(FLOOR_Y, field.height_at(position.x, position.z) if field != null else FLOOR_Y) + Cfg.STRAND_LEN_MAX * 0.5
+			body.global_position = position
+			body.linear_velocity = Vector3.ZERO
+			body.angular_velocity = Vector3.ZERO
+			body.sleeping = true
+		return false
 	return super._is_lost(body)
+
+func _automatic_cleanup_enabled() -> bool:
+	if is_instance_valid(mp_strands) and is_instance_valid(mp_strands.mp) and mp_strands.mp.active():
+		var sync: Node = mp_strands.mp.world_sync
+		if is_instance_valid(sync) and is_instance_valid(sync.props_sync):
+			return bool(sync.props_sync.cleanup_policy().get("auto_clean", Cfg.auto_clean))
+	return Cfg.auto_clean
+
+func fold_away(body: RigidBody3D) -> bool:
+	if not _automatic_cleanup_enabled():
+		return false
+	return super.fold_away(body)

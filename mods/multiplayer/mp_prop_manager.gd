@@ -48,3 +48,54 @@ func sweep_floor() -> int:
 	if not preload("res://mods/multiplayer/mp_sweep.gd").native_allowed(self):
 		return 0
 	return super.sweep_floor()
+
+var _material_batches: Array[Dictionary]=[]
+var _material_tree: SceneTree
+var _material_release_pending:=false
+
+func remove(item: Carryable) -> void:
+	if is_instance_valid(item) and (item is SandShovel or item is ToolProp) and items.has(item):
+		var materials: Array[Material]=[]
+		for mesh: MeshInstance3D in item._meshes:
+			if not is_instance_valid(mesh):continue
+			_keep_material(mesh.material_override,materials)
+			_keep_material(mesh.material_overlay,materials)
+			if mesh.mesh==null:continue
+			for index in mesh.mesh.get_surface_count():
+				_keep_material(mesh.get_surface_override_material(index),materials)
+				_keep_material(mesh.mesh.surface_get_material(index),materials)
+		if not materials.is_empty() and is_inside_tree():
+			_material_batches.append({"frame":Engine.get_process_frames()+2,"materials":materials})
+			_material_tree=get_tree()
+			if not _material_tree.process_frame.is_connected(_material_frame):_material_tree.process_frame.connect(_material_frame)
+	super.remove(item)
+
+func _keep_material(material: Material,materials: Array[Material]) -> void:
+	for index in 32:
+		if material==null or materials.has(material):return
+		materials.append(material)
+		material=material.next_pass
+
+func _material_frame() -> void:
+	if _material_release_pending:return
+	for batch: Dictionary in _material_batches:
+		if int(batch.frame)<=Engine.get_process_frames():
+			_material_release_pending=true
+			_release_materials.call_deferred()
+			return
+
+func _release_materials() -> void:
+	_material_release_pending=false
+	var pending: Array[Dictionary]=[]
+	for batch: Dictionary in _material_batches:
+		if int(batch.frame)>Engine.get_process_frames():pending.append(batch)
+	_material_batches=pending
+	if _material_batches.is_empty() and is_instance_valid(_material_tree):
+		if _material_tree.process_frame.is_connected(_material_frame):_material_tree.process_frame.disconnect(_material_frame)
+		_material_tree=null
+
+func _exit_tree() -> void:
+	if is_instance_valid(_material_tree) and _material_tree.process_frame.is_connected(_material_frame):_material_tree.process_frame.disconnect(_material_frame)
+	_material_tree=null
+	_material_batches.clear()
+	_material_release_pending=false
