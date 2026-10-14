@@ -1,5 +1,8 @@
 extends Node
 
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+
+
 signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
@@ -641,7 +644,7 @@ func _edit(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var result := {"ok": changed, "counters": counters,
 		"message": "" if changed else mp.t("building_invalid")}
 	if action == "reverse" and is_instance_valid(tool.last_reversed):
-		result["reversed_target"] = tool.last_reversed.to_dict()
+		result["reversed_target"] = BuildSnapshot.row(tool.last_reversed)
 	return result
 
 
@@ -722,4 +725,4 @@ func _configure_t(args: Dictionary) -> Dictionary:
 	_t_revision = maxi(maxi(_t_revision + 1, int(now.get_meta("mp_t_revision", 0)) + 1), Time.get_ticks_usec())
 	now.set_meta("mp_t_revision", _t_revision)
 	world_sync.machines_sync.send_all(0)
-	return {"ok": true, "target": now.to_dict(), "t_revision": _t_revision}
+	return {"ok": true, "target": BuildSnapshot.row(now), "t_revision": _t_revision}

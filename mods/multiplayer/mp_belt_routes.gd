@@ -1,5 +1,8 @@
 extends RefCounted
 
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+
+
 const LINE_EPSILON_SQUARED := 0.000001
 
 
@@ -7,7 +10,7 @@ static func owner_key(sync: Node, path: Node) -> String:
 	var node: Node = path
 	while is_instance_valid(node) and node != sync.world:
 		if node.has_method("to_dict"):
-			var data: Variant = node.to_dict()
+			var data: Variant = BuildSnapshot.row(node)
 			if data is Dictionary and not data.is_empty():
 				return sync._bkey(data)
 		node = node.get_parent()

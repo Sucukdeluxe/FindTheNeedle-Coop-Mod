@@ -1,9 +1,12 @@
 # Find The Needle - Multiplayer mod (autoload "MPMod").
+
 # Loaded from override.cfg. Owns the ENet session, the lobby flow, the world
 # hand-off and every RPC. Per-world syncing lives in mp_world.gd.
 extends Node
 
-const VERSION := "0.19.6-xRangerDE.36"
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+
+const VERSION := "0.19.6-xRangerDE.37"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -62,6 +65,7 @@ func _ready() -> void:
 	base_dir = get_script().resource_path.get_base_dir()
 	_install_game_state()
 	get_tree().node_added.connect(_guard_sale_stand)
+	get_tree().node_added.connect(_guard_tech_panel)
 	_belt_visuals = load(base_dir + "/mp_belt_visuals.gd")
 	trace = load(base_dir + "/mp_trace.gd").new()
 	trace.name = "MPTrace"
@@ -92,7 +96,7 @@ func _ready() -> void:
 			var test: Node = test_script.new()
 			test.mp = self
 			add_child(test)
-	for f in ["mp_avatar.gd", "mp_belt_items.gd", "mp_belt_routes.gd",
+	for f in ["mp_build_snapshot.gd", "mp_avatar.gd", "mp_belt_items.gd", "mp_belt_routes.gd",
 			"mp_belt_snapshot.gd", "mp_belt_visuals.gd", "mp_belts.gd",
 			"mp_boards.gd", "mp_build_actor.gd", "mp_build_tool.gd",
 			"mp_builds.gd", "mp_carry.gd", "mp_contracts.gd",
@@ -102,14 +106,30 @@ func _ready() -> void:
 			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
 			"mp_missions.gd", "mp_player.gd", "mp_power.gd",
 			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
-			"mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
-			"mp_tech.gd", "mp_tool_prop.gd", "mp_tools.gd",
+			"mp_robotic_arm.gd", "mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
+			"mp_tech.gd", "mp_tech_panel.gd", "mp_tool_prop.gd", "mp_tools.gd",
 			"mp_trace.gd", "mp_ui.gd", "mp_wire_mode.gd",
 			"mp_world.gd", "mp_yard_vac.gd"]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
 	print("[MPMod] v%s loaded from %s" % [VERSION, base_dir])
+
+
+func _guard_tech_panel(node: Node) -> void:
+	if not (node is TechPanel):
+		return
+	var original: Script = node.get_script()
+	if original == null or original.resource_path != "res://scripts/ui/tech_panel.gd":
+		return
+	var values := {}
+	for property in node.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = node.get(property.name)
+	node.set_script(load(base_dir + "/mp_tech_panel.gd"))
+	for key in values:
+		if key in node:
+			node.set(key, values[key])
 
 
 func _guard_sale_stand(node: Node) -> void:
@@ -1298,7 +1318,7 @@ func _rx_build_digest(digest: int) -> void:
 @rpc("any_peer", "call_remote", "reliable", 0)
 func _rx_build_repair_request(revision: int) -> void:
 	if is_host and is_instance_valid(world_sync) and not world_sync._applying_builds:
-		_rx_build_repair.rpc_id(multiplayer.get_remote_sender_id(), world_sync.builds.to_array(), revision)
+		_rx_build_repair.rpc_id(multiplayer.get_remote_sender_id(), BuildSnapshot.buildings(world_sync.builds), revision)
 
 
 @rpc("authority", "call_remote", "reliable", 0)

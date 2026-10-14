@@ -1,5 +1,8 @@
 extends "res://scripts/build/build_tool.gd"
 
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+
+
 const INPUT_FIELDS := ["_state", "_anchor", "_anchor_dir", "_anchor_side", "_anchor_span",
 	"_upstream", "_stair_outward", "_ghost_turn", "_roof_turn", "_t_turn", "_grid_on",
 	"_snap_off", "_work_height", "_work_base", "_reach", "pipe_shape", "_fit_roll",
@@ -66,7 +69,7 @@ func dismantle(target: Node3D, one := false) -> void:
 		super.dismantle(target, one)
 		return
 	if is_instance_valid(target):
-		_request("demolish", {"target": target.to_dict(), "one": one})
+		_request("demolish", {"target": BuildSnapshot.row(target), "one": one})
 
 func dismantle_tile(deck: Platform, tile: Rect2) -> void:
 	if not is_instance_valid(mp_economy) or not mp_economy.mp.active():
@@ -80,7 +83,7 @@ func reverse(target: Node3D) -> void:
 		super.reverse(target)
 		return
 	if is_instance_valid(target):
-		_request("reverse", {"target": target.to_dict()})
+		_request("reverse", {"target": BuildSnapshot.row(target)})
 
 func _pay(amount: float) -> bool:
 	if not is_finite(amount) or amount < 0.0 or amount > price_limit + 0.001:

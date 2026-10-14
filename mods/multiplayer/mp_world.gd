@@ -1,7 +1,10 @@
 # Per-world sync for the multiplayer mod. Created by MPMod once the yard is
+
 # built, freed when the scene changes. All network traffic goes through MPMod's
 # RPCs; this node only reads and applies game state.
 extends Node
+
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 
 var mp: Node
 var world: Node
@@ -607,7 +610,7 @@ func _scan_builds() -> Dictionary:
 	var out := {}
 	if builds == null:
 		return out
-	for d in builds.to_array():
+	for d in BuildSnapshot.buildings(builds):
 		if d is Dictionary:
 			out[_bkey(d)] = d
 	return out
@@ -750,7 +753,7 @@ func _build_digest() -> int:
 	var rows := PackedStringArray()
 	if not is_instance_valid(builds):
 		return 0
-	for data in builds.to_array():
+	for data in BuildSnapshot.buildings(builds):
 		rows.append(_bkey(data))
 	var keys := {}
 	for path in BeltPath._live:
@@ -787,7 +790,7 @@ func _diagnostic_path_key(path: BeltPath) -> String:
 	var node: Node = path
 	while is_instance_valid(node) and node != world:
 		if node.has_method("to_dict"):
-			var data: Variant = node.to_dict()
+			var data: Variant = BuildSnapshot.row(node)
 			if data is Dictionary and data.has("type"):
 				build_key = _bkey(data)
 				break
@@ -845,7 +848,7 @@ func _find_building(d: Dictionary) -> Node3D:
 	for n in builds.every_placed():
 		if not is_instance_valid(n) or n.is_queued_for_deletion() or not n.has_method("to_dict"):
 			continue
-		var nd: Dictionary = n.to_dict()
+		var nd: Dictionary = BuildSnapshot.row(n)
 		if str(nd.get("type", "")) != want:
 			continue
 		if _bkey(nd) == key:
@@ -1269,7 +1272,7 @@ func build_payload(pid: int) -> Dictionary:
 		"state": GameState.to_dict(),
 		"heights": field.heights,
 		"player": xf,
-		"buildings": builds.to_array(),
+		"buildings": BuildSnapshot.buildings(builds),
 		"props": props_arr,
 		"belts": belts,
 		"tech": Tech.to_dict(),
@@ -1319,7 +1322,7 @@ func send_full_sync(pid: int) -> void:
 	for idx in _holder:
 		if not bodies.has(idx):
 			needles.append([idx, Vector3.ZERO, int(_holder[idx])])
-	mp._rx_full_sync.rpc_id(pid, field.heights, builds.to_array(), Tech.to_dict(), needles)
+	mp._rx_full_sync.rpc_id(pid, field.heights, BuildSnapshot.buildings(builds), Tech.to_dict(), needles)
 	if props_sync != null and is_instance_valid(props_sync):
 		props_sync.send_all(pid)
 	if belts_sync != null and is_instance_valid(belts_sync):

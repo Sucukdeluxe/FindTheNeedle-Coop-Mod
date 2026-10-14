@@ -1279,7 +1279,7 @@ func _part_name(n: Node) -> String:
 
 
 func _protect_processors() -> void:
-	for group in ["compressors", "wrappers", "hay_drones"]:
+	for group in ["compressors", "wrappers", "hay_drones", "robotic_arms", "hay_lifts"]:
 		var nodes: Variant = builds.get(group)
 		if nodes is Array:
 			for node in nodes:
@@ -1287,7 +1287,7 @@ func _protect_processors() -> void:
 
 
 func _processor_added(node: Node) -> void:
-	if node is HayCompressor or node is HayWrapper or node is HayDrone:
+	if node is HayCompressor or node is HayWrapper or node is HayDrone or node is RoboticArm or node is HayLift:
 		_protect_processor_deferred.call_deferred(weakref(node))
 
 
@@ -1300,7 +1300,7 @@ func _protect_processor_deferred(reference: WeakRef) -> void:
 func _protect_processor(node: Node) -> void:
 	if not _processors_enabled or not is_instance_valid(node) or not node.is_inside_tree() or not node.is_node_ready() or node.is_queued_for_deletion():
 		return
-	if not (node is HayCompressor or node is HayWrapper or node is HayDrone):
+	if not (node is HayCompressor or node is HayWrapper or node is HayDrone or node is RoboticArm or node is HayLift):
 		return
 	if node.placement_preview:
 		return
@@ -1318,6 +1318,10 @@ func _protect_processor(node: Node) -> void:
 		replacement = load(mp.base_dir + "/mp_hay_wrapper.gd")
 	elif original.resource_path == "res://scripts/build/hay_drone.gd":
 		replacement = load(mp.base_dir + "/mp_hay_drone.gd")
+	elif original.resource_path == "res://scripts/build/hay_lift.gd":
+		replacement = load(mp.base_dir + "/mp_hay_lift.gd")
+	elif original.resource_path == "res://scripts/build/robotic_arm.gd":
+		replacement = load(mp.base_dir + "/mp_robotic_arm.gd")
 	else:
 		return
 	_replace_processor_script(node, replacement)
@@ -1338,7 +1342,7 @@ func _replace_processor_script(node: Node, script: Script) -> void:
 
 
 func _refresh_processor_belt(node: Node) -> void:
-	if node is HayDrone:
+	if node is HayDrone or node is RoboticArm or node is HayLift:
 		return
 	var belt: Variant = node.get("_belt")
 	if not is_instance_valid(belt) or not belt.is_inside_tree():

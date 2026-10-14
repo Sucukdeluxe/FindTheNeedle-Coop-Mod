@@ -1,5 +1,8 @@
 extends Node
 
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+
+
 signal completed(seq: int, result: Dictionary)
 const TICK := 1.0
 const FULL_TICK := 5.0
@@ -120,7 +123,7 @@ func _capture() -> void:
 		var id: int = _ids[node.get_instance_id()]
 		var pole := node is PowerPole
 		var taggable := PowerTags.taggable(node)
-		var row := {"id": id, "key": world_sync._bkey(node.to_dict()), "pole": pole,
+		var row := {"id": id, "key": world_sync._bkey(BuildSnapshot.row(node)), "pole": pole,
 			"taggable": taggable, "tag": tags.tag_of(node) if taggable and is_instance_valid(tags) else -1,
 			"off": bool(node.is_switched_off()) if taggable else false, "links": [], "cuts": []}
 		if pole:
@@ -269,7 +272,7 @@ func _apply_pending() -> void:
 	var local := {}
 	var candidates := _candidates()
 	for node in candidates:
-		var key: String = world_sync._bkey(node.to_dict())
+		var key: String = world_sync._bkey(BuildSnapshot.row(node))
 		if local.has(key):
 			_observe(true)
 			return

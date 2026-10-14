@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.36
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.37
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -50,6 +50,10 @@ ANSCHLÜSSE UND NEU GEBAUTE MASCHINEN
   und beim endgültigen Platzieren. Native V62-Tests prüfen die Ausgabe sowie
   Scanner-Anschlussgeometrie und Lift-Ladung. Die konkreten ursprünglichen
   Problemaufbauten bleiben gesondert nachzuprüfen.
+
+TECHNIKBAUM UND RESSOURCEN
+- Unsichtbare Metadaten-Labels kompakter Technikeinträge werden mit ihrem
+  Eintrag freigegeben. Darstellung, Preise und Kaufprüfung bleiben erhalten.
 
 BEITRITT UND ERSTE BAUAKTION
 - Beim Weltwechsel werden alte Synchronisierungsaufgaben vor dem Abbau gestoppt.

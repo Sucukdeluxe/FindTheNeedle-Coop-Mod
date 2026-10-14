@@ -1,6 +1,20 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.36`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.37`, based on upstream 0.19.5.
+
+Network building snapshots preserve the robotic arm’s in-flight hay. The native
+serializer refunds its virtual payload when saving; network reads now use a
+separate read-only path. Actual game saves retain the original refund behavior.
+Arms can also take settled, unclaimed guest-owned hay after a host ownership check.
+
+Loose hay tufts now use the lift’s existing cargo-record path, including tufts
+already held by a lift. Their amount and needle state are retained while output
+capacity controls release. This avoids a free-physics handoff at the lower roller.
+
+Compact technology-tree rows now own their hidden metadata labels. The native
+helper left these labels outside the scene tree, so they survived each world
+load. They remain invisible and retain the original row geometry, but are now
+freed with their row.
 
 World teardown now stops the old synchronization components before they can run
 another update. Machine rescans reject missing or replaced world references,
@@ -50,7 +64,7 @@ Same-frame purchases reserve their accepted spaces; a purchase with no free
 position is removed before replication and refunded in full. Personal tools
 still use the existing inventory path.
 
-The V62 compilation and initial-language menu fixes remain included. All 45
+The V62 compilation and initial-language menu fixes remain included. All 49
 multiplayer scripts compile with the current V62 executable.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling
@@ -153,7 +167,7 @@ animation or effect updates. A later teardown test reproduced a native
 local historical dump. The teardown fix prevents that reproduced path; the
 original historical GDScript call site cannot be recovered from that dump.
 
-**Maintenance preview:** the current V62 engine compiles all 45 scripts. The
+**Maintenance preview:** the current V62 engine compiles all 46 scripts. The
 selling-stand fix passes 50 native authority/ownership/presentation checks and
 84 checks across three real local processes under packet loss, duplication and
 delay. The previous shop-placement fix remains included. Its

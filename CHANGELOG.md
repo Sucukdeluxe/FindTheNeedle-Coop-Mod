@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.6-xRangerDE.37
+
+Preserve robotic-arm loads during synchronization and route lift tufts through cargo records.
+
+- Use read-only building snapshots for synchronization, topology checks and transaction targets. Native arm serialization otherwise refunds and clears the virtual load, leaving an empty animated grab. Actual save-time crediting is preserved.
+- Let the host take eligible, settled guest-owned props when selected by a robotic arm; held, moving and claimed items remain excluded.
+- Transport physical hay tufts through the lift’s existing record path and convert already carried tufts, retaining their amount and needle state under output backpressure.
+
+- Attach the native compact-row metadata label to its row while keeping it hidden. Previously these orphan labels survived world teardown.
+- Install the compatibility hook before the native technology panel builds its controls, preserving its initialized properties and existing behavior.
+- Keep visible row geometry, titles, costs and host-checked purchase behavior unchanged. Existing saves remain compatible; all players need the same mod version.
+
 ## 0.19.6-xRangerDE.36
 
 Serialize guest world loading and stop synchronization before world teardown.
