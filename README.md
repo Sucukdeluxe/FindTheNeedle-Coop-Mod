@@ -1,6 +1,12 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.38`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.39`, based on upstream 0.19.5.
+
+The compressor now keeps raw hay at its intake even when restored belt records
+start beyond the normal stop line. A separate outlet gate prevents large transport
+steps from carrying raw bundles through the press. Raw hay stranded on a direct
+press-to-wrapper belt is reclaimed into the press when buffer room is available;
+finished products and unrelated routes are left alone.
 
 Guests now receive the temporary straw mesh held by robotic arms, including its
 exact instance geometry, colors and movement. Visual-only packets are sequenced,

@@ -66,3 +66,86 @@ func to_dict() -> Dictionary:
 	if _press >= 0.0 and not _released:
 		data["stored"] = int(data.get("stored", 0)) + _batch
 	return data
+
+func factory_tick(delta: float) -> void:
+	if _mp_active() and mp_transport.mp.is_host:
+		_mp_restore_intake()
+	super.factory_tick(delta)
+
+func _mp_restore_intake() -> void:
+	if not is_instance_valid(_belt):
+		return
+	var mouth := _belt.s_at(_mouth())
+	var limit := mouth + INTAKE_LENGTH * 0.5
+	var target := clampf(mouth, 0.0, maxf(0.0, _belt.path_length() - _belt.run.hold_back))
+	var late: Array[int] = []
+	for index in range(_belt.run.first(), _belt.run.first() + _belt.run.count()):
+		var record: Dictionary = _belt.run.record(index)
+		if _eats(int(record.kind), int(record.strands)) and float(record.s) > limit + 0.001:
+			late.append(int(record.seq))
+	for seq in late:
+		for index in range(_belt.run.first(), _belt.run.first() + _belt.run.count()):
+			if _belt.run.seq_of(index) != seq:
+				continue
+			var gap: float = _belt.run.gap_of(index)
+			var record: Dictionary = _belt.take_record_at(index)
+			var insert_at: int = _belt.run._row_behind(target)
+			_belt.run._insert_row(insert_at, target, record.reach, gap, record.side, record.lift,
+				record.speed, record.kind, record.strands, record.needle, record.seq, record.state)
+			_belt.run._ev_board(insert_at)
+			_belt.run.wake()
+			_belt.wake()
+			break
+	if not late.is_empty():
+		BeltPath._put_load(_belt.get_instance_id(), _belt._ride_load())
+
+func _intake_hay() -> void:
+	super._intake_hay()
+	if not _mp_active() or not mp_transport.mp.is_host or is_full():
+		return
+	var paths := _mp_wrapper_feed()
+	for path in paths:
+		var record: Dictionary = path.take_record(_eats, 0.0, path.path_length())
+		if not record.is_empty():
+			_mp_accept_recovered(int(record.strands), int(record.needle))
+			return
+	if paths.is_empty() or not is_instance_valid(props):
+		return
+	for path in paths:
+		for rider in path._riders:
+			var item: Variant = rider.body
+			if not is_instance_valid(item) or not item.is_inside_tree() or item.is_queued_for_deletion() \
+					or not (item is HayWad or item is HayTuft) or item.is_held():
+				continue
+			if not item.has_meta(LiveStrandManager.META_RIDER) or not paths.has(item.get_meta(LiveStrandManager.META_RIDER)):
+				continue
+			var sync: Node = mp_transport.mp.world_sync.props_sync
+			var id := int(item.get_meta("mp_id", 0))
+			if id > 0 and not sync._mine(id) and not sync.host_take(item):
+				continue
+			var count: int = item.hay_strands()
+			var state: Dictionary = item.to_dict()
+			BeltPath.release(item)
+			_mp_accept_recovered(count, int(state.get("needle", -1)))
+			props.remove(item)
+			return
+
+func _mp_accept_recovered(count: int, needle: int) -> void:
+	stored += count
+	if needle >= 0:
+		pending_needles.append(needle)
+
+func _mp_wrapper_feed() -> Array[BeltPath]:
+	var paths: Array[BeltPath] = []
+	var path := _outfeed()
+	while is_instance_valid(path) and path.is_inside_tree() and not path.is_queued_for_deletion():
+		if path.get_parent() is HayWrapper:
+			return paths
+		if not (path is Conveyor or path is ConveyorCorner) or paths.has(path) or paths.size() >= 64:
+			break
+		paths.append(path)
+		path = path.downstream
+	return []
+
+func _mp_holds_output_kind(kind: int) -> bool:
+	return _mp_active() and kind in [BeltRun.Kind.WAD, BeltRun.Kind.TUFT]

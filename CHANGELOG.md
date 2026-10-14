@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.39
+
+Prevent raw hay from bypassing the compressor after loading an existing yard.
+
+- Restore raw belt records beyond the intake stop to the intake queue without changing their quantity, sequence or needle state.
+- Keep raw hay behind an independent compressor outlet gate, including large transport steps and refreshed belt connections. Native end-of-belt restrictions remain in effect.
+- Reclaim raw records and unheld physical hay stranded on a direct conveyor route from a compressor to a wrapper when the compressor can accept them. Finished bales, held tools and unrelated routes are not consumed.
+
+Validation: 50 production scripts compile in V62. 840 targeted native-runtime checks passed, covering full buffers, repeated recovery, four rotations and 200 queued loads. A separate 45-second simulation of the reported saved yard produced 27 bales with no raw records on the four press output belts; its pre-existing stranded bundle was also recovered. These are local headless tests, not a new Steam/WAN validation.
+
 ## 0.19.6-xRangerDE.38
 
 Show robotic-arm loads and income per minute to guests.
