@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.19.6-xRangerDE.47
+
+Fix the overhead-camera key conflict and make the loading hopper usable in single-player.
+
+- Give unmodified F7 priority over V62's native bug-report action when selecting the building camera. Ctrl+F7 retains the debug report; unrelated customized F7 bindings remain protected. Select a part with B before enabling the camera.
+- Keep arrow-key panning separate from building-height changes. PageUp/PageDown retain height control.
+- Add an original model-based hopper image to both catalog layouts and the hotbar, with a cached transparent texture.
+- Enable hopper construction, M unloading, buffered belt output, dismantling and persistence in single-player. Local transactions keep the same cost, capacity and placement checks, without opening a lobby. Shared network behavior remains host-authoritative.
+- Preserve hopper contents when opening or leaving a hosted lobby. Cancel queued local actions safely if the session changes before execution.
+
+Validation: 41 hotkey checks use V62's actual default bindings and native debug-input method, reproducing the old failure first. 1,023 single-player checks and 13 icon/UI checks passed, along with the existing camera, hopper and transfer suites. A local host and two guests passed 319 checks with packet loss/duplication and conserved 33,550 strands. All 77 product scripts passed offline bytecode compilation. Tests used standalone GDRE/Godot with explicit native dependency doubles; the game and Steam were not started. Full V62 gameplay, GPU performance and two-PC Steam/WAN testing remain outside this verification.
+
+Both players need this release when playing together. Existing saves and previously purchased upgrades are retained. The previous caveat about pending vacuum transfers across a complete process crash still applies.
+
 ## 0.19.6-xRangerDE.46
 
 Repair needle ownership and add buffered hay unloading, transport upgrades and an overhead building mode for Demo V62.

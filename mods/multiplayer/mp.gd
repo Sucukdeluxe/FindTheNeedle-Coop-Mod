@@ -8,7 +8,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.46"
+const VERSION := "0.19.6-xRangerDE.47"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -75,6 +75,7 @@ func _ready() -> void:
 	_install_vacuum_tech()
 	get_tree().node_added.connect(_guard_sale_stand)
 	get_tree().node_added.connect(_guard_tech_panel)
+	get_tree().node_added.connect(_guard_build_icons)
 	_belt_visuals = load(base_dir + "/mp_belt_visuals.gd")
 	trace = load(base_dir + "/mp_trace.gd").new()
 	trace.name = "MPTrace"
@@ -121,6 +122,7 @@ func _ready() -> void:
 		"mp_build_tool.gd",
 		"mp_builds.gd",
 		"mp_carry.gd",
+		"mp_catalog_panel.gd",
 		"mp_contracts.gd",
 		"mp_diagnostic_state.gd",
 		"mp_diagnostics.gd",
@@ -139,9 +141,11 @@ func _ready() -> void:
 		"mp_hay_wrapper.gd",
 		"mp_haystack_scanner.gd",
 		"mp_hopper_build_tool.gd",
+		"mp_hopper_icon.gd",
 		"mp_hopper_model.gd",
 		"mp_hopper_state.gd",
 		"mp_hoppers.gd",
+		"mp_hotkey_bar.gd",
 		"mp_i18n.gd",
 		"mp_junction_jam.gd",
 		"mp_lift_cargo.gd",
@@ -185,6 +189,29 @@ func _ready() -> void:
 			push_error("[MPMod] %s failed to compile" % f)
 	print("[MPMod] v%s loaded from %s" % [VERSION, base_dir])
 
+
+func _guard_build_icons(node: Node) -> void:
+	var file := ""
+	var native_path := ""
+	if node is CatalogPanel:
+		file = "mp_catalog_panel.gd"
+		native_path = "res://scripts/ui/catalog_panel.gd"
+	elif node is HotkeyBar:
+		file = "mp_hotkey_bar.gd"
+		native_path = "res://scripts/ui/hotkey_bar.gd"
+	else:
+		return
+	var original: Script = node.get_script()
+	if original == null or original.resource_path != native_path:
+		return
+	var values := {}
+	for property in node.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = node.get(property.name)
+	node.set_script(load(base_dir + "/" + file))
+	for key in values:
+		if key in node:
+			node.set(key, values[key])
 
 func _guard_tech_panel(node: Node) -> void:
 	if not (node is TechPanel):

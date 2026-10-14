@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.46
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.47
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -18,11 +18,13 @@ NEU IN DIESER FASSUNG
   Umschalt beschleunigt, Mausrad zoomt, Linksklick baut, Rechtsklick geht einen
   Bauschritt zurück. F7/Escape stellt die vorige Ansicht wieder her.
   Der Host prüft weiterhin Baukosten, Anschlüsse und den Baubereich von 24 m
-  um die tatsächliche Spielerposition. Eine bereits belegte F7-Taste bleibt erhalten.
+  um die tatsächliche Spielerposition. F7 öffnet die Baukamera statt „Problem Debug“.
+  Strg+F7 öffnet weiterhin den Debugbericht. Andere eigene F7-Belegungen bleiben.
+  Mit Bild↑/Bild↓ die Bauhöhe ändern; Pfeiltasten verschieben nur die Kamera.
 - Einfülltrichter: 2.500 Kaufpreis, 50.000 Halme Speicher. Am freien, waagerechten
   Bandanfang platzieren. Mit dem Hofsauger darauf zielen und M drücken.
   Volle Bänder stoppen die Ausgabe; vor dem Abbau muss der Trichter leer sein.
-  Diese Trichterfunktion setzt eine aktive Multiplayer-Lobby voraus.
+  Der Trichter funktioniert im Einzelspieler und Multiplayer.
 - Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
   zusammen 25.000. Gilt für direkte M-Bandausgabe und Trichter.
 - Armtempo: 20 Stufen; die sechs zusätzlichen Stufen kosten zusammen 100.000.

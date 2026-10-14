@@ -42,7 +42,7 @@ func enter() -> bool:
 	var source: Variant = player.get("camera")
 	var tool: Variant = player.get("build")
 	if not (source is Camera3D) or not is_instance_valid(source) or not is_instance_valid(tool) or not bool(tool.call("is_active")):
-		notice.emit(_tr("Wähle zuerst ein Bauteil im Baukatalog aus.", "Select a part in the building catalog first."))
+		notice.emit(_tr("Drücke B und wähle zuerst ein Bauteil im Baukatalog aus.", "Press B and select a part in the building catalog first."))
 		return false
 	_source_camera = source
 	_saved = {"camera_transform": _source_camera.transform, "current_camera": player.get_viewport().get_camera_3d(), "mouse_mode": Input.mouse_mode, "flags": {}, "camera": {}}
@@ -169,7 +169,7 @@ func ray_length() -> float:
 	return _height - NEAR + BELOW_PLAYER
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode == toggle_key or event.keycode == toggle_key):
+	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not event.meta_pressed and (event.physical_keycode == toggle_key or event.keycode == toggle_key):
 		if _menu_up():
 			return
 		if active:
@@ -182,6 +182,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if not active or _menu_up():
+		return
+	if event is InputEventKey and (event.physical_keycode in [KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT] or event.keycode in [KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]):
+		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode == KEY_ESCAPE or event.keycode == KEY_ESCAPE):
 		leave()
@@ -218,6 +221,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 static func key_available(key: Key) -> bool:
 	for action in InputMap.get_actions():
+		if key == KEY_F7 and action == &"bug_report":
+			continue
 		for event in InputMap.action_get_events(action):
 			if event is InputEventKey and (event.keycode == key or event.physical_keycode == key):
 				return false

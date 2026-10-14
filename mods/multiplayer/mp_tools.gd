@@ -278,7 +278,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.physical_keycode != KEY_M:
 		return
-	if not mp.active() or not is_instance_valid(player) or player.menu_is_up() or not player.is_mouse_captured():
+	if not is_instance_valid(player) or player.menu_is_up() or not player.is_mouse_captured():
 		return
 	if not _vacuum.get("_active") or not _vacuum.is_loaded():
 		return

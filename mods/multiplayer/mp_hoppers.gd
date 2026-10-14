@@ -42,8 +42,10 @@ func start(session: Node, sync: Node) -> void:
 	session_started()
 
 func _role() -> String:
-	if not is_instance_valid(mp) or not mp.active():
+	if not is_instance_valid(mp):
 		return ""
+	if not mp.active():
+		return "offline"
 	return "host" if mp.is_host else "guest"
 
 func session_started() -> void:
@@ -74,7 +76,7 @@ func session_started() -> void:
 	_rebuild_models()
 
 func session_ended() -> void:
-	if _mode == "host":
+	if _mode in ["host", "offline"]:
 		_persist()
 	_mode = ""
 	_epoch = ""
@@ -148,7 +150,7 @@ func _process(delta: float) -> void:
 				_paths.append(path)
 		_connections.clear()
 	_update_focus()
-	if not mp.is_host or world_sync._frozen:
+	if _mode not in ["host", "offline"] or world_sync._frozen:
 		return
 	_tick += delta
 	if _tick >= OUTPUT_INTERVAL:
@@ -309,7 +311,7 @@ func _placement_in_area(row: Dictionary, anchor: Vector3) -> bool:
 
 func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	if not _usable():
-		return {"ok": false, "reason": _tr("Mehrspielersitzung erforderlich", "Multiplayer session required")}
+		return {"ok": false, "reason": _tr("Spielwelt wird vorbereitet", "Preparing world")}
 	var ray := _local_build_ray(camera, reach)
 	if ray.is_empty():
 		return {"ok": false, "reason": _tr("Außerhalb des Baubereichs", "Outside the build area")}
@@ -398,7 +400,7 @@ func _completed(seq: int, result: Dictionary) -> void:
 		world_sync.toast(_tr("%s Halme in den Trichter gefüllt", "%s strands transferred to hopper") % _number(int(result.moved)))
 
 func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
-	if not _usable() or _mode != "host" or not world_sync.economy.executing or world_sync._frozen:
+	if not _usable() or _mode not in ["host", "offline"] or (_mode == "offline" and peer != 1) or not world_sync.economy.executing or world_sync._frozen:
 		return _failure(_tr("Aktion nicht verfügbar", "Action unavailable"))
 	if action == "hopper_place":
 		return _place(peer, args)
@@ -434,7 +436,7 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	return _failure(_tr("Unbekannte Trichteraktion", "Unknown hopper action"))
 
 func accept_reserved(peer: int, args: Dictionary, amount: int) -> int:
-	if not _usable() or _mode != "host" or not world_sync.economy.executing or world_sync._frozen or amount <= 0:
+	if not _usable() or _mode not in ["host", "offline"] or (_mode == "offline" and peer != 1) or not world_sync.economy.executing or world_sync._frozen or amount <= 0:
 		return 0
 	var id: Variant = args.get("id")
 	if not (id is int):
@@ -539,7 +541,7 @@ func _changed() -> void:
 	send_all()
 
 func _persist() -> void:
-	if _storage_valid and _mode == "host":
+	if _storage_valid and _mode in ["host", "offline"]:
 		GameState.set("mp_hoppers", serialize())
 
 func _rebuild_models() -> void:

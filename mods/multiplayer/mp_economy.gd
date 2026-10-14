@@ -7,6 +7,7 @@ signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
+const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "vacuum_belt", "vacuum_resolve", "vacuum_ack"]
 const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
@@ -105,6 +106,14 @@ func peer_gone(pid: int) -> void:
 			_queue.remove_at(i)
 
 func request(action: String, args: Dictionary) -> int:
+	if not mp.active():
+		if action not in LOCAL_ACTIONS or pending.size() >= MAX_PENDING or world_sync._frozen:
+			return 0
+		_next = maxi(_next, mp.economy_sequence) + 1
+		mp.economy_sequence = _next
+		pending[_next] = {"action": action, "args": args.duplicate(true)}
+		_execute_local.call_deferred(_next, action, args.duplicate(true))
+		return _next
 	if epoch == "" or pending.size() >= MAX_PENDING or world_sync._frozen:
 		mp.ui.notify(mp.t("economy_wait"))
 		return 0
@@ -118,6 +127,20 @@ func request(action: String, args: Dictionary) -> int:
 	else:
 		mp._rx_economy_request.rpc_id(1, epoch, _next, action, args)
 	return _next
+
+func _execute_local(seq: int, action: String, args: Dictionary) -> void:
+	if not pending.has(seq):
+		return
+	var before := float(GameState.money)
+	var result := _failure("economy_expired")
+	if not mp.active() and not world_sync._frozen and action in LOCAL_ACTIONS:
+		executing = true
+		result = _execute(1, action, args)
+		executing = false
+	result["money_change"] = float(GameState.money) - before
+	result["action"] = action
+	result["id"] = str(args.get("id", ""))
+	on_result(epoch, seq, result)
 
 func on_request(peer: int, token: String, seq: int, action: String, args: Dictionary) -> void:
 	if not mp.is_host or token != epoch or seq <= 0 or not mp.players.has(peer):

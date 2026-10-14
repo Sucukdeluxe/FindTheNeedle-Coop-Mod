@@ -25,8 +25,10 @@ func start(session: Node, sync: Node) -> void:
 	session_started()
 
 func _role() -> String:
-	if not is_instance_valid(mp) or not mp.active():
+	if not is_instance_valid(mp):
 		return ""
+	if not mp.active():
+		return "offline"
 	return "host" if mp.is_host else "guest"
 
 func _load_local() -> bool:
@@ -89,7 +91,7 @@ func session_started() -> void:
 func session_ended() -> void:
 	_abort_unsent()
 	var pending := _pending()
-	if _valid and _mode == "host" and not pending.is_empty():
+	if _valid and _mode in ["host", "offline"] and not pending.is_empty():
 		var payload: Dictionary = pending.payload
 		var key := "host:" + str(payload.stream)
 		var stream: Dictionary = _host.get("streams", {}).get(key, {"high": 0, "receipts": {}})
@@ -159,7 +161,7 @@ func prepare(vacuum: Node, requested: int) -> Dictionary:
 	return payload
 
 func submit(vacuum: Node, action: String, args: Dictionary, amount: int) -> int:
-	if not _usable() or not is_instance_valid(world_sync) or world_sync._frozen or world_sync.economy.epoch == "":
+	if not _usable() or not is_instance_valid(world_sync) or world_sync._frozen or (mp.active() and world_sync.economy.epoch == ""):
 		return 0
 	var payload := prepare(vacuum, amount)
 	if payload.is_empty():
@@ -194,7 +196,7 @@ func locked() -> bool:
 
 func resolve() -> int:
 	var pending := _pending()
-	if not _usable() or pending.is_empty() or not pending.sent or pending.has("receipt") or world_sync.economy.epoch == "":
+	if not _usable() or pending.is_empty() or not pending.sent or pending.has("receipt") or (mp.active() and world_sync.economy.epoch == ""):
 		return 0
 	var seq: int = world_sync.economy.request("vacuum_resolve", {"vacuum_escrow": pending.payload.duplicate()})
 	if seq > 0:
@@ -205,7 +207,7 @@ func resolve() -> int:
 	return seq
 
 func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
-	if not _usable() or _mode != "host" or not world_sync.economy.executing:
+	if not _usable() or _mode not in ["host", "offline"] or (_mode == "offline" and peer != 1) or not world_sync.economy.executing:
 		return _failure(_tr("Übertragung nicht verfügbar", "Transfer unavailable"))
 	var payload: Variant = args.get("vacuum_escrow")
 	if not valid_payload(payload) or payload.realm != _realm:
@@ -236,7 +238,7 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	var receipt: Dictionary = payload.duplicate()
 	receipt["moved"] = 0
 	if action != "vacuum_resolve":
-		if world_sync._frozen or not world_sync.tools_sync.has_tool(peer, "yard_vac") or int(payload.amount) > mini(MAX_AMOUNT, int(Tech.vac_capacity())):
+		if world_sync._frozen or not (GameState.has_tool("yard_vac") if _mode == "offline" else world_sync.tools_sync.has_tool(peer, "yard_vac")) or int(payload.amount) > mini(MAX_AMOUNT, int(Tech.vac_capacity())):
 			return _remember(stream, receipt)
 		if peer == 1 and not _matches_local(payload):
 			return _remember(stream, receipt)
@@ -416,7 +418,7 @@ func restore_local(data: Dictionary) -> bool:
 	return true
 
 func _save_host() -> void:
-	if _valid and is_instance_valid(mp) and _mode == "host":
+	if _valid and is_instance_valid(mp) and _mode in ["host", "offline"]:
 		GameState.set("mp_vacuum_transfers", serialize_host())
 
 func _save_local() -> void:
