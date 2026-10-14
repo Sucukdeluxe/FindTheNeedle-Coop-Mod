@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.6-xRangerDE.50
+
+Preserve host and single-player vacuum contents in world saves, and prevent partial saves during shared cleanup.
+
+- Store vacuum fill and the matching transfer reservation in the same native save snapshot as world cargo and receipts. Restore only the matching slot, world and save generation.
+- Resolve restored reservations once, including transfers already received by a hopper, without duplicating the saved hay.
+- Defer a save while shared cleanup is pending. Save once after a complete result, and retain the previous file after an incomplete result.
+- Require a successful host/local save before leaving through the pause menu. Guest exit remains independent of host saving.
+- Preserve incompatible recovery data rather than silently overwriting it. Prestige starts without the previous world’s vacuum checkpoint.
+
+Validation includes native V62 headless process termination/restart, save rollback and targeted transfer, cleanup and multiplayer regressions. Guest-process-crash recovery is not complete: guest vacuum inventory and unconfirmed cleanup data still need a persistent authoritative inventory protocol. Steam/WAN and rendered GPU performance remain unverified.
+
 ## 0.19.6-xRangerDE.49
 
 Correct multiplayer lifecycle and delivery-status handling, with native V62 headless validation.

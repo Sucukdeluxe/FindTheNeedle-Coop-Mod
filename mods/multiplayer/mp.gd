@@ -8,7 +8,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.49"
+const VERSION := "0.19.6-xRangerDE.50"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -51,6 +51,7 @@ var _belt_visuals: Script
 var _vac_upgrades := VacUpgrades.new()
 var _progression := Progression.new()
 var vacuum_transfer_local: Dictionary = {}
+var vacuum_checkpoint: Node
 var _last_scene: Node = null
 var _menu_button: WeakRef
 var _menu_retry := 0.0
@@ -75,10 +76,15 @@ func _ready() -> void:
 	base_dir = get_script().resource_path.get_base_dir()
 	load(base_dir + "/mp_hoppers.gd").ensure_catalog()
 	_install_game_state()
+	_install_save_manager()
+	vacuum_checkpoint = load(base_dir + "/mp_vacuum_checkpoint.gd").new()
+	add_child(vacuum_checkpoint)
+	vacuum_checkpoint.start(self)
 	_install_vacuum_tech()
 	get_tree().node_added.connect(_guard_sale_stand)
 	get_tree().node_added.connect(_guard_tech_panel)
 	get_tree().node_added.connect(_guard_build_icons)
+	get_tree().node_added.connect(_guard_save_menu)
 	_belt_visuals = load(base_dir + "/mp_belt_visuals.gd")
 	trace = load(base_dir + "/mp_trace.gd").new()
 	trace.name = "MPTrace"
@@ -136,6 +142,7 @@ func _ready() -> void:
 		"mp_drone_state.gd",
 		"mp_economy.gd",
 		"mp_game_state.gd",
+		"mp_save_manager.gd",
 		"mp_hand.gd",
 		"mp_hay_compressor.gd",
 		"mp_hay_drone.gd",
@@ -163,6 +170,7 @@ func _ready() -> void:
 		"mp_needle_report.gd",
 		"mp_needle_sync.gd",
 		"mp_options_panel.gd",
+		"mp_pause_menu.gd",
 		"mp_player.gd",
 		"mp_power.gd",
 		"mp_power_tags.gd",
@@ -194,6 +202,7 @@ func _ready() -> void:
 		"mp_vac_tech.gd",
 		"mp_vac_upgrades.gd",
 		"mp_vacuum_transfer.gd",
+		"mp_vacuum_checkpoint.gd",
 		"mp_wire_mode.gd",
 		"mp_world.gd",
 		"mp_yard_vac.gd"
@@ -226,6 +235,22 @@ func _guard_build_icons(node: Node) -> void:
 	for key in values:
 		if key in node:
 			node.set(key, values[key])
+
+func _guard_save_menu(node: Node) -> void:
+	if not node is PauseMenu:
+		return
+	var original: Script = node.get_script()
+	if original == null or original.resource_path != "res://scripts/ui/pause_menu.gd":
+		return
+	var values := {}
+	for property in node.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = node.get(property.name)
+	node.set_script(load(base_dir + "/mp_pause_menu.gd"))
+	for key in values:
+		if key in node:
+			node.set(key, values[key])
+
 
 func _guard_tech_panel(node: Node) -> void:
 	if not (node is TechPanel):
@@ -1688,6 +1713,17 @@ func _install_game_state() -> void:
 	for key in values:
 		if key in GameState:
 			GameState.set(key, values[key])
+
+
+func _install_save_manager() -> void:
+	var values := {}
+	for property in SaveManager.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = SaveManager.get(property.name)
+	SaveManager.set_script(load(base_dir + "/mp_save_manager.gd"))
+	for key in values:
+		if key in SaveManager:
+			SaveManager.set(key, values[key])
 
 
 func _install_vacuum_tech() -> void:

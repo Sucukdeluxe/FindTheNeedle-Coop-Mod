@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.49`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.50`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -46,7 +46,7 @@ Robotic-arm operating status, claw loads and income/minute come from the host. W
 
 Validation combines isolated GDRE/Godot tests with actual Demo V62 headless instances using the native BeltRunCore extension. Separate host and guest save directories protect existing saves. Local multiplayer tests cover scanner inventory, competing and repeated purchases, personal tool transfers, vacuum/hopper quantities, production routes and the complete prestige save/reload. Packet loss and duplication are injected on loopback; Steam multiplayer is not started.
 
-These results do **not** establish GPU frame rates, a two-PC Steam/WAN session, or freedom from every possible bug. Headless runs cannot measure rendered graphics performance. The supplied older game copy identifies as V33 and was not used as the V62 compatibility baseline. Vacuum escrow recovers interrupted transfers within the running mod session; durability across a full process crash is not guaranteed by the native vacuum save behavior.
+These results do **not** establish GPU frame rates, a two-PC Steam/WAN session, or freedom from every possible bug. Headless runs cannot measure rendered graphics performance. The supplied older game copy identifies as V33 and was not used as the V62 compatibility baseline. Host and single-player saves now include the vacuum fill and matching transfer reservation in the same snapshot as the world. Loading restores that snapshot once, including an uncommitted reservation or a transfer already received by a hopper. A save is deferred while shared floor cleanup is pending, and pause-menu exit waits for a successful save. Full guest-process-crash recovery is still incomplete: guest vacuum contents and unconfirmed local cleanup reports require an authoritative persistent inventory protocol. Unsaved progress after a host crash still rolls back to the last successful save.
 
 Only the host saves the shared world. Tools remain personal. Machines simulate on the host, with guest visual replication. Keep both installations on the same release and back up a save before changing mod versions. Do not downgrade a save containing new hoppers without a compatible backup.
 

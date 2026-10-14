@@ -15,14 +15,53 @@ var _valid := false
 var _mode := ""
 var _waiting := false
 var _refresh_wait := 0.0
+var _startup_checkpoint := {}
+var _startup_checkpoint_applied := false
+var _restore_blocked := false
 
-func start(session: Node, sync: Node) -> void:
+func start(session: Node, sync: Node, saved_checkpoint: Dictionary = {}) -> bool:
 	mp = session
 	world_sync = sync
+	_startup_checkpoint = {}
+	_restore_blocked = false
+	_startup_checkpoint_applied = saved_checkpoint.is_empty()
+	if not saved_checkpoint.is_empty():
+		if not (saved_checkpoint.get("local") is Dictionary) or not valid_local(saved_checkpoint.local) or not (saved_checkpoint.get("fill") is int):
+			_restore_blocked = true
+			_valid = false
+			set_process(false)
+			return false
+		_startup_checkpoint = saved_checkpoint.duplicate(true)
+		_local = saved_checkpoint.local.duplicate(true)
 	if not world_sync.economy.completed.is_connected(apply_result):
 		world_sync.economy.completed.connect(apply_result)
 	set_process(true)
 	session_started()
+	if not _startup_checkpoint_applied:
+		_restore_blocked = true
+		_valid = false
+		set_process(false)
+	return _startup_checkpoint_applied
+
+func restore_saved_checkpoint(local: Dictionary, fill: int) -> bool:
+	if not _usable() or _mode not in ["host", "offline"] or not is_instance_valid(_vacuum) or not valid_local(local):
+		return false
+	var checked: Dictionary = preload("res://mods/multiplayer/mp_vacuum_checkpoint.gd").snapshot(_host, local, fill, GameState.run_seed)
+	if checked.is_empty() or (fill > 0 and not GameState.has_tool("yard_vac")):
+		return false
+	_local = local.duplicate(true)
+	_save_local()
+	_write_fill(_vacuum, fill)
+	var pending := _pending()
+	_lock(_vacuum, not pending.is_empty())
+	if not pending.is_empty():
+		if not bool(pending.sent):
+			_abort_unsent()
+		elif pending.has("receipt"):
+			_finish(pending.receipt)
+		else:
+			_resolve_wait = 3.0
+	return true
 
 func _role() -> String:
 	if not is_instance_valid(mp):
@@ -49,6 +88,8 @@ func _load_local() -> bool:
 	return true
 
 func session_started() -> void:
+	if _restore_blocked:
+		return
 	var mode := _role()
 	if mode == "":
 		if _mode != "":
@@ -86,9 +127,21 @@ func session_started() -> void:
 			_lock(_vacuum, false)
 		_vacuum = null
 	if is_instance_valid(world_sync.player):
-		bind_vacuum(world_sync.player.get("yard_vac"))
+		if not _startup_checkpoint.is_empty():
+			_vacuum = world_sync.player.get("yard_vac")
+			if str(_startup_checkpoint.get("realm", "")) == _realm and int(_startup_checkpoint.get("seed", -1)) == GameState.run_seed and restore_saved_checkpoint(_startup_checkpoint.local, int(_startup_checkpoint.fill)):
+				_startup_checkpoint.clear()
+				_startup_checkpoint_applied = true
+			else:
+				if is_instance_valid(_vacuum):
+					_lock(_vacuum, true)
+				_valid = false
+		else:
+			bind_vacuum(world_sync.player.get("yard_vac"))
 
 func session_ended() -> void:
+	if _restore_blocked:
+		return
 	_abort_unsent()
 	var pending := _pending()
 	if _valid and _mode in ["host", "offline"] and not pending.is_empty():
@@ -114,7 +167,7 @@ func session_ended() -> void:
 	_resolve_wait = 0.0
 
 func _usable() -> bool:
-	return _valid and _realm != "" and _mode != "" and _role() == _mode
+	return not _restore_blocked and _valid and _realm != "" and _mode != "" and _role() == _mode
 
 func shutdown() -> void:
 	session_ended()
@@ -422,6 +475,8 @@ func _save_host() -> void:
 		GameState.set("mp_vacuum_transfers", serialize_host())
 
 func _save_local() -> void:
+	if not valid_local(_local):
+		return
 	if valid_local(_local) and is_instance_valid(mp):
 		mp.set("vacuum_transfer_local", serialize_local())
 

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.49
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.50
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -246,26 +246,24 @@ WEITERE SYNCHRONISIERUNG
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
 PRÜFUMFANG
-Alle 42 Mod-Skripte kompilieren mit der aktuellen V62-Engine. Die neue Kaufablage
-besteht 23 native Prüfungen und 216 Transaktionsprüfungen mit drei lokalen
-Spielprozessen, einschließlich Paketverlust, Duplikaten und Welt-Neuladen.
-Acht Produktionsketten bestehen 1.860 Prüfungen: 192 gewickelte Ballen und alle
-24 eingebrachten Nadeln kommen an. Geprüft sind beide Scannerstufen, gedrehte
-Aufbauten, eine 90°-Auslaufkurve, Rückstau und Wiederanlauf. Physisches Heu wird
-nur bei ausreichend freiem Einlass aufgelegt. Wird ein weiterer Haufen bewusst
-auf einen belegten Einlass geworfen, stößt ihn das native Spiel mit „Kein Platz“
-ab. Dieses Überfüllungsverhalten wird nicht geändert.
-Lift und Heutreppe bestehen 281 Einzelkörperprüfungen, 76 Prüfungen gemischter
-Ladung und 5.780 Mengenabgleiche, auch mit zehn Liftsektionen und blockiertem Auslauf.
-Die ursprünglichen Problemspielstände und der frühere Gastabsturz sind damit
-nicht vollständig reproduziert. Native Ressourcenwarnungen beim Beenden und
-der Test über zwei Rechner mit getrennten Steam-Konten bleiben offen.
+Die Mod wird mit isolierten Godot-/GDRE-Prüfungen und echten fensterlosen
+V62-Spielprozessen mit nativer Förderband-Erweiterung geprüft. Host und zwei
+Gäste verwenden getrennte Testspielstände. Geprüft werden unter anderem Käufe,
+Werkzeuge, Nadeln, Trichter, Kurven, Pressen, Wickler, Lift, Verteiler und Prestige.
+Netzwerkprüfungen simulieren Paketverlust und doppelte Pakete auf localhost.
+Diese Prüfungen belegen keine Fehlerfreiheit für alle Spielstände. Ein Test mit
+zwei Rechnern über Steam sowie eine gerenderte GPU-Leistungsmessung bleiben offen.
 
-Der Host führt Maschinen und Spielstand. Gäste speichern den gemeinsamen Hof
-nicht in ihre eigenen Spielstände. Öffentliche Bestenlisten bleiben deaktiviert.
-Andere Geldbewegungen, etwa aus Heuverkäufen, verwenden weiterhin den bestehenden
-Delta-Abgleich. Entfernte Werkzeugladungen sind eine visuelle Darstellung,
-keine exakte Kopie jedes einzelnen Halms.
+SAUGER UND SPEICHERN
+Host und Einzelspieler speichern Saugerfüllung und offene M-Übertragung zusammen
+mit der Welt. Beim Laden wird nur die zum Spielstand gehörende Füllung übernommen.
+Während einer offenen gemeinsamen Aufräumaktion wird nicht teilweise gespeichert.
+Nach vollständigem Abschluss wird der angeforderte Speichervorgang einmal nachgeholt.
+Das Pausenmenü verlässt den Hof als Host/Einzelspieler erst nach erfolgreichem Speichern.
+Die vollständige Wiederherstellung nach einem Gast-Prozessabsturz bleibt offen:
+Gast-Saugerfüllungen und noch unbestätigte lokale Aufräumdaten sind nicht dauerhaft
+mit der Hostwelt gespeichert. Ungespeicherter Fortschritt nach einem Hostabsturz
+kehrt weiterhin auf den letzten erfolgreichen Spielstand zurück.
 
 RÜCKKEHR ZUR VORHERIGEN FASSUNG
 Spiel beenden und den gesicherten Ordner mods/multiplayer sowie override.cfg

@@ -321,6 +321,7 @@ func _finish_prepare() -> void:
 	state.mp_hoppers = {"version": 1, "next_id": 1, "rows": []}
 	state.mp_needle_committed = {}
 	state.mp_vacuum_transfers = {}
+	state.erase("mp_vacuum_checkpoint")
 	state.mp_prestige = State.next_state(data, seed, pile.types.size(), _token)
 	for index in inventory.needles:
 		if index >= 0 and index < GameState.needle_type.size() and not GameState.mp_needle_committed.has(index):

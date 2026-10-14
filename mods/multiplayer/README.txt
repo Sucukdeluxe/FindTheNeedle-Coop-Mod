@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.49
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.50
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -107,3 +107,9 @@ can require more GPU work. This maintenance preview needs further two-PC testing
 
 Physical shop purchases use nearby free space and same-frame reservations.
 If no space is available, the purchase is fully refunded before replication.
+
+SAVE RECOVERY
+Host/single-player saves include vacuum fill and its pending M-transfer reservation
+with the world. Shared cleanup defers saving until completion. Pause-menu exit
+requires a successful host/local save. Complete guest-process-crash recovery is
+still incomplete; this release does not promise lossless recovery of unsaved progress.

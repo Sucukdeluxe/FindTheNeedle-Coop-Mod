@@ -185,7 +185,17 @@ func _ready() -> void:
 	hoppers_sync.start(mp, self)
 	vacuum_transfer = load(mp.base_dir + "/mp_vacuum_transfer.gd").new()
 	add_child(vacuum_transfer)
-	vacuum_transfer.start(mp, self)
+	var restore: Dictionary = mp.vacuum_checkpoint.prepare_restore()
+	var restore_pending: bool = mp.vacuum_checkpoint.has_pending()
+	var transfer_ready: bool = vacuum_transfer.start(mp, self, {"blocked": true} if restore_pending and restore.is_empty() else restore)
+	if not restore.is_empty():
+		mp.vacuum_checkpoint.finish_restore(restore, transfer_ready)
+	if restore_pending and not transfer_ready:
+		player.yard_vac.set_meta("mp_vacuum_escrow", true)
+		var reason: String = mp.vacuum_checkpoint.failure_reason()
+		if reason.is_empty():
+			reason = "Gespeicherte Saugerladung konnte nicht wiederhergestellt werden. Speichern bleibt gesperrt." if TranslationServer.get_locale().begins_with("de") else "Saved vacuum contents could not be restored. Saving remains blocked."
+		toast.call_deferred(reason)
 	build_camera = load(mp.base_dir + "/mp_build_camera.gd").new()
 	add_child(build_camera)
 	build_camera.start(player)
@@ -1393,6 +1403,8 @@ func build_payload(pid: int) -> Dictionary:
 	}
 	out.state["owned_tools"] = tools_sync.inventory_for(pid).keys()
 	out.state.erase("mp_personal_tools")
+	if pid != 1:
+		out.state.erase("mp_vacuum_checkpoint")
 	# the pile's starting shape: without it the guest re-shapes the dome from
 	# the seed, which is slow and not what the host's pile was dug from
 	var dome: Variant = field.get("dome")
