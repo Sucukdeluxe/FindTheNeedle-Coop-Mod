@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.6-xRangerDE.51
+
+Keep temporarily held straw available while the vacuum finishes placing it on the floor.
+
+- Respect the existing, finite native hold timer before classifying loose straw as lost. Previously, a brief dip below the floor could return individual strands to the pile before they were collected into the poured heap.
+- Preserve normal lost-straw handling after the hold expires or is released, without extending timers or changing collision masks.
+
+Validated with native Demo V62 headless pouring on raycast-checked floor locations and targeted hold, expiry and transport regressions. The broader authoritative guest-inventory work and near-empty-pile extraction audit remain in progress; this release does not claim complete crash recovery, Steam/WAN validation or rendered GPU performance.
+
 ## 0.19.6-xRangerDE.50
 
 Preserve host and single-player vacuum contents in world saves, and prevent partial saves during shared cleanup.

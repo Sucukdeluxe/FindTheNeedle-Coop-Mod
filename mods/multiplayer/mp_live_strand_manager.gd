@@ -62,3 +62,8 @@ func _mp_sweep(consume_only: bool) -> Array:
 			_retire(body, settled)
 		rows.append([position, settled])
 	return rows
+
+func _is_lost(body: RigidBody3D) -> bool:
+	if _is_held(body):
+		return false
+	return super._is_lost(body)
