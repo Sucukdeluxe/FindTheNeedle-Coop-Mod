@@ -95,7 +95,7 @@ func _replace(node: Node, script: Script) -> void:
 			node.set(key, values[key])
 
 func shutdown() -> void:
-	if get_tree().node_added.is_connected(_options_added):
+	if is_inside_tree() and get_tree().node_added.is_connected(_options_added):
 		get_tree().node_added.disconnect(_options_added)
 	if GameState.gifts_changed.is_connected(_gifts_changed):
 		GameState.gifts_changed.disconnect(_gifts_changed)

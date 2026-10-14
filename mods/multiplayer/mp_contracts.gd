@@ -13,6 +13,8 @@ extends Node
 
 const TICK := 0.5
 const FULL_TICK := 3.0   # everything again now and then, for a guest that just came in
+const MAX_CALL_WAIT := 3600.0
+const MAX_SIGN_OFF := 60.0
 
 var mp: Node
 var world: Node
@@ -70,12 +72,24 @@ func _process(delta: float) -> void:
 
 func _state() -> Dictionary:
 	var tr := _truck()
-	return {
+	var state := {
 		"index": GameState.contract_index,
 		"delivered": GameState.contract_delivered,
 		"done": GameState.contracts_done.keys(),
 		"truck": int(tr.get("state")) if tr != null else -1,
 	}
+	var dd := _director()
+	if dd != null:
+		state["call_in"] = _timer(dd.get("_call_in"), -1.0, -1.0, MAX_CALL_WAIT)
+		state["sign_off"] = _timer(dd.get("_sign_off"), 0.0, 0.0, MAX_SIGN_OFF)
+	return state
+
+
+func _timer(value: Variant, fallback: float, minimum: float, maximum: float) -> float:
+	if not (value is float or value is int):
+		return fallback
+	var seconds := float(value)
+	return seconds if is_finite(seconds) and seconds >= minimum and seconds <= maximum else fallback
 
 
 func on_state(s: Dictionary) -> void:
@@ -119,6 +133,10 @@ func on_state(s: Dictionary) -> void:
 				tr.stack_one(want)
 	var dd2 := _director()
 	if dd2 != null:
+		if s.has("call_in"):
+			dd2.set("_call_in", _timer(s.call_in, float(dd2.get("_call_in")), -1.0, MAX_CALL_WAIT))
+		if s.has("sign_off"):
+			dd2.set("_sign_off", _timer(s.sign_off, float(dd2.get("_sign_off")), 0.0, MAX_SIGN_OFF))
 		dd2._restate()
 
 

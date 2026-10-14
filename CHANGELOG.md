@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.6-xRangerDE.49
+
+Correct multiplayer lifecycle and delivery-status handling, with native V62 headless validation.
+
+- Replicate delivery arrival and departure countdowns so guests see the host status.
+- Avoid repeated missing-metadata errors when aiming at ordinary objects or handling a stale lift rider.
+- Complete shared cleanup safely when leaving a session, preserving unconfirmed guest reports and releasing the local action lock.
+- Send lobby updates only to connected peers and coalesce disconnect notifications.
+- Guard shutdown callbacks when the scene tree is already detached.
+
+Validation uses actual Demo V62 host/two-guest instances, native BeltRunCore, isolated saves and injected loopback packet loss/duplication, together with targeted regression tests. Steam/WAN multiplayer and rendered GPU performance remain unverified. Pending vacuum and cleanup transfers are not guaranteed durable across a complete process crash.
+
 ## 0.19.6-xRangerDE.48
 
 Add prestige map changes, safer scanner dismantling and shared hay cleanup for Demo V62.

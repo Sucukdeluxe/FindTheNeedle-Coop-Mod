@@ -36,6 +36,17 @@ func start(session: Node, sync: Node) -> void:
 	mp = session
 	world_sync = sync
 
+func session_ended() -> void:
+	executing = false
+	if not _job.is_empty():
+		_job.failed = bool(_job.failed) or not _job.waiting.is_empty()
+		_job.waiting.clear()
+		_complete(str(_job.token))
+	_last_requests.clear()
+	_reminder = 0.0
+	_elapsed = 0.0
+	_warned = false
+
 func shutdown() -> void:
 	executing = false
 	_job.clear()
@@ -211,7 +222,7 @@ func _complete(token: String) -> void:
 	var epoch: String = _job.epoch
 	var seed: int = _job.seed
 	_job = {}
-	if mp.active() and mp.is_host:
+	if is_instance_valid(mp) and mp.is_inside_tree() and mp.active() and mp.is_host:
 		mp._rx_sweep_finished.rpc(epoch, seed, token, result)
 	finished.emit(token, result)
 
@@ -222,7 +233,7 @@ func on_finished(epoch: String, seed: int, token: String, result: Dictionary) ->
 		return
 	if int(result.things) < 0 or int(result.straws) < 0:
 		return
-	if not bool(result.get("pending", false)) and _receipts.has(token):
+	if not bool(result.get("pending", false)) and not bool(result.incomplete) and _receipts.has(token):
 		_receipts[token] = {"rows": [], "ok": true, "finished": true}
 		for actor in _command_tokens.keys():
 			if _command_tokens[actor] == token and not mp.players.has(actor):

@@ -17,7 +17,7 @@ func _carry(delta: float) -> void:
 		var row: Dictionary = _carried[index]
 		var body: Variant = row.get("body")
 		if not is_instance_valid(body) or not body is HayTuft or not body.is_inside_tree() \
-				or not is_same(body.get_meta(META_CARRIED, null), self) or not body.freeze:
+				or not body.has_meta(META_CARRIED) or not is_same(body.get_meta(META_CARRIED), self) or not body.freeze:
 			continue
 		_carried.remove_at(index)
 		_unfit(row)

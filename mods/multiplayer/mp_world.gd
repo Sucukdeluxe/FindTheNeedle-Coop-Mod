@@ -327,7 +327,7 @@ func session_ended() -> void:
 		prestige.shutdown()
 	if is_instance_valid(build_camera):
 		build_camera.leave()
-	for service in [vacuum_transfer, hoppers_sync, scanner_sync, needles_sync, economy]:
+	for service in [sweep_sync, vacuum_transfer, hoppers_sync, scanner_sync, needles_sync, economy]:
 		if is_instance_valid(service):
 			service.session_ended()
 

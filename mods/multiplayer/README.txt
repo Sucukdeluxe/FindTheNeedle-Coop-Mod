@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.48
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.49
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -50,7 +50,8 @@ Band portions upgrade from 100 to 1,000 (25,000 total). Arm speed has 20 ranks;
 lifts/stairs and distributors have separate speed cards.
 Double Jump costs 2,500 in Fitness after Spring Heels. Release and press jump
 again in mid-air. Landing restores the extra jump; the unlock is shared.
-This revision was checked offline; full V62/Steam gameplay was not launched.
+This revision includes actual V62 headless host/two-guest tests on loopback.
+Steam sessions and rendered GPU performance remain unverified.
 
 LANGUAGES
 ---------

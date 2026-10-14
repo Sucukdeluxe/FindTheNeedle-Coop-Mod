@@ -138,7 +138,8 @@ func _thaw() -> void:
 		if is_instance_valid(node):
 			node.process_mode = _saved_process[node]
 	_saved_process.clear()
-	get_tree().paused = _old_paused
+	if is_inside_tree():
+		get_tree().paused = _old_paused
 	if is_instance_valid(world_sync):
 		world_sync._frozen = _old_frozen
 	if is_instance_valid(mp):

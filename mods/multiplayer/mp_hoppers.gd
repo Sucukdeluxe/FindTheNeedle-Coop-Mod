@@ -503,9 +503,9 @@ func _target_from_ray(ray: Dictionary) -> int:
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
 	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
 	var body: Variant = hit.get("collider")
-	if not is_instance_valid(body):
+	if not is_instance_valid(body) or not body.has_meta("mp_hopper"):
 		return 0
-	var model: Variant = body.get_meta("mp_hopper", null)
+	var model: Variant = body.get_meta("mp_hopper")
 	return int(model.hopper_id) if is_instance_valid(model) else 0
 
 func _update_focus() -> void:

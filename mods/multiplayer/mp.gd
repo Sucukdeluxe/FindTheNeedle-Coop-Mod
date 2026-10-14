@@ -8,7 +8,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.48"
+const VERSION := "0.19.6-xRangerDE.49"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -33,6 +33,7 @@ var _prestige_host_reload := false
 var phase: int = Phase.OFFLINE
 var is_host := false
 var players := {}  # peer id -> {name, color, state}
+var _players_broadcast_pending := false
 var my_name := "Player"  # replaced by the Steam name or the saved one
 var last_ip := "127.0.0.1"
 var last_port := DEFAULT_PORT
@@ -721,10 +722,34 @@ func _on_peer_disconnected(id: int) -> void:
 	if world_sync != null:
 		world_sync.remove_avatar(id)
 	if is_host:
-		_rx_players.rpc(players)
+		_queue_player_broadcast()
 		if world_sync != null:
 			world_sync.forget_peer(id)
 	ui.refresh()
+
+
+func _queue_player_broadcast() -> void:
+	if _players_broadcast_pending:
+		return
+	_players_broadcast_pending = true
+	_broadcast_players.call_deferred()
+
+
+func _broadcast_players() -> void:
+	_players_broadcast_pending = false
+	if not is_host or not active():
+		return
+	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
+	for id in multiplayer.get_peers():
+		if not players.has(id):
+			continue
+		if peer is ENetMultiplayerPeer:
+			var connection: ENetPacketPeer = peer.get_peer(id)
+			if connection == null or connection.get_state() != ENetPacketPeer.STATE_CONNECTED:
+				continue
+		_rx_players.rpc_id(id, players)
 
 
 func _on_connected() -> void:
@@ -748,7 +773,7 @@ func _broadcast_host_in_world(on: bool) -> void:
 		_sent_world_generation.clear()
 	if players.has(1):
 		players[1]["state"] = "world" if on else "menu"
-	_rx_players.rpc(players)
+	_broadcast_players()
 	ui.refresh()
 
 
@@ -801,7 +826,7 @@ func _rx_hello(pname: String, ver: String, profile: String) -> void:
 		pname = t("player_fallback") % id
 	players[id] = {"name": pname, "color": col, "state": "lobby"}
 	ui.notify(t("joined") % pname, col)
-	_rx_players.rpc(players)
+	_broadcast_players()
 	ui.refresh()
 	if in_world():
 		send_world(id)
@@ -847,7 +872,7 @@ func _rx_client_ready(generation: int) -> void:
 	_sent_world_generation.erase(id)
 	if players.has(id):
 		players[id]["state"] = "world"
-		_rx_players.rpc(players)
+		_broadcast_players()
 	if world_sync != null:
 		world_sync._peer_ack.erase(id)
 		world_sync.send_full_sync(id)
