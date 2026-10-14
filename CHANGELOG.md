@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.6-xRangerDE.44
+
+Fix vacuum upgrade cards remaining capped at 27 capacity and 6 suction ranks.
+
+- Initialize from the native three-rank catalog and retry after in-place catalog rebuilds. Support either load order with the existing Tool Upgrades add-on.
+- Show all 41 capacity ranks up to 50,000 strands and 20 suction ranks up to 1,000 strands per second. Keep purchased ranks and saved contents unchanged.
+- Disable the native late-rank surcharge for these two cards so the actual purchase price stays at or below 100,000. Preserve the three native base prices and any existing first six base prices.
+- Let the native catalog append units once instead of duplicating them in upgrade values.
+
+Validation: 271 checks using the decoded native catalog shape and cost/display functions, 315 existing capacity/save/purchase checks, and 6 checks using the actual optional add-on in both load orders passed. Dependencies were isolated in a standalone GDRE/Godot project; the full game and Steam/WAN were not started or tested.
+
 ## 0.19.6-xRangerDE.43
 
 Make scanner drawer withdrawals host-authoritative.
