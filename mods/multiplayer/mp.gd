@@ -6,7 +6,7 @@ extends Node
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 
-const VERSION := "0.19.6-xRangerDE.37"
+const VERSION := "0.19.6-xRangerDE.38"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -96,7 +96,7 @@ func _ready() -> void:
 			var test: Node = test_script.new()
 			test.mp = self
 			add_child(test)
-	for f in ["mp_build_snapshot.gd", "mp_avatar.gd", "mp_belt_items.gd", "mp_belt_routes.gd",
+	for f in ["mp_arm_visual.gd", "mp_build_snapshot.gd", "mp_avatar.gd", "mp_belt_items.gd", "mp_belt_routes.gd",
 			"mp_belt_snapshot.gd", "mp_belt_visuals.gd", "mp_belts.gd",
 			"mp_boards.gd", "mp_build_actor.gd", "mp_build_tool.gd",
 			"mp_builds.gd", "mp_carry.gd", "mp_contracts.gd",

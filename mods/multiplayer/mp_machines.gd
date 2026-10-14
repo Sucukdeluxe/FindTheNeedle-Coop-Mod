@@ -1,5 +1,9 @@
 extends Node
 
+const ArmVisual = preload("res://mods/multiplayer/mp_arm_visual.gd")
+
+var _arm_visual := ArmVisual.new()
+
 const DroneState = preload("res://mods/multiplayer/mp_drone_state.gd")
 const MachinePacket = preload("res://mods/multiplayer/mp_machine_packet.gd")
 
@@ -142,6 +146,7 @@ func start(mp_node: Node, world_node: Node) -> void:
 
 
 func shutdown() -> void:
+	_arm_visual.clear()
 	_processors_enabled = false
 	set_process(false)
 	if is_instance_valid(builds) and builds.changed.is_connected(_protect_processors):
@@ -216,6 +221,8 @@ func _rescan() -> void:
 	for key in _alias.keys():
 		if not _nodes.has(_alias[key]):
 			_alias.erase(key)
+
+	_arm_visual.prune(_nodes)
 
 
 # Our key for a machine the host named. Both sides place a machine from the
@@ -408,6 +415,10 @@ func _send_poses() -> void:
 				xf.basis.z.x, xf.basis.z.y, xf.basis.z.z]))
 		_sent[key] = last
 		var entry := {}
+		if n is RoboticArm:
+			var visual := _arm_visual.capture(key, n, _full)
+			if not visual.is_empty():
+				entry["a"] = visual
 		if moved.size() > 0:
 			entry["i"] = moved
 			entry["t"] = rows
@@ -443,7 +454,7 @@ func _send_poses() -> void:
 	# One machine's full pose is already bigger than a packet. Sent unreliably,
 	# losing any fragment lost the whole batch, so big batches and the
 	# periodic full refresh go on the reliable channel instead.
-	if _full or packed.size() > BIG_PACKET:
+	if _full or packed.size() > BIG_PACKET or _has_arm_geometry(batch):
 		mp._rx_machines_big.rpc(packed, raw.size())
 	else:
 		mp._rx_machines.rpc(packed, raw.size())
@@ -462,6 +473,9 @@ func _send_small(batch: Dictionary) -> void:
 	var pieces: Array = []  # [key, sub entry]
 	for key in batch:
 		var e: Dictionary = batch[key]
+		if e.has("a"):
+			for visual in ArmVisual.pieces(e.a):
+				pieces.append([key, {"a": visual}])
 		if e.has("f"):
 			var f: PackedInt32Array = e["f"]
 			for a in range(0, f.size(), PIECE_PAIRS * 2):
@@ -497,10 +511,17 @@ func _send_one(batch: Dictionary) -> void:
 	var raw := var_to_bytes(batch)
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	# the periodic full refresh has to arrive; the moves in between may drop
-	if _full:
+	if _full or _has_arm_geometry(batch):
 		mp._rx_machines_big.rpc(packed, raw.size())
 	else:
 		mp._rx_machines.rpc(packed, raw.size())
+
+
+func _has_arm_geometry(batch: Dictionary) -> bool:
+	for entry in batch.values():
+		if entry.has("a") and entry.a.has("d"):
+			return true
+	return false
 
 
 # bit 0: the part is drawn. bit 1: its particles are running.
@@ -577,6 +598,8 @@ func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 			continue
 		var slot := _slot_of(key)
 		var entry: Dictionary = batch[host_key]
+		if entry.has("a") and _nodes.get(key) is RoboticArm:
+			_arm_visual.apply(key, _nodes[key], entry.a)
 		if entry.has("f"):
 			var flags: PackedInt32Array = entry["f"]
 			var k := 0
@@ -1043,6 +1066,7 @@ func _apply_field(n: Node, f: String, v: Variant) -> void:
 # Parts ease towards the last pose we heard about, so ten packets a second
 # still read as movement rather than stepping.
 func _ease(delta: float) -> void:
+	_arm_visual.step(delta)
 	if _goal.is_empty():
 		return
 	var step_t := delta / TICK
@@ -1369,9 +1393,11 @@ func _live_part(key: String, part: Variant) -> bool:
 func _is_transport_part(part: Node) -> bool:
 	var current := part
 	while is_instance_valid(current):
-		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut" or current.has_meta("mp_lift_cargo"):
+		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut" or current.has_meta("mp_lift_cargo") or current.has_meta("mp_arm_visual"):
 			return true
 		var parent := current.get_parent()
+		if parent is RoboticArm and current == parent.get("_payload_visual"):
+			return true
 		if parent is HayPulper and current in parent.taps:
 			return true
 		if parent is HayLift or parent is HayStairs:

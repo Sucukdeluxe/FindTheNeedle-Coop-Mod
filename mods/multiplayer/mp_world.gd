@@ -1026,6 +1026,7 @@ func _capture_state() -> Dictionary:
 func _state_tick() -> void:
 	if mp.is_host:
 		var snap := _capture_state()
+		snap["income_per_minute"] = GameState.income_per_minute()
 		for f in HOST_ABS + HOST_MAX:
 			snap[f] = GameState.get(f)
 		for pid in mp.players.keys():
@@ -1100,6 +1101,9 @@ func on_state_delta(pid: int, seq: int, delta: Dictionary) -> void:
 func on_state_snap(ack: int, snap: Dictionary) -> void:
 	if mp.is_host:
 		return
+	var income: Variant = snap.get("income_per_minute")
+	if (income is float or income is int) and is_finite(float(income)) and float(income) >= 0.0:
+		GameState.mp_income_rate = float(income)
 	while not _st_pending.is_empty() and int(_st_pending[0][0]) <= ack:
 		_st_pending.pop_front()
 	var pend := {}

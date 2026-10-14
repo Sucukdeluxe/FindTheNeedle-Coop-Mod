@@ -1,6 +1,13 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.37`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.38`, based on upstream 0.19.5.
+
+Guests now receive the temporary straw mesh held by robotic arms, including its
+exact instance geometry, colors and movement. Visual-only packets are sequenced,
+chunked for Steam transport, cleared after release and restored by full snapshots.
+The native income-per-minute display now uses the host’s rolling sales rate on
+guests, including recovery after joining and returning to zero when sales expire.
+This displayed rate does not change money or inventory.
 
 Network building snapshots preserve the robotic arm’s in-flight hay. The native
 serializer refunds its virtual payload when saving; network reads now use a
@@ -64,7 +71,7 @@ Same-frame purchases reserve their accepted spaces; a purchase with no free
 position is removed before replication and refunded in full. Personal tools
 still use the existing inventory path.
 
-The V62 compilation and initial-language menu fixes remain included. All 49
+The V62 compilation and initial-language menu fixes remain included. All 50
 multiplayer scripts compile with the current V62 executable.
 
 Physical cargo waiting inside a lift or hay stairs is protected from recycling

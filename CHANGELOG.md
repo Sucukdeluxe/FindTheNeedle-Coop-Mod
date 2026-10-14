@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.6-xRangerDE.38
+
+Show robotic-arm loads and income per minute to guests.
+
+- Replicate transient claw-straw geometry, colors and poses separately from static machine parts. The guest creates a cosmetic mesh without collectible bodies or production logic.
+- Split geometry into bounded reliable chunks, order load generations and poses independently, reject invalid data and recover the current load on full snapshots. Late packets cannot restore released cargo.
+- Use the host’s current rolling sales rate for the native guest income-per-minute display. Balance synchronization alone did not populate the guest’s local sales history. The rate returns to zero when sales expire and never credits money.
+
+
+Validation: 50 production scripts compile in V62. A local host and two guests passed 69 checks with delayed, duplicated and dropped packets. The test checks exact mesh data, movement, release, full-snapshot recovery, invalid data, matching income rates, expiry and unchanged balances.
+
 ## 0.19.6-xRangerDE.37
 
 Preserve robotic-arm loads during synchronization and route lift tufts through cargo records.

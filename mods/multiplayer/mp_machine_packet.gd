@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ArmVisual = preload("res://mods/multiplayer/mp_arm_visual.gd")
+
 static func valid(batch: Variant) -> bool:
 	if not (batch is Dictionary):
 		return false
@@ -7,6 +9,8 @@ static func valid(batch: Variant) -> bool:
 		if not (key is String) or not (batch[key] is Dictionary):
 			return false
 		var entry: Dictionary = batch[key]
+		if entry.has("a") and not ArmVisual.valid(entry.a):
+			return false
 		if entry.has("i") != entry.has("t") or entry.has("xi") != entry.has("xv"):
 			return false
 		if entry.has("i"):
