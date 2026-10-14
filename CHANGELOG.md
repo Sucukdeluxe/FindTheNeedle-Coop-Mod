@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.43
+
+Make scanner drawer withdrawals host-authoritative.
+
+- Guests request a specific needle and wait for the host grant before creating a held needle. Request deduplication and ownership reservations prevent concurrent or repeated withdrawals.
+- Replicate drawer contents with reliable epoch- and sequence-checked snapshots instead of generic machine fields. Refresh open drawer cards after changes and route bulk dispensing through the host.
+- Return unacknowledged grants after hand failure or disconnect; retain them in scanner save data while pending.
+
+Validation: 23 isolated contract checks and 15 checks across a standalone test host and two guests passed with delayed, dropped and duplicated packets. Native scanner, hand and world dependencies were explicit test doubles. Full V62 gameplay and Steam/WAN validation remain outstanding; the game was not launched.
+
 ## 0.19.6-xRangerDE.42
 
 Extend vacuum capacity and suction upgrades with bounded prices.

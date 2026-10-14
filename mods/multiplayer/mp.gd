@@ -7,7 +7,7 @@ extends Node
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.42"
+const VERSION := "0.19.6-xRangerDE.43"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -106,11 +106,11 @@ func _ready() -> void:
 			"mp_builds.gd", "mp_carry.gd", "mp_contracts.gd",
 			"mp_diagnostic_state.gd", "mp_diagnostics.gd", "mp_drone_state.gd",
 			"mp_economy.gd", "mp_game_state.gd", "mp_hay_compressor.gd",
-			"mp_hay_wrapper.gd", "mp_i18n.gd", "mp_lift_cargo.gd",
+			"mp_hay_wrapper.gd", "mp_haystack_scanner.gd", "mp_i18n.gd", "mp_lift_cargo.gd",
 			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
 			"mp_mice.gd", "mp_missions.gd", "mp_player.gd", "mp_power.gd",
 			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
-			"mp_robotic_arm.gd", "mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
+			"mp_robotic_arm.gd", "mp_scanner_sync.gd", "mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
 			"mp_tech.gd", "mp_tech_panel.gd", "mp_tool_prop.gd", "mp_tools.gd",
 			"mp_trace.gd", "mp_ui.gd", "mp_vac_tech.gd", "mp_vac_upgrades.gd", "mp_wire_mode.gd",
 			"mp_world.gd", "mp_yard_vac.gd"]:
@@ -1104,6 +1104,30 @@ func _rx_machines_big(packed: PackedByteArray, raw_size: int) -> void:
 	if world_sync == null or world_sync.machines_sync == null:
 		return
 	world_sync.machines_sync.on_poses(packed, raw_size)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_scanner_state(epoch: String, sequence: int, state: Dictionary) -> void:
+	if world_sync != null and is_instance_valid(world_sync.scanner_sync):
+		world_sync.scanner_sync.on_state(epoch, sequence, state)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_scanner_request(epoch: String, sequence: int, key: String, mode: String, index: int) -> void:
+	if is_host and world_sync != null and is_instance_valid(world_sync.scanner_sync):
+		world_sync.scanner_sync.on_request(multiplayer.get_remote_sender_id(), epoch, sequence, key, mode, index)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_scanner_result(epoch: String, sequence: int, result: Dictionary) -> void:
+	if world_sync != null and is_instance_valid(world_sync.scanner_sync):
+		world_sync.scanner_sync.on_result(epoch, sequence, result)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func _rx_scanner_ack(epoch: String, sequence: int, success: bool) -> void:
+	if is_host and world_sync != null and is_instance_valid(world_sync.scanner_sync):
+		world_sync.scanner_sync.on_ack(multiplayer.get_remote_sender_id(), epoch, sequence, success)
 
 
 @rpc("authority", "call_remote", "reliable", 0)

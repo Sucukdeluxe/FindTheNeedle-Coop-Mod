@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.42`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.43`, based on upstream 0.19.5.
+
+Scanner drawer withdrawals now require a host grant. Each needle leaves the host
+drawer once; guests receive it only after confirmation. Duplicate requests and
+late drawer snapshots cannot create another withdrawal. Failed hand delivery or
+a disconnect returns an unacknowledged needle, and all open drawers refresh.
 
 Vacuum upgrades now reach 50,000 strands of capacity across 41 total ranks and
 1,000 strands per second at suction rank 20. Capacity ranks up to 27 retain their

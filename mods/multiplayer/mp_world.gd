@@ -81,6 +81,7 @@ var power_sync: Node
 var diagnostics: Node
 var boards_sync: Node  # what is drawn on the paint boards
 var mice_sync: Node
+var scanner_sync: Node
 var _pose_t := 0.0
 
 var _hay_base := PackedFloat32Array()
@@ -171,6 +172,9 @@ func _ready() -> void:
 	mice_sync = load(mp.base_dir + "/mp_mice.gd").new()
 	add_child(mice_sync)
 	mice_sync.start(mp, self)
+	scanner_sync = load(mp.base_dir + "/mp_scanner_sync.gd").new()
+	add_child(scanner_sync)
+	scanner_sync.start(mp, self)
 	power_sync = load(mp.base_dir + "/mp_power.gd").new()
 	add_child(power_sync)
 	power_sync.start(mp, self)
@@ -191,6 +195,8 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if is_instance_valid(scanner_sync):
+		scanner_sync.shutdown()
 	if is_instance_valid(mice_sync):
 		mice_sync.shutdown()
 	if is_instance_valid(power_sync):
@@ -405,6 +411,8 @@ func clear_avatars() -> void:
 
 
 func forget_peer(id: int) -> void:
+	if is_instance_valid(scanner_sync):
+		scanner_sync.peer_gone(id)
 	if is_instance_valid(economy):
 		economy.peer_gone(id)
 	if mp.is_host:
@@ -1348,6 +1356,8 @@ func send_full_sync(pid: int) -> void:
 		economy.publish(pid)
 	if is_instance_valid(mice_sync):
 		mice_sync.publish(pid)
+	if is_instance_valid(scanner_sync):
+		scanner_sync.publish(pid, true)
 	if is_instance_valid(tools_sync):
 		tools_sync.send_all(pid)
 	# loose needles the late joiner missed: [index, position, who holds it]
