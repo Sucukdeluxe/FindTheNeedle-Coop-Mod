@@ -219,6 +219,9 @@ func _apply(inventory: Dictionary) -> void:
 	_applying = false
 
 func request_drop(id: String, throwing: bool) -> void:
+	if id == "yard_vac" and is_instance_valid(_vacuum) and bool(_vacuum.get_meta("mp_vacuum_escrow", false)):
+		mp.ui.notify("Saugerübertragung läuft." if TranslationServer.get_locale().begins_with("de") else "Vacuum transfer in progress.")
+		return
 	_request("tool_drop", {"id": id, "throwing": throwing}, "drop:" + id)
 
 func request_pickup(item: Node) -> void:
@@ -278,6 +281,12 @@ func _input(event: InputEvent) -> void:
 	if not mp.active() or not is_instance_valid(player) or player.menu_is_up() or not player.is_mouse_captured():
 		return
 	if not _vacuum.get("_active") or not _vacuum.is_loaded():
+		return
+	if bool(_vacuum.get_meta("mp_vacuum_escrow", false)):
+		get_viewport().set_input_as_handled()
+		return
+	if is_instance_valid(mp.world_sync.hoppers_sync) and mp.world_sync.hoppers_sync.request_dump(_vacuum):
+		get_viewport().set_input_as_handled()
 		return
 	if _vacuum.mp_dump_all:
 		_vacuum.mp_cancel_dump()

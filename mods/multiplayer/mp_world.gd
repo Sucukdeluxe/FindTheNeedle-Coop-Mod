@@ -4,6 +4,7 @@
 # RPCs; this node only reads and applies game state.
 extends Node
 
+const DiagnosticState = preload("res://mods/multiplayer/mp_diagnostic_state.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 
 var mp: Node
@@ -105,6 +106,11 @@ var _seq := 0
 var _peer_ack := {}
 var _state_t := 0.0
 var _tech_mute := false
+var needles_sync: Node
+var hoppers_sync: Node
+var vacuum_transfer: Node
+var build_camera: Node
+
 var _needles := {}  # needle index -> "free" | "held" | "away"
 var _holder := {}  # host: needle index -> peer holding it
 var _last_at := {}  # peer -> where its last pose put it (outlives the avatar)
@@ -169,6 +175,20 @@ func _ready() -> void:
 	economy = load(mp.base_dir + "/mp_economy.gd").new()
 	add_child(economy)
 	economy.start(mp, self)
+	needles_sync = load(mp.base_dir + "/mp_needle_sync.gd").new()
+	add_child(needles_sync)
+	needles_sync.start(mp, self)
+	hoppers_sync = load(mp.base_dir + "/mp_hoppers.gd").new()
+	add_child(hoppers_sync)
+	hoppers_sync.start(mp, self)
+	vacuum_transfer = load(mp.base_dir + "/mp_vacuum_transfer.gd").new()
+	add_child(vacuum_transfer)
+	vacuum_transfer.start(mp, self)
+	build_camera = load(mp.base_dir + "/mp_build_camera.gd").new()
+	add_child(build_camera)
+	build_camera.start(player)
+	build_camera.notice.connect(toast)
+	player.set("mp_build_camera", build_camera)
 	mice_sync = load(mp.base_dir + "/mp_mice.gd").new()
 	add_child(mice_sync)
 	mice_sync.start(mp, self)
@@ -195,6 +215,14 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if is_instance_valid(build_camera):
+		build_camera.leave()
+	if is_instance_valid(vacuum_transfer):
+		vacuum_transfer.shutdown()
+	if is_instance_valid(hoppers_sync):
+		hoppers_sync.shutdown()
+	if is_instance_valid(needles_sync):
+		needles_sync.shutdown()
 	if is_instance_valid(scanner_sync):
 		scanner_sync.shutdown()
 	if is_instance_valid(mice_sync):
@@ -274,9 +302,19 @@ func place_at_spawn() -> void:
 	player.velocity = Vector3.ZERO
 
 
+func session_ended() -> void:
+	if is_instance_valid(build_camera):
+		build_camera.leave()
+	for service in [vacuum_transfer, hoppers_sync, scanner_sync, needles_sync, economy]:
+		if is_instance_valid(service):
+			service.session_ended()
+
 func apply_session_rules() -> void:
 	mp._mp_guard_online_services()
 	mp.hold_profile()
+	economy.session_started()
+	hoppers_sync.session_started()
+	vacuum_transfer.session_started()
 	if props_sync != null and is_instance_valid(props_sync):
 		props_sync.session_started()
 	if not mp.is_host:
@@ -768,6 +806,7 @@ func _build_digest() -> int:
 	return hash(_build_digest_rows())
 
 func _build_digest_rows() -> PackedStringArray:
+	var owner_cache := {}
 	var rows := PackedStringArray()
 	if not is_instance_valid(builds):
 		return rows
@@ -776,7 +815,7 @@ func _build_digest_rows() -> PackedStringArray:
 	var keys := {}
 	for path in BeltPath._live:
 		if _diagnostic_path_live(path):
-			keys[path] = _diagnostic_path_key(path)
+			keys[path] = _diagnostic_path_key(path, owner_cache)
 	var branches := {}
 	for splitter in builds.splitters:
 		if not is_instance_valid(splitter) or not splitter.has_method("feeder") or not splitter.has_method("routes"):
@@ -790,18 +829,18 @@ func _build_digest_rows() -> PackedStringArray:
 			if keys.has(route):
 				choices.append(str(keys[route]))
 			elif is_instance_valid(route):
-				choices.append("untracked:" + _diagnostic_path_key(route))
+				choices.append("untracked:" + _diagnostic_path_key(route, owner_cache))
 		choices.sort()
 		var selected: Variant = feeder.downstream
 		if is_instance_valid(selected) and selected not in routes:
-			choices.append("invalid:" + _diagnostic_path_key(selected))
+			choices.append("invalid:" + _diagnostic_path_key(selected, owner_cache))
 		branches[feeder] = "branches:" + ",".join(choices)
 	for path in keys:
 		var onward := str(branches.get(path, "none"))
 		if not branches.has(path):
 			var next: Variant = path.downstream
 			if is_instance_valid(next) and next is BeltPath:
-				onward = str(keys[next]) if keys.has(next) else "untracked:" + _diagnostic_path_key(next)
+				onward = str(keys[next]) if keys.has(next) else "untracked:" + _diagnostic_path_key(next, owner_cache)
 		rows.append("path:" + str(keys[path]) + "->" + onward)
 	rows.sort()
 	return rows
@@ -820,19 +859,11 @@ func _diagnostic_path_live(path: Variant) -> bool:
 	return false
 
 
-func _diagnostic_path_key(path: BeltPath) -> String:
+func _diagnostic_path_key(path: BeltPath, owner_cache: Dictionary = {}) -> String:
 	var points := PackedStringArray()
 	for point in path._line:
 		points.append(_qv(point))
-	var build_key := ""
-	var node: Node = path
-	while is_instance_valid(node) and node != world:
-		if node.has_method("to_dict"):
-			var data: Variant = BuildSnapshot.row(node)
-			if data is Dictionary and data.has("type"):
-				build_key = _bkey(data)
-				break
-		node = node.get_parent()
+	var build_key := DiagnosticState.owner_key(path, world, owner_cache, _bkey)
 	return build_key + ":" + ";".join(points)
 
 func on_build_digest(digest: int) -> void:
@@ -1368,6 +1399,10 @@ func send_full_sync(pid: int) -> void:
 	for idx in _holder:
 		if not bodies.has(idx):
 			needles.append([idx, Vector3.ZERO, int(_holder[idx])])
+	if is_instance_valid(needles_sync):
+		needles_sync.publish_catalog(pid)
+	if is_instance_valid(hoppers_sync):
+		hoppers_sync.send_all(pid)
 	mp._rx_full_sync.rpc_id(pid, field.heights, BuildSnapshot.buildings(builds), Tech.to_dict(), needles)
 	if props_sync != null and is_instance_valid(props_sync):
 		props_sync.send_all(pid)
@@ -1427,6 +1462,7 @@ func on_full_sync(heights: PackedFloat32Array, host_builds: Array, tech: Diction
 
 
 func _on_pile_replaced() -> void:
+	GameState.mp_needle_committed.clear()
 	if not mp.active():
 		_pile_seed = GameState.run_seed
 		return
@@ -1511,9 +1547,28 @@ func _held_needle() -> int:
 	return -1
 
 
+func _local_carried_needles() -> Dictionary:
+	var result := {}
+	var hand_index := _held_needle()
+	if hand_index >= 0:
+		result[hand_index] = true
+	var vacuum: Variant = player.get("yard_vac") if is_instance_valid(player) else null
+	if is_instance_valid(vacuum):
+		for body in vacuum.get("_needles"):
+			if is_instance_valid(body):
+				var index := int(body.get_meta("needle_index", -1))
+				if index >= 0:
+					result[index] = true
+		for entry in vacuum.get("_inbound").values():
+			var body: Variant = entry[0] if entry is Array and not entry.is_empty() else null
+			if is_instance_valid(body) and body.has_meta("needle_index"):
+				result[int(body.get_meta("needle_index"))] = true
+	return result
+
+
 func _needle_tick() -> void:
 	var cur := _needle_bodies()
-	var held := _held_needle()
+	var held := _local_carried_needles()
 	for idx in cur:
 		var st: String = _needles.get(idx, "")
 		if st == "away":
@@ -1527,10 +1582,10 @@ func _needle_tick() -> void:
 				_needle_out("spawn", idx, cur[idx].global_position, 0)
 			else:
 				mp._rx_needle_req.rpc_id(1, "spawn", idx, cur[idx].global_position)
-		if idx == held and st == "free":
+		if held.has(idx) and st == "free":
 			_needles[idx] = "held"
 			_needle_claim(idx)
-		elif idx != held and st == "held":
+		elif not held.has(idx) and st == "held":
 			_needles[idx] = "free"
 			if mp.is_host:
 				_holder.erase(idx)
@@ -1538,7 +1593,7 @@ func _needle_tick() -> void:
 			else:
 				mp._rx_needle_req.rpc_id(1, "drop", idx, cur[idx].global_position)
 	for idx in _needles.keys():
-		if _needles[idx] == "away" or cur.has(idx):
+		if _needles[idx] == "away" or cur.has(idx) or held.has(idx):
 			continue
 		var was: String = _needles[idx]
 		_needles.erase(idx)
@@ -1558,11 +1613,11 @@ func _needle_tick() -> void:
 func _holder_of(idx: int) -> int:
 	if _holder.has(idx):
 		return int(_holder[idx])
-	return 1 if mp.is_host and idx == _held_needle() else 0
+	return 1 if mp.is_host and _local_carried_needles().has(idx) else 0
 
 
-func _needle_out(kind: String, idx: int, pos: Vector3, holder: int) -> void:
-	mp._rx_needle.rpc(kind, idx, pos, holder)
+func _needle_out(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vector3 = Vector3.ZERO) -> void:
+	mp._rx_needle.rpc(kind, idx, pos, holder, velocity)
 
 
 # We picked a needle up. The host decides: first come, first served.
@@ -1580,10 +1635,13 @@ func _needle_claim(idx: int) -> void:
 
 
 # Host: what a guest says happened to a needle.
-func on_needle_req(sender: int, kind: String, idx: int, pos: Vector3) -> void:
-	if _frozen or idx < 0:
+func on_needle_req(sender: int, kind: String, idx: int, pos: Vector3, velocity: Vector3 = Vector3.ZERO) -> void:
+	if _frozen or not pos.is_finite() or not velocity.is_finite() or velocity.length_squared() > 1000000.0 or not mp.is_host or not mp.players.has(sender) or idx < 0 or idx >= GameState.needle_positions.size() or (is_instance_valid(needles_sync) and needles_sync.committed(idx)):
 		return
 	var h := _holder_of(idx)
+	if kind in ["spawn", "claim"] and h == 0 and is_instance_valid(needles_sync) and needles_sync._bank_contains(idx):
+		mp._rx_needle.rpc_id(sender, "gone", idx, Vector3.ZERO, 0)
+		return
 	match kind:
 		"claim":
 			if h != 0 and h != sender:
@@ -1597,10 +1655,10 @@ func on_needle_req(sender: int, kind: String, idx: int, pos: Vector3) -> void:
 			if h != sender:
 				return
 			_holder.erase(idx)
-			_apply_needle("spawn", idx, pos, 0)
-			_needle_out("spawn", idx, pos, 0)
+			_apply_needle("spawn", idx, pos, 0, velocity)
+			_needle_out("spawn", idx, pos, 0, velocity)
 		"gone":
-			if h != sender and h != 0:
+			if h != sender:
 				return
 			_holder.erase(idx)
 			_apply_needle("gone", idx, Vector3.ZERO, 0)
@@ -1620,13 +1678,15 @@ func on_needle_req(sender: int, kind: String, idx: int, pos: Vector3) -> void:
 				mp._rx_needle.rpc_id(sender, "gone", idx, Vector3.ZERO, 0)
 
 
-func on_needle(kind: String, idx: int, pos: Vector3, holder: int = 0) -> void:
+func on_needle(kind: String, idx: int, pos: Vector3, holder: int = 0, velocity: Vector3 = Vector3.ZERO) -> void:
 	if _frozen:
 		return
-	_apply_needle(kind, idx, pos, holder)
+	_apply_needle(kind, idx, pos, holder, velocity)
 
 
-func _apply_needle(kind: String, idx: int, pos: Vector3, holder: int) -> void:
+func _apply_needle(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vector3 = Vector3.ZERO) -> void:
+	if idx < 0 or idx >= GameState.needle_positions.size() or not pos.is_finite() or not velocity.is_finite():
+		return
 	var live := _live()
 	if live == null:
 		return
@@ -1634,15 +1694,19 @@ func _apply_needle(kind: String, idx: int, pos: Vector3, holder: int) -> void:
 	var body: RigidBody3D = _needle_bodies().get(idx)
 	match kind:
 		"spawn":
-			if idx == _held_needle():
+			_holder.erase(idx)
+			if _local_carried_needles().has(idx):
 				return  # our claim is on its way; the host will settle it
 			if body != null:
 				body.global_position = pos
-				body.linear_velocity = Vector3.ZERO
+				body.linear_velocity = velocity
 			else:
-				live.reveal_needle(idx, pos)
+				body = live.reveal_needle(idx, pos)
+				if is_instance_valid(body):
+					body.linear_velocity = velocity
 			_needles[idx] = "free"
 		"claim":
+			_holder[idx] = holder
 			if holder == me:
 				_needles[idx] = "held"
 				return
@@ -1652,6 +1716,7 @@ func _apply_needle(kind: String, idx: int, pos: Vector3, holder: int) -> void:
 				live.consume_needle(body)
 			_needles[idx] = "away"
 		"gone":
+			_holder.erase(idx)
 			if body != null:
 				live.consume_needle(body)
 			_needles.erase(idx)

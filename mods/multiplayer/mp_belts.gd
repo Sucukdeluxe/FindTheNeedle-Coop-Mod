@@ -295,10 +295,13 @@ func _protect_belt_cleanup(node: Node) -> void:
 	if not _cleanup_scripts.has(original):
 		var patch := GDScript.new()
 		patch.source_code = "extends %s\nvar _mp_native_end_hold := Callable()\nfunc _sync_run_links() -> void:\n\tsuper._sync_run_links()\n\t_mp_native_end_hold = run.end_held_for\n\tvar processor = get_parent()\n\tif is_instance_valid(processor) and processor.has_method(\"_mp_holds_output_kind\"):\n\t\trun.end_held_for = _mp_end_held\nfunc _mp_end_held(kind: int) -> bool:\n\tvar processor = get_parent()\n\treturn (is_instance_valid(processor) and processor.has_method(\"_mp_holds_output_kind\") and processor._mp_holds_output_kind(kind)) or (_mp_native_end_hold.is_valid() and bool(_mp_native_end_hold.call(kind)))\nfunc _shed_over_cap() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active():\n\t\tif not session.is_host or not Cfg.auto_clean:\n\t\t\treturn\n\tsuper._shed_over_cap()\nfunc _spill_records() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\trun.clear()\n\t\treturn\n\tsuper._spill_records()\nfunc _materialize_head() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\treturn\n\tsuper._materialize_head()\nfunc _keeps_at_seam(r: Rider) -> bool:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and is_instance_valid(downstream) and downstream.is_inside_tree() and not downstream.is_queued_for_deletion():\n\t\tvar body = r.body\n\t\tif is_instance_valid(body) and body.is_inside_tree() and not body.is_queued_for_deletion() and is_same(body.get_meta(LiveStrandManager.META_RIDER, null), self):\n\t\t\treturn true\n\treturn super._keeps_at_seam(r)\nfunc materialize_record(i: int) -> Carryable:\n\treturn preload(\"res://mods/multiplayer/mp_belt_items.gd\").materialize(self, i)\nfunc pass_record_to(seq: int, other: BeltPath) -> bool:\n\treturn preload(\"res://mods/multiplayer/mp_belt_items.gd\").transfer(self, seq, other)\n" % JSON.stringify(original.resource_path)
+		patch.source_code += "\nfunc _follow_tech() -> void:\n\tsuper._follow_tech()\n\tpreload(\"res://mods/multiplayer/mp_distributor_drive.gd\").apply(self)\n"
 		if patch.reload() != OK:
 			return
 		_cleanup_scripts[original] = patch
 	_replace_belt_script(node, _cleanup_scripts[original])
+	if node.is_node_ready():
+		node._follow_tech()
 
 
 func _replace_belt_script(node: Node, script: Script) -> void:

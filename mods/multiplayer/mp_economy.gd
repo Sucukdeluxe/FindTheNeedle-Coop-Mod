@@ -6,6 +6,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
+const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
 const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
@@ -27,13 +28,34 @@ var _purchase_spots: Array = []
 func start(session: Node, sync: Node) -> void:
 	mp = session
 	world_sync = sync
-	if mp.is_host:
-		epoch = str(Time.get_ticks_usec()) + ":" + str(randi())
-	_hook(sync.player.build, "mp_build_tool.gd")
+	session_started()
+	_hook(sync.player.build, "mp_hopper_build_tool.gd")
 	_hook(sync.world.shop_menu, "mp_shop.gd")
 	_hook(sync.world.t_panel, "mp_t_panel.gd")
+	_hook(sync.world.load_panel, "mp_load_panel.gd")
 	GameState.gifts_changed.connect(_gifts_changed)
 	GameState.purchased.connect(_purchase_changed)
+
+func session_started() -> void:
+	if mp.is_host and epoch == "":
+		epoch = str(Time.get_ticks_usec()) + ":" + str(randi())
+
+func session_ended() -> void:
+	for peer in _actors.keys():
+		_discard_actor(peer)
+	_queue.clear()
+	_queued.clear()
+	_results.clear()
+	_last.clear()
+	pending.clear()
+	_preparing.clear()
+	_purchase_spots.clear()
+	_retry = 0.0
+	epoch = ""
+	if is_instance_valid(world_sync.tools_sync):
+		world_sync.tools_sync.reset_actions()
+	if is_instance_valid(world_sync.player.build) and world_sync.player.build.has_method("reset_mp_request"):
+		world_sync.player.build.reset_mp_request()
 
 func _hook(node: Node, file: String) -> void:
 	if not is_instance_valid(node):
@@ -151,7 +173,8 @@ func _physics_process(_delta: float) -> void:
 	_results[peer][seq] = result.duplicate(true)
 	while _results[peer].size() > CACHE_LIMIT:
 		_results[peer].erase(_results[peer].keys()[0])
-	world_sync._flush_builds()
+	if not entry.action.begins_with("needle_") and not entry.action.begins_with("vacuum_") and entry.action != "hopper_deposit":
+		world_sync._flush_builds()
 	if entry.action == "t_configure" and result.get("ok", false):
 		world_sync.machines_sync._send_fields()
 	world_sync._state_tick()
@@ -252,12 +275,24 @@ func _valid_transform(value: Variant) -> bool:
 		and value.basis.x.is_finite() and value.basis.y.is_finite() and value.basis.z.is_finite() \
 		and absf(value.basis.determinant()) > 0.01
 
-func _actor(peer: int, args: Dictionary) -> Player:
+func _actor(peer: int, args: Dictionary, allow_view: bool = false) -> Player:
 	if not _valid_transform(args.get("body")) or not _valid_transform(args.get("camera")):
 		return null
 	var body: Transform3D = args.body
 	var camera: Transform3D = args.camera
-	if body.origin.distance_to(camera.origin) > 5.0:
+	var ray := {}
+	if args.has("build_view"):
+		if not allow_view:
+			return null
+		var known: Variant = world_sync.player.global_position if peer == 1 else world_sync._last_at.get(peer)
+		if not (known is Vector3) or not known.is_finite() or known.distance_to(body.origin) > 4.0:
+			return null
+		ray = BuildCamera.validate_view(args.build_view, known)
+		if ray.is_empty():
+			return null
+		ray["anchor"] = known
+		camera = ray.transform
+	elif body.origin.distance_to(camera.origin) > 5.0:
 		return null
 	var actor: Player = _actors.get(peer)
 	if not is_instance_valid(actor):
@@ -270,6 +305,11 @@ func _actor(peer: int, args: Dictionary) -> Player:
 		world_sync.world.add_child(actor)
 		actor.hide()
 		_actors[peer] = actor
+	if ray.is_empty():
+		if actor.has_meta("mp_build_view"):
+			actor.remove_meta("mp_build_view")
+	else:
+		actor.set_meta("mp_build_view", ray)
 	actor.global_transform = body.orthonormalized()
 	actor.camera.global_transform = camera.orthonormalized()
 	return actor
@@ -282,7 +322,7 @@ func _discard_actor(peer: int) -> void:
 	_preparing.erase(peer)
 
 func _prepare_build_tool(peer: int, args: Dictionary) -> int:
-	var actor := _actor(peer, args)
+	var actor := _actor(peer, args, true)
 	if not is_instance_valid(actor):
 		return -1
 	if not _preparing.has(peer):
@@ -302,6 +342,12 @@ func _prepare_build_tool(peer: int, args: Dictionary) -> int:
 	return 0
 
 func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
+	if action.begins_with("hopper_"):
+		return world_sync.hoppers_sync.execute(peer, action, args)
+	if action in ["vacuum_belt", "vacuum_resolve", "vacuum_ack"]:
+		return world_sync.vacuum_transfer.execute(peer, action, args)
+	if action.begins_with("needle_"):
+		return world_sync.needles_sync.execute(peer, action, args)
 	if action == "power":
 		return world_sync.power_sync.execute(args)
 	if action == "build_cancel":
@@ -319,7 +365,7 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return _failure("purchase_declined")
 	if action == "demolish_tile" and not (args.get("tile") is Rect2):
 		return _failure("purchase_declined")
-	var actor := _actor(peer, args)
+	var actor := _actor(peer, args, action in ["place", "demolish", "demolish_tile", "reverse"])
 	if actor == null:
 		return _failure("purchase_declined")
 	match action:
@@ -538,6 +584,8 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var tool := _build_tool(actor)
 	actor.build_id = id
 	var inputs: Dictionary = args.get("inputs", {})
+	if actor.has_meta("mp_build_view") and not BuildCamera.inputs_allowed(inputs, actor.get_meta("mp_build_view").anchor):
+		return _failure("purchase_declined")
 	tool.prepare_mode(BuildCatalog.mode_of(id), inputs)
 	tool._follow_tech()
 	for key in tool.INPUT_FIELDS:
@@ -611,6 +659,16 @@ func _edit(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var target: Node3D = world_sync._find_building(args.get("target", {}))
 	if not is_instance_valid(target):
 		return _failure("building_missing")
+	if actor.has_meta("mp_build_view"):
+		var ray: Dictionary = actor.get_meta("mp_build_view")
+		var point := target.global_position
+		if action == "demolish_tile":
+			if not (target is Platform):
+				return _failure("building_invalid")
+			var center: Vector2 = args.tile.get_center()
+			point = Vector3(center.x, target.top_y(), center.y)
+		if not BuildCamera.point_allowed(point, ray.anchor):
+			return _failure("building_invalid")
 	var blocked := ""
 	match action:
 		"demolish":

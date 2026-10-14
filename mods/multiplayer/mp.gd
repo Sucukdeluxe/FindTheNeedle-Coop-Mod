@@ -5,9 +5,10 @@
 extends Node
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.45"
+const VERSION := "0.19.6-xRangerDE.46"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -45,6 +46,8 @@ var tool_profile := ""
 var _tool_identities := {}
 var _belt_visuals: Script
 var _vac_upgrades := VacUpgrades.new()
+var _progression := Progression.new()
+var vacuum_transfer_local: Dictionary = {}
 var _last_scene: Node = null
 var _menu_button: WeakRef
 var _menu_retry := 0.0
@@ -65,7 +68,9 @@ var _steam_joining := false  # we asked to join someone else (Steam also
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_vac_upgrades.ensure_cards()
+	_progression.ensure_cards()
 	base_dir = get_script().resource_path.get_base_dir()
+	load(base_dir + "/mp_hoppers.gd").ensure_catalog()
 	_install_game_state()
 	_install_vacuum_tech()
 	get_tree().node_added.connect(_guard_sale_stand)
@@ -100,20 +105,81 @@ func _ready() -> void:
 			var test: Node = test_script.new()
 			test.mp = self
 			add_child(test)
-	for f in ["mp_arm_visual.gd", "mp_build_snapshot.gd", "mp_avatar.gd", "mp_belt_items.gd", "mp_belt_routes.gd",
-			"mp_belt_snapshot.gd", "mp_belt_visuals.gd", "mp_belts.gd",
-			"mp_boards.gd", "mp_build_actor.gd", "mp_build_tool.gd",
-			"mp_builds.gd", "mp_carry.gd", "mp_contracts.gd",
-			"mp_diagnostic_state.gd", "mp_diagnostics.gd", "mp_drone_state.gd",
-			"mp_economy.gd", "mp_game_state.gd", "mp_hay_compressor.gd",
-			"mp_hay_wrapper.gd", "mp_haystack_scanner.gd", "mp_i18n.gd", "mp_lift_cargo.gd",
-			"mp_live_strand_manager.gd", "mp_machine_packet.gd", "mp_machines.gd",
-			"mp_mice.gd", "mp_missions.gd", "mp_player.gd", "mp_power.gd",
-			"mp_power_tags.gd", "mp_prop_manager.gd", "mp_props.gd",
-			"mp_robotic_arm.gd", "mp_scanner_sync.gd", "mp_shop.gd", "mp_t_panel.gd", "mp_selling_stand.gd", "mp_steam.gd", "mp_strands.gd",
-			"mp_tech.gd", "mp_tech_panel.gd", "mp_tool_prop.gd", "mp_tools.gd",
-			"mp_trace.gd", "mp_ui.gd", "mp_vac_tech.gd", "mp_vac_upgrades.gd", "mp_wire_mode.gd",
-			"mp_world.gd", "mp_yard_vac.gd"]:
+	for f in [
+		"mp_arm_state.gd",
+		"mp_arm_visual.gd",
+		"mp_avatar.gd",
+		"mp_belt_items.gd",
+		"mp_belt_routes.gd",
+		"mp_belt_snapshot.gd",
+		"mp_belt_visuals.gd",
+		"mp_belts.gd",
+		"mp_boards.gd",
+		"mp_build_actor.gd",
+		"mp_build_camera.gd",
+		"mp_build_snapshot.gd",
+		"mp_build_tool.gd",
+		"mp_builds.gd",
+		"mp_carry.gd",
+		"mp_contracts.gd",
+		"mp_diagnostic_state.gd",
+		"mp_diagnostics.gd",
+		"mp_distributor_drive.gd",
+		"mp_distributor_t_splitter.gd",
+		"mp_double_jump.gd",
+		"mp_drone_state.gd",
+		"mp_economy.gd",
+		"mp_game_state.gd",
+		"mp_hand.gd",
+		"mp_hay_compressor.gd",
+		"mp_hay_drone.gd",
+		"mp_hay_lift.gd",
+		"mp_hay_pelletizer.gd",
+		"mp_hay_stairs.gd",
+		"mp_hay_wrapper.gd",
+		"mp_haystack_scanner.gd",
+		"mp_hopper_build_tool.gd",
+		"mp_hopper_model.gd",
+		"mp_hopper_state.gd",
+		"mp_hoppers.gd",
+		"mp_i18n.gd",
+		"mp_junction_jam.gd",
+		"mp_lift_cargo.gd",
+		"mp_live_strand_manager.gd",
+		"mp_load_panel.gd",
+		"mp_machine_packet.gd",
+		"mp_machines.gd",
+		"mp_mice.gd",
+		"mp_missions.gd",
+		"mp_needle_cabinet.gd",
+		"mp_needle_report.gd",
+		"mp_needle_sync.gd",
+		"mp_player.gd",
+		"mp_power.gd",
+		"mp_power_tags.gd",
+		"mp_progression.gd",
+		"mp_prop_manager.gd",
+		"mp_props.gd",
+		"mp_robotic_arm.gd",
+		"mp_scanner_sync.gd",
+		"mp_selling_stand.gd",
+		"mp_shop.gd",
+		"mp_steam.gd",
+		"mp_strands.gd",
+		"mp_t_panel.gd",
+		"mp_tech.gd",
+		"mp_tech_panel.gd",
+		"mp_tool_prop.gd",
+		"mp_tools.gd",
+		"mp_trace.gd",
+		"mp_ui.gd",
+		"mp_vac_tech.gd",
+		"mp_vac_upgrades.gd",
+		"mp_vacuum_transfer.gd",
+		"mp_wire_mode.gd",
+		"mp_world.gd",
+		"mp_yard_vac.gd"
+	]:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
@@ -159,6 +225,7 @@ func t(key: String) -> String:
 
 func _process(_delta: float) -> void:
 	_vac_upgrades.ensure_cards()
+	_progression.ensure_cards()
 	if _belt_visuals != null:
 		_belt_visuals.install_current(_belt_visuals)
 	var cs := get_tree().current_scene
@@ -483,6 +550,8 @@ func leave(reason: String = "") -> void:
 	trace.note("leave session")
 	var was_client := active() and not is_host
 	var was_in_mp_world := was_client and (in_world() or _mp_world_load)
+	if is_instance_valid(world_sync):
+		world_sync.session_ended()
 	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
@@ -959,18 +1028,18 @@ func _rx_new_pile_request(on_credit: bool) -> void:
 # Host -> everyone: what happened to a loose needle. The host decides who holds
 # it, so two players grabbing the same needle cannot both hand it in.
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int) -> void:
+func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vector3 = Vector3.ZERO) -> void:
 	_trace("needle")
 	if world_sync != null:
-		world_sync.on_needle(kind, idx, pos, holder)
+		world_sync.on_needle(kind, idx, pos, holder, velocity)
 
 
 # Guest -> host: a guest picked a needle up, put it down or used it up.
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_needle_req(kind: String, idx: int, pos: Vector3) -> void:
+func _rx_needle_req(kind: String, idx: int, pos: Vector3, velocity: Vector3 = Vector3.ZERO) -> void:
 	_trace("needle_req")
 	if is_host and world_sync != null:
-		world_sync.on_needle_req(multiplayer.get_remote_sender_id(), kind, idx, pos)
+		world_sync.on_needle_req(multiplayer.get_remote_sender_id(), kind, idx, pos, velocity)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
@@ -1449,3 +1518,13 @@ func _install_vacuum_tech() -> void:
 
 func tool_identity(pid: int) -> String:
 	return "host" if pid == 1 else str(_tool_identities.get(pid, "peer:" + str(pid)))
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_needle_catalog(epoch: String, data: Dictionary) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.needles_sync):
+		world_sync.needles_sync.on_catalog(epoch, data)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_hoppers(epoch: String, seq: int, data: Dictionary) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.hoppers_sync):
+		world_sync.hoppers_sync.on_state(epoch, seq, data)

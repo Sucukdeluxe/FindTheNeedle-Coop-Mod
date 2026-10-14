@@ -109,21 +109,27 @@ func _intake_hay() -> void:
 		if not record.is_empty():
 			_mp_accept_recovered(int(record.strands), int(record.needle))
 			return
-	if paths.is_empty() or not is_instance_valid(props):
+	if not is_instance_valid(props):
 		return
+	if is_instance_valid(_belt):
+		paths.push_front(_belt)
 	for path in paths:
 		for rider in path._riders:
 			var item: Variant = rider.body
 			if not is_instance_valid(item) or not item.is_inside_tree() or item.is_queued_for_deletion() \
 					or not (item is HayWad or item is HayTuft) or item.is_held():
 				continue
-			if not item.has_meta(LiveStrandManager.META_RIDER) or not paths.has(item.get_meta(LiveStrandManager.META_RIDER)):
+			if not item.has_meta(LiveStrandManager.META_RIDER) or item.get_meta(LiveStrandManager.META_RIDER) != path:
+				continue
+			if path == _belt and float(rider.s) < _belt.s_at(_mouth()) - INTAKE_LENGTH * 0.5:
 				continue
 			var sync: Node = mp_transport.mp.world_sync.props_sync
 			var id := int(item.get_meta("mp_id", 0))
 			if id > 0 and not sync._mine(id) and not sync.host_take(item):
 				continue
 			var count: int = item.hay_strands()
+			if count <= 0:
+				continue
 			var state: Dictionary = item.to_dict()
 			BeltPath.release(item)
 			_mp_accept_recovered(count, int(state.get("needle", -1)))
@@ -140,6 +146,7 @@ func _mp_wrapper_feed() -> Array[BeltPath]:
 	var path := _outfeed()
 	while is_instance_valid(path) and path.is_inside_tree() and not path.is_queued_for_deletion():
 		if path.get_parent() is HayWrapper:
+			paths.append(path)
 			return paths
 		if not (path is Conveyor or path is ConveyorCorner) or paths.has(path) or paths.size() >= 64:
 			break

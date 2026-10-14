@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.19.6-xRangerDE.46
+
+Repair needle ownership and add buffered hay unloading, transport upgrades and an overhead building mode for Demo V62.
+
+- Route loose needle pickup, scanner withdrawals and cabinet deposits through host-owned identities. Normalize repeated scanner references, reject stale recreation requests and preserve separate needles of the same type. Existing cabinet stock is not removed based on uncertain provenance.
+- Recover raw physical hay behind the press and on directly connected wrapper decks; retain quantities and needle state. Apply early guest pelletizer edits and repair splitter/merger jam detection without bypassing filters or blocked outputs.
+- Add an original loading hopper: 2,500 to build, 50,000 strands of storage, M to unload the vacuum at a free level belt input. Output waits for capacity. Direct belt portions can be upgraded from 100 to 1,000 for 25,000 total.
+- Extend arm speed to rank 20; add four lift and stairs speed ranks and ten splitter/merger speed ranks. The six new arm ranks and ten distributor ranks each cost 100,000 total.
+- Add F7 overhead building: pan with WASD/arrows, zoom with the wheel, and return with F7/Escape. Host validation reconstructs the cursor ray and checks the 24 m building area and prices. Existing F7 bindings remain available.
+- Add a shared Double Jump unlock for 2,500 in Fitness after Spring Heels. Release and press jump again in mid-air; land to restore the extra jump. Menus, ladders and equipped jetpack controls remain protected.
+- Show remaining buried needles in Next Load details, cache unchanged machine part mappings, and initialize transactions correctly when hosting from an already loaded world or reopening a lobby.
+
+Both players must use this release. Existing V62 saves can be loaded; keep a backup before upgrading. Hopper operation requires an active lobby. The Multiplayer Addons ZIP includes the existing optional add-ons; the base ZIP does not change renderer settings.
+
+Validation: all 74 product scripts passed the offline bytecode compilation check. Targeted standalone GDRE/Godot tests covered native method contracts, camera geometry and actual physics rays, concurrent purchases, needle lifecycle, blocked output, and local host/two-guest packet loss and duplication. The new camera tests passed 286 controller/geometry checks and 30 integrated host/build checks; Double Jump passed 57 checks. Test doubles explicitly replace unavailable full-game dependencies.
+
+The game and Steam were not started for this revision. Full V62 gameplay, two-PC Steam/WAN, new GPU/FPS measurements and complete process-crash durability of pending vacuum transfers are not verified. These are targeted fixes and features, not a guarantee that every possible bug is eliminated.
+
 ## 0.19.6-xRangerDE.45
 
 Synchronize robotic-arm operating status from the host.

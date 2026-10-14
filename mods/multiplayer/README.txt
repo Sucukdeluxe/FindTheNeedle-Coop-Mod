@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.45
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.46
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -34,11 +34,23 @@ Host: MULTIPLAYER, CREATE GAME, INVITE FRIENDS, then start or load a save as
 usual. The others accept the Steam invite. If their game is closed, Steam
 opens it and takes them in.
 
-Keys:  F2 panel   Y chat   F8 reconcile the running world   F6 test menu
+Keys:  F2 panel   Y chat   F7 overhead building   F8 reconcile   F6 test menu
 
 F6 opens the debug menu the game already has (money, items, unlocks, tech).
 It is meant for setting up a session or trying things out. The game marks a
 run that used it, so it no longer counts for the leaderboards.
+
+NEW BUILDING AND MOVEMENT OPTIONS
+---------------------------------
+F7 while a build part is selected opens the overhead camera. WASD/arrows pan,
+wheel zooms, F7/Escape returns. Host validation and a 24 m build area apply.
+Loading Hopper: 2,500 to build at a free level belt input. M unloads the vacuum
+into up to 50,000 stored strands. Requires an active multiplayer lobby.
+Band portions upgrade from 100 to 1,000 (25,000 total). Arm speed has 20 ranks;
+lifts/stairs and distributors have separate speed cards.
+Double Jump costs 2,500 in Fitness after Spring Heels. Release and press jump
+again in mid-air. Landing restores the extra jump; the unlock is shared.
+This revision was checked offline; full V62/Steam gameplay was not launched.
 
 LANGUAGES
 ---------

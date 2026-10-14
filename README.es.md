@@ -14,7 +14,7 @@ archivos del juego, solo sus propios scripts y un modelo de jugador libre
 
 ## Requisitos
 
-* Demo de Find The Needle (gratis en Steam), versión V26 o posterior
+* Demo de Find The Needle (gratis en Steam), versión V62
 * Windows 64 bits
 * La misma versión del mod en todas las máquinas
 * Hay que abrir el juego desde Steam o las invitaciones no funcionan

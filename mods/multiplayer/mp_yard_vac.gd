@@ -17,6 +17,11 @@ func mp_cancel_dump() -> void:
 	set_pouring(false)
 
 func _physics_process(delta: float) -> void:
+	if bool(get_meta("mp_vacuum_escrow", false)):
+		set_sucking(false)
+		set_pouring(false)
+		_carry_needles()
+		return
 	if mp_dump_all:
 		if not _active or not is_instance_valid(player) or player.menu_is_up() or not player.is_mouse_captured() or not is_loaded():
 			mp_cancel_dump()
@@ -41,6 +46,9 @@ func _pour_straw(delta: float) -> void:
 	if not mp_dump_all:
 		super._pour_straw(delta)
 		return
+	if is_instance_valid(mp_tools) and is_instance_valid(mp_tools.mp.world_sync.vacuum_transfer):
+		if mp_tools.mp.world_sync.vacuum_transfer.try_belt(self):
+			return
 	if not is_instance_valid(live) or not is_instance_valid(live.props):
 		return
 	var mouth := mouth_position()
@@ -141,3 +149,20 @@ func mp_release_flights() -> void:
 	_mp_belt_flight = null
 	for id in _mp_flights.keys():
 		_mp_forget_flight(id)
+
+func _take_needle(body: RigidBody3D) -> void:
+	var service: Node = mp_tools.mp.world_sync.needles_sync if is_instance_valid(mp_tools) and is_instance_valid(mp_tools.mp.world_sync) else null
+	if service != null and service.active() and not service.take(body, "vacuum"):
+		return
+	super._take_needle(body)
+
+func mp_accept_needle(body: RigidBody3D) -> bool:
+	if not _active or not is_instance_valid(body):
+		return false
+	super._take_needle(body)
+	return _inbound.has(body.get_instance_id()) or _needles.has(body)
+
+func _let_needle_out(body: RigidBody3D, at: Vector3, velocity: Vector3) -> void:
+	super._let_needle_out(body, at, velocity)
+	if is_instance_valid(mp_tools) and is_instance_valid(mp_tools.mp.world_sync.needles_sync):
+		mp_tools.mp.world_sync.needles_sync.released(body)

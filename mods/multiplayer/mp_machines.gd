@@ -7,6 +7,7 @@ var _arm_visual := ArmVisual.new()
 
 const DroneState = preload("res://mods/multiplayer/mp_drone_state.gd")
 const MachinePacket = preload("res://mods/multiplayer/mp_machine_packet.gd")
+const DiagnosticState = preload("res://mods/multiplayer/mp_diagnostic_state.gd")
 
 # Machines.
 #
@@ -103,6 +104,7 @@ var mp: Node
 var world: Node
 var builds: Node
 
+var _part_shapes := {}
 var _parts := {}    # key -> Array[Node3D] in walk order
 var _ids := {}      # key -> PackedInt32Array, each part named by its path
 var _slot := {}     # key -> {part id: index into _parts}
@@ -123,7 +125,10 @@ var _field_t := 0.0
 var _edit_t := 0.0
 var _mouth_t := 0.0
 var _pending_settings := {}
+var _queued_settings := {}
+var _applying_fields := false
 var _processor_hooks := {}
+var _junction_hooks := {}
 var _processors_enabled := false
 var _theirs := {}   # guest: key -> the settings as the host last stated them
 var _alias := {}    # a key from the host -> our key for the same machine
@@ -158,10 +163,19 @@ func shutdown() -> void:
 		var node: Variant = saved["node"].get_ref()
 		if is_instance_valid(node) and node.get_script() == saved["replacement"]:
 			_replace_processor_script(node, saved["original"])
+			if node is HayLift or node is HayStairs:
+				node._follow_tech()
 			_refresh_processor_belt(node)
 	_processor_hooks.clear()
+	for saved in _junction_hooks.values():
+		var helper: Variant = saved.helper.get_ref()
+		if is_instance_valid(helper) and helper.get_script() == saved.replacement:
+			_replace_junction_script(helper, saved.original)
+	_junction_hooks.clear()
 	_pending_settings.clear()
+	_queued_settings.clear()
 	_parts.clear()
+	_part_shapes.clear()
 	_fx.clear()
 	_ids.clear()
 	_slot.clear()
@@ -191,16 +205,16 @@ func _rescan() -> void:
 	for id in _processor_hooks.keys():
 		if not is_instance_valid(_processor_hooks[id]["node"].get_ref()):
 			_processor_hooks.erase(id)
+	for id in _junction_hooks.keys():
+		if not is_instance_valid(_junction_hooks[id].helper.get_ref()):
+			_junction_hooks.erase(id)
 	for key in _pending_settings.keys():
 		if Time.get_ticks_msec() - int(_pending_settings[key].time) > 10000:
 			_pending_settings.erase(key)
 	var groups: Array = ws.get_script().get_script_constant_map().get("CLIENT_FROZEN", [])
 	_nodes.clear()
 	# walk the models again: the game adds and drops nodes as it runs
-	_parts.clear()
 	_fx.clear()
-	_ids.clear()
-	_slot.clear()
 	_group.clear()
 	for group in groups + SETTINGS_ONLY:
 		var arr: Variant = builds.get(group)
@@ -212,6 +226,18 @@ func _rescan() -> void:
 				var key := _key(String(group), n)
 				_nodes[key] = n
 				_group[key] = String(group)
+	for key in _parts.keys():
+		var node: Variant = _nodes.get(key)
+		var current: Array = []
+		if is_instance_valid(node):
+			_walk(node, current)
+		var same: bool = is_instance_valid(node) and _parts[key] == current \
+			and _part_shapes.get(key, []) == DiagnosticState.machine_shape(node, current)
+		if not same:
+			_parts.erase(key)
+			_ids.erase(key)
+			_slot.erase(key)
+			_part_shapes.erase(key)
 	# forget machines that are gone (this used to run over _parts after it was
 	# cleared, so it never did anything and every demolished machine's state
 	# stayed behind for good)
@@ -277,6 +303,7 @@ func _parts_of(key: String) -> Array:
 			ids.append(id)
 			slot[id] = i
 	_parts[key] = out
+	_part_shapes[key] = DiagnosticState.machine_shape(n, out) if is_instance_valid(n) else []
 	_ids[key] = ids
 	_slot[key] = slot
 	return out
@@ -716,9 +743,18 @@ func on_fields(batch: Dictionary) -> void:
 # new agreed value, so a switch does not go out again every tick while we wait
 # for the host to echo it back.
 func _send_edits() -> void:
-	if _theirs.is_empty():
-		return
 	var batch := {}
+	for key in _queued_settings:
+		var queued: Dictionary = _queued_settings[key]
+		var n: Variant = queued.node.get_ref()
+		if not is_instance_valid(n) or _nodes.get(key) != n:
+			continue
+		var known: Dictionary = _theirs.get(key, {})
+		for field in queued.fields:
+			known[field] = _copy_value(queued.fields[field])
+		_theirs[key] = known
+		batch[key] = queued.fields.duplicate(true)
+	_queued_settings.clear()
 	for key in _nodes:
 		var names: Array = SETTINGS.get(_group.get(key, ""), [])
 		if names.is_empty():
@@ -744,12 +780,38 @@ func _send_edits() -> void:
 			for f in diff:
 				_pending_settings[key + "|" + str(f)] = {"value": _copy_value(diff[f]), "time": Time.get_ticks_msec()}
 				known[f] = _copy_value(diff[f])
-			batch[key] = diff
+			if batch.has(key):
+				batch[key].merge(diff, true)
+			else:
+				batch[key] = diff
 	if batch.is_empty():
 		return
 	mp._rx_machine_edit.rpc_id(1, batch)
 	if _log:
 		print("[MPMACH] guest sent %d machine edits" % batch.size())
+
+
+func queue_setting(node: Node, field: String, value: Variant) -> void:
+	if _applying_fields or not is_instance_valid(mp) or not mp.active() or mp.is_host:
+		return
+	if not is_instance_valid(node) or not node.is_inside_tree() or node.is_queued_for_deletion():
+		return
+	if field not in ["throw_distance", "head_yaw", "switched_off"] or not node is HayPelletizer:
+		return
+	if field == "switched_off":
+		if not value is bool:
+			return
+	elif not (value is int or value is float) or not is_finite(float(value)):
+		return
+	var key := _key("pelletizers", node)
+	if _nodes.get(key) != node:
+		_rescan()
+	if _nodes.get(key) != node:
+		return
+	if not _queued_settings.has(key):
+		_queued_settings[key] = {"node": weakref(node), "fields": {}}
+	_queued_settings[key].fields[field] = _copy_value(value)
+	_pending_settings[key + "|" + field] = {"value": _copy_value(value), "time": Time.get_ticks_msec()}
 
 
 # Host: hand the machines whatever a guest has put in their mouths. A copy
@@ -1003,6 +1065,13 @@ func _read_field(n: Node, field: String) -> Variant:
 
 
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	var was_applying := _applying_fields
+	_applying_fields = true
+	_apply_field_value(n, f, v)
+	_applying_fields = was_applying
+
+
+func _apply_field_value(n: Node, f: String, v: Variant) -> void:
 	if f == "mp_arm_status":
 		if not mp.is_host and n.has_method("mp_apply_status"):
 			n.mp_apply_status(v)
@@ -1017,7 +1086,7 @@ func _apply_field(n: Node, f: String, v: Variant) -> void:
 		if not mp.is_host:
 			_apply_taps(n, v)
 		return
-	if f in ["discharge_rate", "resume_rate", "head_yaw", "out_lane", "entry"]:
+	if f in ["discharge_rate", "resume_rate", "throw_distance", "head_yaw", "out_lane", "entry"]:
 		if not (v is int or v is float) or not is_finite(float(v)):
 			return
 	if f in ["out_lane", "entry"]:
@@ -1314,7 +1383,7 @@ func _part_name(n: Node) -> String:
 
 
 func _protect_processors() -> void:
-	for group in ["compressors", "wrappers", "hay_drones", "robotic_arms", "hay_lifts", "scanners"]:
+	for group in ["compressors", "wrappers", "hay_drones", "robotic_arms", "hay_lifts", "hay_stairs", "scanners", "pelletizers", "joiners", "splitters"]:
 		var nodes: Variant = builds.get(group)
 		if nodes is Array:
 			for node in nodes:
@@ -1322,7 +1391,7 @@ func _protect_processors() -> void:
 
 
 func _processor_added(node: Node) -> void:
-	if node is HayCompressor or node is HayWrapper or node is HayDrone or node is RoboticArm or node is HayLift or node is HaystackScanner:
+	if node is HayCompressor or node is HayWrapper or node is HayDrone or node is RoboticArm or node is HayLift or node is HayStairs or node is HaystackScanner or node is HayPelletizer or node is ConveyorJoiner or node is ConveyorSplitter:
 		_protect_processor_deferred.call_deferred(weakref(node))
 
 
@@ -1335,7 +1404,8 @@ func _protect_processor_deferred(reference: WeakRef) -> void:
 func _protect_processor(node: Node) -> void:
 	if not _processors_enabled or not is_instance_valid(node) or not node.is_inside_tree() or not node.is_node_ready() or node.is_queued_for_deletion():
 		return
-	if not (node is HayCompressor or node is HayWrapper or node is HayDrone or node is RoboticArm or node is HayLift or node is HaystackScanner):
+	_protect_junction(node)
+	if not (node is HayCompressor or node is HayWrapper or node is HayDrone or node is RoboticArm or node is HayLift or node is HayStairs or node is HaystackScanner or node is HayPelletizer or node is ConveyorTSplitter):
 		return
 	if node.placement_preview:
 		return
@@ -1347,12 +1417,18 @@ func _protect_processor(node: Node) -> void:
 	if original == null:
 		return
 	var replacement: Script
-	if original.resource_path == "res://scripts/build/hay_compressor.gd":
+	if original.resource_path == "res://scripts/build/conveyor_t_splitter.gd":
+		replacement = load(mp.base_dir + "/mp_distributor_t_splitter.gd")
+	elif original.resource_path == "res://scripts/build/hay_compressor.gd":
 		replacement = load(mp.base_dir + "/mp_hay_compressor.gd")
 	elif original.resource_path == "res://scripts/build/hay_wrapper.gd":
 		replacement = load(mp.base_dir + "/mp_hay_wrapper.gd")
 	elif original.resource_path == "res://scripts/build/hay_drone.gd":
 		replacement = load(mp.base_dir + "/mp_hay_drone.gd")
+	elif original.resource_path == "res://scripts/build/hay_pelletizer.gd":
+		replacement = load(mp.base_dir + "/mp_hay_pelletizer.gd")
+	elif original.resource_path == "res://scripts/build/hay_stairs.gd":
+		replacement = load(mp.base_dir + "/mp_hay_stairs.gd")
 	elif original.resource_path == "res://scripts/build/hay_lift.gd":
 		replacement = load(mp.base_dir + "/mp_hay_lift.gd")
 	elif original.resource_path == "res://scripts/build/robotic_arm.gd":
@@ -1362,9 +1438,39 @@ func _protect_processor(node: Node) -> void:
 	else:
 		return
 	_replace_processor_script(node, replacement)
-	node.set("mp_transport", self)
+	if "mp_transport" in node:
+		node.set("mp_transport", self)
+	if node is HayLift or node is HayStairs:
+		node._follow_tech()
 	_processor_hooks[node.get_instance_id()] = {"node": weakref(node), "original": original, "replacement": replacement}
 	_refresh_processor_belt(node)
+
+
+func _protect_junction(node: Node) -> void:
+	if not mp.is_host or not (node is ConveyorJoiner or node is ConveyorSplitter) or node.placement_preview or not "_jam" in node:
+		return
+	var helper: Variant = node.get("_jam")
+	if not is_instance_valid(helper):
+		return
+	var original: Script = helper.get_script()
+	if original == null or original.resource_path != "res://scripts/build/junction_jam.gd":
+		return
+	var replacement: Script = load(mp.base_dir + "/mp_junction_jam.gd")
+	if replacement == null:
+		return
+	_replace_junction_script(helper, replacement)
+	_junction_hooks[helper.get_instance_id()] = {"helper": weakref(helper), "original": original, "replacement": replacement}
+
+
+func _replace_junction_script(helper: Object, script: Script) -> void:
+	var values := {}
+	for property in helper.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = helper.get(property.name)
+	helper.set_script(script)
+	for key in values:
+		if key in helper:
+			helper.set(key, values[key])
 
 
 func _replace_processor_script(node: Node, script: Script) -> void:
@@ -1379,7 +1485,7 @@ func _replace_processor_script(node: Node, script: Script) -> void:
 
 
 func _refresh_processor_belt(node: Node) -> void:
-	if node is HayDrone or node is RoboticArm or node is HayLift or node is HaystackScanner:
+	if node is HayDrone or node is RoboticArm or node is HayLift or node is HayStairs or node is HaystackScanner or node is HayPelletizer or node is ConveyorTSplitter:
 		return
 	var belt: Variant = node.get("_belt")
 	if not is_instance_valid(belt) or not belt.is_inside_tree():

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.45
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.46
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,44 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+NEU IN DIESER FASSUNG
+- F7: Bauteil wählen, dann Vogelperspektive einschalten. WASD/Pfeile verschieben,
+  Umschalt beschleunigt, Mausrad zoomt, Linksklick baut, Rechtsklick geht einen
+  Bauschritt zurück. F7/Escape stellt die vorige Ansicht wieder her.
+  Der Host prüft weiterhin Baukosten, Anschlüsse und den Baubereich von 24 m
+  um die tatsächliche Spielerposition. Eine bereits belegte F7-Taste bleibt erhalten.
+- Einfülltrichter: 2.500 Kaufpreis, 50.000 Halme Speicher. Am freien, waagerechten
+  Bandanfang platzieren. Mit dem Hofsauger darauf zielen und M drücken.
+  Volle Bänder stoppen die Ausgabe; vor dem Abbau muss der Trichter leer sein.
+  Diese Trichterfunktion setzt eine aktive Multiplayer-Lobby voraus.
+- Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
+  zusammen 25.000. Gilt für direkte M-Bandausgabe und Trichter.
+- Armtempo: 20 Stufen; die sechs zusätzlichen Stufen kosten zusammen 100.000.
+- Heulift-/Heutreppentempo: je vier Stufen bis 200 %, zusätzlich zum Bandmotor.
+  Gesamtkosten 25.000 beim Lift und 12.500 bei der Treppe.
+- Verteiler/Sammler: zehn Stufen bis 250 % internes Tempo, zusammen 100.000.
+  Filter, gesperrte Ausgänge und Rückstau bleiben wirksam.
+- Doppelsprung: einmalig 2.500 im Bereich Fitness nach der Sprunghöhen-Technik.
+  Nach dem Absprung die Sprungtaste loslassen und in der Luft erneut drücken.
+  Eine Landung stellt den Extrasprung wieder her. Die Freischaltung gilt gemeinsam.
+  Ein ausgerüstetes Jetpack behält seine bisherige Steuerung.
+- Die Nadelübersicht unter „Nächste Ladung“ zeigt verbliebene Nadeln je Art.
+- Nadelaufnahme und Schrankaktionen werden vom Host bestätigt. Doppelte
+  Scannerverweise derselben Nadel werden bereinigt; verschiedene Nadeln derselben
+  Art bleiben erhalten. Vorhandener Schrankbestand wird nicht auf Verdacht gelöscht.
+- Ergänzte Pressen-Rückführung, frühzeitige Heumühlen-Einstellungen und korrigierte
+  Erkennung stehender Ladung in Verteilern/Sammlern. Stabile Maschinenteile werden
+  für den Netzwerkabgleich zwischengespeichert, Änderungen lösen einen Neuaufbau aus.
+
+PRÜFGRENZEN DIESER FASSUNG
+Die neuen Tests starten weder FindTheNeedle.exe noch Steam. Geprüft werden
+isolierte Funktionen, native Funktionskörper mit gekennzeichneten Ersatzabhängigkeiten
+und lokale ENet-Verbindungen. Das ist kein vollständiger V62-Durchlauf, kein
+GPU-/FPS-Nachweis und kein Zwei-PC-Internettest. Ungeklärte Saugerübertragungen
+werden innerhalb der laufenden Mod-Sitzung aufgelöst; vollständige Prozessabstürze
+sind wegen der nativen Sauger-Speicherung nicht als verlustfrei bestätigt.
+Die bereitgestellte ältere Spielkopie ist V33; Ziel dieser Mod bleibt V62.
 
 ROBOTERSTATUS
 - Strom-, Warte- und Störungsmeldungen sowie die Armtafel kommen vom Host.
@@ -121,7 +159,7 @@ DROHNEN UND MASCHINENANIMATION
 - Der gemeldete Gastabsturz ist noch nicht als behoben bestätigt. Dafür fehlen
   die Logs des Mitspielers: mp_trace.log, mp_trace.prev.log, mp_diagnostics.jsonl
   sowie der passende Eintrag aus logs und crashes im Benutzerordner des Spiels.
-- Diese Fassung wurde mit der V62-Engine geprüft. Das ersetzt keinen Nachweis
+- Frühere Fassungen wurden mit der V62-Engine geprüft. Das ersetzt keinen Nachweis
   für den früher gemeldeten Absturz auf dem Rechner des Mitspielers.
 
 PRESSE UND BANDÜBERGÄNGE

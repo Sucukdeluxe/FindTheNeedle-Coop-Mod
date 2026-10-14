@@ -6,6 +6,7 @@ const MAX_DISTANCE := 12.0
 var mp: Node
 var world_sync: Node
 var _running := false
+var claiming_peer := 1
 var _clock := 0.0
 var _full_clock := 0.0
 var _dirty := true
@@ -19,6 +20,8 @@ var _last_request := {}
 var _claims := {}
 var _snapshot := {}
 var _epoch := ""
+var _drawer_key := ""
+var _drawer_contents := PackedInt32Array()
 
 func start(session: Node, sync: Node) -> void:
 	mp = session
@@ -41,6 +44,8 @@ func _scanner(key: String) -> Node:
 	return null
 
 func _capture() -> Dictionary:
+	if is_instance_valid(world_sync.get("needles_sync")):
+		world_sync.needles_sync.normalize_scanners()
 	var data := {}
 	for node in world_sync.builds.scanners:
 		if is_instance_valid(node) and node.is_inside_tree() and not node.is_queued_for_deletion() and not node.placement_preview:
@@ -123,7 +128,17 @@ func _apply_snapshot() -> void:
 func _refresh_drawer() -> void:
 	var drawer: Variant = world_sync.player.get("needle_drawer") if is_instance_valid(world_sync.player) else null
 	if is_instance_valid(drawer) and drawer.is_open():
-		drawer._fill()
+		var scanner: Node3D = drawer.scanner()
+		if not is_instance_valid(scanner):
+			return
+		var key := _key(scanner)
+		if _drawer_key != key or _drawer_contents != scanner.banked:
+			_drawer_key = key
+			_drawer_contents = scanner.banked.duplicate()
+			drawer._fill()
+	else:
+		_drawer_key = ""
+		_drawer_contents = PackedInt32Array()
 
 func request(node: Node3D, mode: String, index: int) -> void:
 	if not _ready_for_state() or mp.is_host or not _pending.is_empty():
@@ -156,7 +171,10 @@ func on_request(peer: int, epoch: String, sequence: int, key: String, mode: Stri
 		if claim.peer == peer:
 			near = false
 	if near and mode == "take" and index >= 0 and index < GameState.needle_positions.size() and node.banked.has(index) and world_sync._holder_of(index) == 0:
-		if node.take_banked(index):
+		claiming_peer = peer
+		var granted: bool = node.take_banked(index)
+		claiming_peer = 1
+		if granted:
 			world_sync._holder[index] = peer
 			world_sync._apply_needle("claim", index, Vector3.ZERO, peer)
 			world_sync._needle_out("claim", index, Vector3.ZERO, peer)
@@ -248,14 +266,23 @@ func reserved(node: Node) -> PackedInt32Array:
 			indices.append(claim.index)
 	return indices
 
-func shutdown() -> void:
+func session_ended() -> void:
 	if _running and is_instance_valid(mp) and mp.is_host:
 		for token in _claims.keys():
 			_return_claim(token)
-	_running = false
-	set_process(false)
 	_pending.clear()
 	_done.clear()
 	_results.clear()
 	_claims.clear()
 	_snapshot.clear()
+
+	_last_request.clear()
+	_drawer_key = ""
+	_drawer_contents = PackedInt32Array()
+	_epoch = ""
+	_dirty = true
+
+func shutdown() -> void:
+	session_ended()
+	_running = false
+	set_process(false)

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+
 const CONFIRM_MS := 6000
 const MIN_SAMPLES := 3
 const REPEAT_MS := 60000
@@ -72,3 +74,34 @@ static func cargo(rows: Array) -> Dictionary:
 		totals[kind][0] += 1
 		totals[kind][1] += int(row.get("strands", 0))
 	return totals
+
+static func machine_shape(machine: Node, parts: Array) -> Array:
+	var shape: Array = [machine.get_instance_id(), machine.get_script()]
+	for part in parts:
+		if not is_instance_valid(part) or not part.is_inside_tree() or part.is_queued_for_deletion():
+			return []
+		shape.append(part.get_instance_id())
+		shape.append(part.get_parent().get_instance_id())
+		shape.append(part.get_index())
+		shape.append(part.name)
+		shape.append(part.get_script())
+	return shape
+
+static func owner_key(node: Node, world: Node, cache: Dictionary, key_for: Callable) -> String:
+	var visited: Array = []
+	var current := node
+	var key := ""
+	while is_instance_valid(current) and current != world:
+		if cache.has(current):
+			key = cache[current]
+			break
+		visited.append(current)
+		if current.has_method("to_dict"):
+			var data: Variant = BuildSnapshot.row(current)
+			if data is Dictionary and data.has("type"):
+				key = str(key_for.call(data))
+				break
+		current = current.get_parent()
+	for item in visited:
+		cache[item] = key
+	return key

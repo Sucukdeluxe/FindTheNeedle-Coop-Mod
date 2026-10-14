@@ -23,3 +23,13 @@ func _carry(delta: float) -> void:
 		_unfit(row)
 		_take(body, {"s": row.s, "sink": row.sink})
 	super._carry(delta)
+
+func _follow_tech() -> void:
+	super._follow_tech()
+	if Tech.has_method("hay_lift_speed_scale"):
+		_speed *= float(Tech.call("hay_lift_speed_scale"))
+	var direction := -1.0 if down else 1.0
+	if _anim != null:
+		_anim.speed_scale = direction * _speed / Cfg.HAY_LIFT_SPEED
+	if _belt_mat != null:
+		_belt_mat.set_shader_parameter("speed", direction * _speed)

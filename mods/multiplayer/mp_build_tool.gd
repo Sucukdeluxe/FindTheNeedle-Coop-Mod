@@ -1,5 +1,6 @@
 extends "res://scripts/build/build_tool.gd"
 
+const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 
 
@@ -55,7 +56,7 @@ func _send_cancel() -> void:
 
 func primary() -> void:
 	if not is_instance_valid(mp_economy) or not mp_economy.mp.active():
-		super.primary()
+		execute_native("place", null, {})
 		return
 	if not _active or request_id != 0:
 		return
@@ -126,6 +127,9 @@ func _request(action: String, args: Dictionary) -> void:
 		args["inputs"] = capture_inputs()
 	args["body"] = player.global_transform
 	args["camera"] = player.camera.global_transform
+	var controller: Variant = player.get("mp_build_camera") if "mp_build_camera" in player else null
+	if is_instance_valid(controller) and controller.active:
+		args["build_view"] = controller.request_view()
 	sent_revision = input_revision
 	request_id = mp_economy.request(action, args)
 	if action == "place" and request_id != 0:
@@ -154,6 +158,10 @@ func accept_result(seq: int, result: Dictionary) -> void:
 	_pick += 1
 
 func execute_native(action: String, target: Node3D, args: Dictionary) -> void:
+	var ray := _camera_ray()
+	var saved_reach := _reach
+	if not ray.is_empty():
+		_reach = ray.length
 	match action:
 		"place":
 			super.primary()
@@ -163,3 +171,35 @@ func execute_native(action: String, target: Node3D, args: Dictionary) -> void:
 			super.dismantle_tile(target as Platform, args.get("tile", Rect2()))
 		"reverse":
 			super.reverse(target)
+	_reach = saved_reach
+
+func _camera_ray() -> Dictionary:
+	if player == null:
+		return {}
+	if player.has_meta("mp_build_view"):
+		return player.get_meta("mp_build_view")
+	var controller: Variant = player.get("mp_build_camera") if "mp_build_camera" in player else null
+	if is_instance_valid(controller) and controller.active:
+		var ray: Dictionary = controller.current_ray()
+		if not ray.is_empty():
+			ray["anchor"] = player.global_position
+		return ray
+	return {}
+
+func _update_ghost(delta: float) -> void:
+	var ray := _camera_ray()
+	var saved_reach := _reach
+	if not ray.is_empty():
+		_reach = ray.length
+	super._update_ghost(delta)
+	if not ray.is_empty():
+		_reach = saved_reach
+		if not BuildCamera.tool_allowed(self, ray.anchor):
+			_eval = _eval.duplicate()
+			_eval["ok"] = false
+			_eval["done"] = false
+			_eval["reason"] = "Außerhalb des Baubereichs von 24 m." if TranslationServer.get_locale().begins_with("de") else "Outside the 24 m building area."
+
+func dismantle_reach() -> float:
+	var ray := _camera_ray()
+	return float(ray.length) if not ray.is_empty() else super.dismantle_reach()
