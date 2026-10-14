@@ -137,7 +137,7 @@ func _send_pending() -> void:
 		return
 	for seq in _pending:
 		var change: Dictionary = _pending[seq]
-		mp._rx_tools_request.rpc_id(1, epoch, int(seq), change.added, change.removed)
+		mp._rx_tools_request.rpc_id(1, epoch, int(seq), change.added, change.removed, mp._outgoing_world_seed())
 
 func _process(delta: float) -> void:
 	if _vacuum_enabled and not is_instance_valid(_vacuum) and is_instance_valid(player):
@@ -174,7 +174,7 @@ func send_all(pid: int) -> void:
 	if pid == 1:
 		on_inventory(epoch, revision, ack, inventory.keys())
 	else:
-		mp._rx_tools_inventory.rpc_id(pid, epoch, revision, ack, inventory.keys())
+		mp._rx_tools_inventory.rpc_id(pid, epoch, revision, ack, inventory.keys(), mp._outgoing_world_seed())
 
 func on_inventory(token: String, revision: int, ack: int, ids: Array) -> void:
 	if token == epoch and revision < _received:

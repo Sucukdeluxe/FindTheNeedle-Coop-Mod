@@ -1,10 +1,12 @@
 extends "res://scripts/build/build_manager.gd"
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+const ScannerDemolition = preload("res://mods/multiplayer/mp_scanner_demolition.gd")
 
 
 var mp_world: Node
 var _mp_repairing_water := false
+var _mp_scanner_removing: Node3D
 
 
 func _clear_mirrored_records() -> void:
@@ -22,7 +24,22 @@ func reverse_conveyor(conveyor: Conveyor) -> bool:
 
 func _demolish_one(building: Node3D) -> float:
 	_clear_mirrored_records()
-	return super._demolish_one(building)
+	if not is_instance_valid(building) or building.is_queued_for_deletion() or not building is HaystackScanner or not scanners.has(building):
+		return super._demolish_one(building)
+	var snapshot := ScannerDemolition.capture(building, mp_world, scanners)
+	var previous := _mp_scanner_removing
+	_mp_scanner_removing = building
+	var refund := super._demolish_one(building)
+	_mp_scanner_removing = previous
+	if building.is_queued_for_deletion():
+		ScannerDemolition.release(snapshot, mp_world)
+	return refund
+
+
+func _held_needles_of(building: Node3D) -> PackedInt32Array:
+	if is_instance_valid(building) and building == _mp_scanner_removing:
+		return PackedInt32Array()
+	return super._held_needles_of(building)
 
 
 func clear() -> void:
@@ -40,6 +57,8 @@ func upgrade_arm(arm: RoboticArm) -> bool:
 
 
 func demolish_blocked_reason(building: Node3D) -> String:
+	if is_instance_valid(building) and building is HaystackScanner:
+		return ""
 	if is_instance_valid(mp_world) and mp_world._is_client() and mp_world._applying_builds:
 		return ""
 	return super.demolish_blocked_reason(building)

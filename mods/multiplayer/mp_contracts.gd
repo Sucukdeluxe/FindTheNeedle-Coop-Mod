@@ -65,7 +65,7 @@ func _process(delta: float) -> void:
 		return
 	_full_t = 0.0
 	_last = now
-	mp._rx_contract.rpc(now)
+	mp._rx_contract.rpc(now, mp._outgoing_world_seed())
 
 
 func _state() -> Dictionary:

@@ -269,7 +269,7 @@ func _on_added(item: Node) -> void:
 	_hash[id] = st.hash()
 	if _log:
 		print("[MPPROPS] made %s id=%d at %v" % [item.item_id, id, item.global_position])
-	mp._rx_prop_add.rpc(id, String(item.item_id), item.global_transform, st)
+	mp._rx_prop_add.rpc(id, String(item.item_id), item.global_transform, st, mp._outgoing_world_seed())
 
 
 func _on_removed(item: Node) -> void:
@@ -285,17 +285,17 @@ func _on_removed(item: Node) -> void:
 	if mine and _boarded.has(id):
 		# our belt took it, but the host's belts are the real ones: hand it over
 		# there, or the host's next belt snapshot wipes it and the hay is gone
-		mp._rx_prop_board.rpc_id(1, id, _boarded[id])
+		mp._rx_prop_board.rpc_id(1, id, _boarded[id], mp._outgoing_world_seed())
 		_boarded.erase(id)
 	elif mine:
-		mp._rx_prop_del.rpc(PackedInt64Array([id]))
+		mp._rx_prop_del.rpc(PackedInt64Array([id]), mp._outgoing_world_seed())
 	elif mp.is_host:
 		# the host's world is the one that counts: something here used up a
 		# guest's item (the delivery truck loads whatever lands in its bed), so
 		# it is gone for everybody. Asking for it back put it in the truck again
 		# and the same bale was counted over and over.
-		mp._rx_prop_owner.rpc(id, 1, int(_epoch.get(id, 0)) + 1, false)
-		mp._rx_prop_del.rpc(PackedInt64Array([id]))
+		mp._rx_prop_owner.rpc(id, 1, int(_epoch.get(id, 0)) + 1, false, mp._outgoing_world_seed())
+		mp._rx_prop_del.rpc(PackedInt64Array([id]), mp._outgoing_world_seed())
 	else:
 		# a local machine ate a copy: ask for it back
 		_want[id] = 0
@@ -365,7 +365,7 @@ func _hand_rider(rb: Node) -> void:
 	_hash.erase(id)
 	_puppet(rb)
 	_place(rb, xf)
-	mp._rx_prop_board.rpc_id(1, id, xf)
+	mp._rx_prop_board.rpc_id(1, id, xf, mp._outgoing_world_seed())
 
 
 # Host only. The guest's belt took one of the guest's items at xf. Take our copy
@@ -600,16 +600,16 @@ func _move_tick() -> void:
 			break
 	if not ids.is_empty():
 		_move_sequence += 1
-		mp._rx_prop_move.rpc(ids, xfs, _move_sequence, epochs)
+		mp._rx_prop_move.rpc(ids, xfs, _move_sequence, epochs, mp._outgoing_world_seed())
 	if not resting.is_empty():
 		_move_sequence += 1
-		mp._rx_prop_rest.rpc(resting, rest_xfs, _move_sequence, rest_epochs)
+		mp._rx_prop_rest.rpc(resting, rest_xfs, _move_sequence, rest_epochs, mp._outgoing_world_seed())
 	if not _want.is_empty():
 		var asking := PackedInt64Array()
 		for id in _want:
 			asking.append(id)
 		_want.clear()
-		mp._rx_prop_want.rpc(asking)
+		mp._rx_prop_want.rpc(asking, mp._outgoing_world_seed())
 
 
 func _same(a: Transform3D, b: Transform3D) -> bool:
@@ -645,7 +645,7 @@ func _state_tick() -> void:
 		if ids.size() >= STATE_BUDGET:
 			break
 	if ids.size() > 0:
-		mp._rx_prop_state.rpc(ids, states)
+		mp._rx_prop_state.rpc(ids, states, mp._outgoing_world_seed())
 
 
 func _census_tick() -> void:
@@ -660,7 +660,7 @@ func _census_tick() -> void:
 	for id in _by_id:
 		if _mine(id) and is_instance_valid(_by_id[id]):
 			ids.append(id)
-	mp._rx_prop_census.rpc(ids)
+	mp._rx_prop_census.rpc(ids, mp._outgoing_world_seed())
 
 
 # ------------------------------------------------------------------ from the net
@@ -757,7 +757,7 @@ func request_claim(id: int, action: String = "release") -> bool:
 	if mp.is_host:
 		on_claim_request(_me(), id, int(_epoch.get(id, 0)), action != "release")
 	else:
-		mp._rx_prop_claim.rpc_id(1, id, int(_epoch.get(id, 0)), action != "release")
+		mp._rx_prop_claim.rpc_id(1, id, int(_epoch.get(id, 0)), action != "release", mp._outgoing_world_seed())
 	return true
 
 
@@ -781,13 +781,13 @@ func _reply_owner(peer: int, id: int, owner: int, epoch: int, holding: bool) -> 
 	if peer == _me():
 		on_owner(id, owner, epoch, holding)
 	else:
-		mp._rx_prop_owner.rpc_id(peer, id, owner, epoch, holding)
+		mp._rx_prop_owner.rpc_id(peer, id, owner, epoch, holding, mp._outgoing_world_seed())
 
 
 func _assign_owner(id: int, owner: int, holding: bool) -> void:
 	var epoch := int(_epoch.get(id, 0)) + 1
 	on_owner(id, owner, epoch, holding)
-	mp._rx_prop_owner.rpc(id, owner, epoch, holding)
+	mp._rx_prop_owner.rpc(id, owner, epoch, holding, mp._outgoing_world_seed())
 
 
 func on_claim(sender: int, id: int) -> void:
@@ -848,7 +848,7 @@ func on_want(sender: int, ids: PackedInt64Array) -> void:
 		if it == null or not is_instance_valid(it):
 			continue
 		mp._rx_prop_add.rpc_id(sender, id, String(it.item_id),
-			it.global_transform, _state_of(it))
+			it.global_transform, _state_of(it), mp._outgoing_world_seed())
 
 
 func on_census(sender: int, ids: PackedInt64Array) -> void:
@@ -860,7 +860,7 @@ func on_census(sender: int, ids: PackedInt64Array) -> void:
 	if is_instance_valid(mp.world_sync) and "diagnostics" in mp.world_sync and is_instance_valid(mp.world_sync.diagnostics):
 		mp.world_sync.diagnostics.observe("props", not missing.is_empty(), missing.size(), sender)
 	if missing.size() > 0:
-		mp._rx_prop_want.rpc_id(sender, missing)
+		mp._rx_prop_want.rpc_id(sender, missing, mp._outgoing_world_seed())
 
 
 # ------------------------------------------------------------------ joining
@@ -890,13 +890,13 @@ func send_all(pid: int) -> void:
 			"state": st,
 		})
 		if entries.size() >= RESET_BATCH:
-			mp._rx_prop_reset.rpc_id(pid, first, ids, owners, entries)
+			mp._rx_prop_reset.rpc_id(pid, first, ids, owners, entries, mp._outgoing_world_seed())
 			first = false
 			ids = PackedInt64Array()
 			owners = PackedInt32Array()
 			entries = []
-	mp._rx_prop_reset.rpc_id(pid, first, ids, owners, entries)
-	mp._rx_prop_reset_end.rpc_id(pid)
+	mp._rx_prop_reset.rpc_id(pid, first, ids, owners, entries, mp._outgoing_world_seed())
+	mp._rx_prop_reset_end.rpc_id(pid, mp._outgoing_world_seed())
 
 
 func on_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array, entries: Array) -> void:
@@ -1019,10 +1019,10 @@ func _publish_cleanup(pid: int = 0) -> void:
 		return
 	var policy := cleanup_policy()
 	if pid != 0:
-		mp._rx_prop_cleanup.rpc_id(pid, policy)
+		mp._rx_prop_cleanup.rpc_id(pid, policy, mp._outgoing_world_seed())
 	elif policy != _published_cleanup:
 		_published_cleanup = policy.duplicate()
-		mp._rx_prop_cleanup.rpc(policy)
+		mp._rx_prop_cleanup.rpc(policy, mp._outgoing_world_seed())
 
 func on_cleanup(policy: Dictionary) -> void:
 	if mp.is_host or not (policy.get("auto_clean") is bool) or not (policy.get("prop_decay") is bool):

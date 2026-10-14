@@ -243,9 +243,9 @@ func publish_catalog(peer: int = 0) -> void:
 	_catalog_size = GameState.needle_positions.size()
 	var data := {"positions": GameState.needle_positions, "types": GameState.needle_type, "taken": GameState.needle_taken, "out": GameState.needle_out, "committed": GameState.mp_needle_committed}
 	if peer > 1:
-		mp._rx_needle_catalog.rpc_id(peer, world_sync.economy.epoch, data)
+		mp._rx_needle_catalog.rpc_id(peer, world_sync.economy.epoch, data, mp._outgoing_world_seed())
 	else:
-		mp._rx_needle_catalog.rpc(world_sync.economy.epoch, data)
+		mp._rx_needle_catalog.rpc(world_sync.economy.epoch, data, mp._outgoing_world_seed())
 
 func on_catalog(epoch: String, data: Dictionary) -> void:
 	if mp.is_host or epoch != world_sync.economy.epoch or not (data.get("positions") is PackedVector3Array) or not (data.get("types") is PackedByteArray) or not (data.get("taken") is PackedByteArray) or not (data.get("out") is PackedInt32Array) or not (data.get("committed") is Dictionary):
@@ -278,7 +278,7 @@ func released(body: RigidBody3D) -> void:
 	if mp.is_host:
 		world_sync._needle_out("spawn", index, body.global_position, 0, body.linear_velocity)
 	else:
-		mp._rx_needle_req.rpc_id(1, "drop", index, body.global_position, body.linear_velocity)
+		mp._rx_needle_req.rpc_id(1, "drop", index, body.global_position, body.linear_velocity, mp._outgoing_world_seed())
 
 func _hook_cabinets() -> void:
 	for cabinet in world_sync.builds.cabinets:

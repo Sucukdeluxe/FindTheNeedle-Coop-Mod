@@ -8,7 +8,7 @@ const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.47"
+const VERSION := "0.19.6-xRangerDE.48"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -28,6 +28,8 @@ enum Phase { OFFLINE, HOSTING, CONNECTING, LOBBY, LOADING, IN_WORLD }
 var base_dir := ""
 var ui: Node = null
 var world_sync: Node = null
+var _prestige_transition := false
+var _prestige_host_reload := false
 var phase: int = Phase.OFFLINE
 var is_host := false
 var players := {}  # peer id -> {name, color, state}
@@ -124,6 +126,7 @@ func _ready() -> void:
 		"mp_carry.gd",
 		"mp_catalog_panel.gd",
 		"mp_contracts.gd",
+		"mp_delivery_board.gd",
 		"mp_diagnostic_state.gd",
 		"mp_diagnostics.gd",
 		"mp_distributor_drive.gd",
@@ -158,18 +161,28 @@ func _ready() -> void:
 		"mp_needle_cabinet.gd",
 		"mp_needle_report.gd",
 		"mp_needle_sync.gd",
+		"mp_options_panel.gd",
 		"mp_player.gd",
 		"mp_power.gd",
 		"mp_power_tags.gd",
+		"mp_prestige.gd",
+		"mp_prestige_field.gd",
+		"mp_prestige_inventory.gd",
+		"mp_prestige_panel.gd",
+		"mp_prestige_pile.gd",
+		"mp_prestige_state.gd",
+		"mp_prestige_store.gd",
 		"mp_progression.gd",
 		"mp_prop_manager.gd",
 		"mp_props.gd",
 		"mp_robotic_arm.gd",
+		"mp_scanner_demolition.gd",
 		"mp_scanner_sync.gd",
 		"mp_selling_stand.gd",
 		"mp_shop.gd",
 		"mp_steam.gd",
 		"mp_strands.gd",
+		"mp_sweep.gd",
 		"mp_t_panel.gd",
 		"mp_tech.gd",
 		"mp_tech_panel.gd",
@@ -345,6 +358,8 @@ func _start_world_sync(world: Node) -> void:
 			_mp_world_load = false
 			_enter_mp_world(next.payload, next.generation)
 			return
+	_prestige_transition = false
+	_prestige_host_reload = false
 	trace.note("world sync starts (%s, %s)" % ["host" if is_host else "guest", "steam" if over_steam else "ip"])
 	world_sync = load(base_dir + "/mp_world.gd").new()
 	world_sync.name = "MPWorld"
@@ -956,7 +971,9 @@ func resync_all() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rx_request_world() -> void:
+func _rx_request_world(world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("request_world")
 	if is_host and world_sync != null:
 		world_sync.send_full_sync(multiplayer.get_remote_sender_id())
@@ -973,20 +990,24 @@ func request_resync() -> void:
 	else:
 		if world_sync != null:
 			world_sync._state_tick()
-		_rx_request_world.rpc_id(1)
+		_rx_request_world.rpc_id(1, _outgoing_world_seed())
 		ui.notify(t("asking_world"))
 
 
 # ---------------------------------------------------------------- in-world RPCs (forwarded to mp_world)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int, tool_fill: float = 0.0) -> void:
+func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int, tool_fill: float = 0.0, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null:
 		world_sync.on_pose(multiplayer.get_remote_sender_id(), pos, yaw, pitch, tool, crouch, moving, hands, tool_fill)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_hay(idx: PackedInt32Array, vals: PackedFloat32Array) -> void:
+func _rx_hay(idx: PackedInt32Array, vals: PackedFloat32Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("hay", idx.size())
 	if world_sync != null:
 		world_sync.on_hay(multiplayer.get_remote_sender_id(), idx, vals)
@@ -995,21 +1016,27 @@ func _rx_hay(idx: PackedInt32Array, vals: PackedFloat32Array) -> void:
 # Host -> guest: a checksum per block of the pile, so a guest can find where it
 # drifted from the host and ask for just those blocks.
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_hay_sums(sums: PackedFloat32Array) -> void:
+func _rx_hay_sums(sums: PackedFloat32Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("hay_sums", sums.size())
 	if world_sync != null:
 		world_sync.on_hay_sums(sums)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_hay_want(blocks: PackedInt32Array) -> void:
+func _rx_hay_want(blocks: PackedInt32Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("hay_want", blocks.size())
 	if is_host and world_sync != null:
 		world_sync.on_hay_want(multiplayer.get_remote_sender_id(), blocks)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_builds(adds: Array, removes: Array) -> void:
+func _rx_builds(adds: Array, removes: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("builds", adds.size())
 	if is_host or multiplayer.get_remote_sender_id() != 1:
 		return
@@ -1018,35 +1045,45 @@ func _rx_builds(adds: Array, removes: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_state_delta(seq: int, delta: Dictionary) -> void:
+func _rx_state_delta(seq: int, delta: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("state_delta", delta.size())
 	if is_host and world_sync != null:
 		world_sync.on_state_delta(multiplayer.get_remote_sender_id(), seq, delta)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_state_snap(ack: int, snap: Dictionary) -> void:
+func _rx_state_snap(ack: int, snap: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("state_snap", snap.size())
 	if world_sync != null:
 		world_sync.on_state_snap(ack, snap)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_tech(id: String, rank: int, paid: bool) -> void:
+func _rx_tech(id: String, rank: int, paid: bool, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("tech")
 	if world_sync != null:
 		world_sync.on_tech(multiplayer.get_remote_sender_id(), id, rank, paid)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_full_sync(heights: PackedFloat32Array, builds: Array, tech: Dictionary, needles: Array) -> void:
+func _rx_full_sync(heights: PackedFloat32Array, builds: Array, tech: Dictionary, needles: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("full_sync", heights.size())
 	if world_sync != null:
 		world_sync.on_full_sync(heights, builds, tech, needles)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_new_pile_request(on_credit: bool) -> void:
+func _rx_new_pile_request(on_credit: bool, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("new_pile_request")
 	if is_host and world_sync != null:
 		world_sync.host_new_pile_for_client(multiplayer.get_remote_sender_id(), on_credit)
@@ -1055,7 +1092,9 @@ func _rx_new_pile_request(on_credit: bool) -> void:
 # Host -> everyone: what happened to a loose needle. The host decides who holds
 # it, so two players grabbing the same needle cannot both hand it in.
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vector3 = Vector3.ZERO) -> void:
+func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vector3 = Vector3.ZERO, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("needle")
 	if world_sync != null:
 		world_sync.on_needle(kind, idx, pos, holder, velocity)
@@ -1063,14 +1102,18 @@ func _rx_needle(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vec
 
 # Guest -> host: a guest picked a needle up, put it down or used it up.
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_needle_req(kind: String, idx: int, pos: Vector3, velocity: Vector3 = Vector3.ZERO) -> void:
+func _rx_needle_req(kind: String, idx: int, pos: Vector3, velocity: Vector3 = Vector3.ZERO, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("needle_req")
 	if is_host and world_sync != null:
 		world_sync.on_needle_req(multiplayer.get_remote_sender_id(), kind, idx, pos, velocity)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_event(kind: String, data: Dictionary) -> void:
+func _rx_event(kind: String, data: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("event", data.size())
 	if world_sync != null:
 		world_sync.on_event(multiplayer.get_remote_sender_id(), kind, data)
@@ -1085,7 +1128,9 @@ func _props() -> Node:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_add(id: int, item_id: String, xf: Transform3D, state: Dictionary) -> void:
+func _rx_prop_add(id: int, item_id: String, xf: Transform3D, state: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_add", state.size())
 	var p := _props()
 	if p != null:
@@ -1093,7 +1138,9 @@ func _rx_prop_add(id: int, item_id: String, xf: Transform3D, state: Dictionary) 
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_del(ids: PackedInt64Array) -> void:
+func _rx_prop_del(ids: PackedInt64Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_del", ids.size())
 	var p := _props()
 	if p != null:
@@ -1101,7 +1148,9 @@ func _rx_prop_del(ids: PackedInt64Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_prop_move(ids: PackedInt64Array, xfs: Array, sequence: int = 0, epochs: PackedInt64Array = PackedInt64Array()) -> void:
+func _rx_prop_move(ids: PackedInt64Array, xfs: Array, sequence: int = 0, epochs: PackedInt64Array = PackedInt64Array(), world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_move", ids.size())
 	var p := _props()
 	if p != null:
@@ -1109,7 +1158,9 @@ func _rx_prop_move(ids: PackedInt64Array, xfs: Array, sequence: int = 0, epochs:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_rest(ids: PackedInt64Array, xfs: Array, sequence: int, epochs: PackedInt64Array) -> void:
+func _rx_prop_rest(ids: PackedInt64Array, xfs: Array, sequence: int, epochs: PackedInt64Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_rest", ids.size())
 	var p := _props()
 	if p != null:
@@ -1117,7 +1168,9 @@ func _rx_prop_rest(ids: PackedInt64Array, xfs: Array, sequence: int, epochs: Pac
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_state(ids: PackedInt64Array, states: Array) -> void:
+func _rx_prop_state(ids: PackedInt64Array, states: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_state", ids.size())
 	var p := _props()
 	if p != null:
@@ -1125,7 +1178,9 @@ func _rx_prop_state(ids: PackedInt64Array, states: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_claim(id: int, expected: int, holding: bool) -> void:
+func _rx_prop_claim(id: int, expected: int, holding: bool, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_claim")
 	var p := _props()
 	if p != null and is_host:
@@ -1135,7 +1190,9 @@ func _rx_prop_claim(id: int, expected: int, holding: bool) -> void:
 # A guest's belt took one of its items. Only the host's belts count, so the
 # host puts its own copy down there instead.
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_board(id: int, xf: Transform3D) -> void:
+func _rx_prop_board(id: int, xf: Transform3D, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_board")
 	var p := _props()
 	if p != null and is_host:
@@ -1143,7 +1200,9 @@ func _rx_prop_board(id: int, xf: Transform3D) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_want(ids: PackedInt64Array) -> void:
+func _rx_prop_want(ids: PackedInt64Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_want", ids.size())
 	var p := _props()
 	if p != null:
@@ -1151,7 +1210,9 @@ func _rx_prop_want(ids: PackedInt64Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_prop_census(ids: PackedInt64Array) -> void:
+func _rx_prop_census(ids: PackedInt64Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_census", ids.size())
 	var p := _props()
 	if p != null:
@@ -1159,7 +1220,9 @@ func _rx_prop_census(ids: PackedInt64Array) -> void:
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_prop_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array, entries: Array) -> void:
+func _rx_prop_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array, entries: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_reset", ids.size())
 	var p := _props()
 	if p != null:
@@ -1167,7 +1230,9 @@ func _rx_prop_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_prop_reset_end() -> void:
+func _rx_prop_reset_end(world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("prop_reset_end")
 	var p := _props()
 	if p != null:
@@ -1175,7 +1240,9 @@ func _rx_prop_reset_end() -> void:
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_belts(packed: PackedByteArray, raw_size: int) -> void:
+func _rx_belts(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("belts", packed.size())
 	if world_sync == null or world_sync.belts_sync == null:
 		return
@@ -1185,7 +1252,9 @@ func _rx_belts(packed: PackedByteArray, raw_size: int) -> void:
 # ---------------------------------------------------------------- machines
 
 @rpc("authority", "call_remote", "unreliable_ordered", 0)
-func _rx_machines(packed: PackedByteArray, raw_size: int) -> void:
+func _rx_machines(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("machines", packed.size())
 	if world_sync == null or world_sync.machines_sync == null:
 		return
@@ -1195,7 +1264,9 @@ func _rx_machines(packed: PackedByteArray, raw_size: int) -> void:
 # The same, for batches too big for one packet (a lost fragment would drop the
 # whole batch on the unreliable channel) and the periodic full refresh.
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_machines_big(packed: PackedByteArray, raw_size: int) -> void:
+func _rx_machines_big(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("machines_big", packed.size())
 	if world_sync == null or world_sync.machines_sync == null:
 		return
@@ -1203,43 +1274,57 @@ func _rx_machines_big(packed: PackedByteArray, raw_size: int) -> void:
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_scanner_state(epoch: String, sequence: int, state: Dictionary) -> void:
+func _rx_scanner_state(epoch: String, sequence: int, state: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and is_instance_valid(world_sync.scanner_sync):
 		world_sync.scanner_sync.on_state(epoch, sequence, state)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_scanner_request(epoch: String, sequence: int, key: String, mode: String, index: int) -> void:
+func _rx_scanner_request(epoch: String, sequence: int, key: String, mode: String, index: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and world_sync != null and is_instance_valid(world_sync.scanner_sync):
 		world_sync.scanner_sync.on_request(multiplayer.get_remote_sender_id(), epoch, sequence, key, mode, index)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_scanner_result(epoch: String, sequence: int, result: Dictionary) -> void:
+func _rx_scanner_result(epoch: String, sequence: int, result: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and is_instance_valid(world_sync.scanner_sync):
 		world_sync.scanner_sync.on_result(epoch, sequence, result)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_scanner_ack(epoch: String, sequence: int, success: bool) -> void:
+func _rx_scanner_ack(epoch: String, sequence: int, success: bool, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and world_sync != null and is_instance_valid(world_sync.scanner_sync):
 		world_sync.scanner_sync.on_ack(multiplayer.get_remote_sender_id(), epoch, sequence, success)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_mice(epoch: String, sequence: int, packed: PackedByteArray, raw_size: int) -> void:
+func _rx_mice(epoch: String, sequence: int, packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and is_instance_valid(world_sync.mice_sync):
 		world_sync.mice_sync.on_state(epoch, sequence, packed, raw_size)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_power_state(epoch: String, state: Dictionary) -> void:
+func _rx_power_state(epoch: String, state: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and is_instance_valid(world_sync.power_sync):
 		world_sync.power_sync.on_state(epoch, state)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_machine_fields(batch: Dictionary) -> void:
+func _rx_machine_fields(batch: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("machine_fields", batch.size())
 	if world_sync == null or world_sync.machines_sync == null:
 		return
@@ -1250,7 +1335,9 @@ func _rx_machine_fields(batch: Dictionary) -> void:
 # is the only one that acts on this; everyone else hears about it in the next
 # field tick like any other change.
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_machine_edit(batch: Dictionary) -> void:
+func _rx_machine_edit(batch: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("machine_edit", batch.size())
 	if not is_host or world_sync == null or world_sync.machines_sync == null:
 		return
@@ -1259,7 +1346,9 @@ func _rx_machine_edit(batch: Dictionary) -> void:
 
 # A piece of a paint board's drawing; boards_sync puts the pieces together.
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_board(key: String, id: int, i: int, n: int, raw_size: int, piece: PackedByteArray) -> void:
+func _rx_board(key: String, id: int, i: int, n: int, raw_size: int, piece: PackedByteArray, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("board", piece.size())
 	if world_sync == null or world_sync.boards_sync == null:
 		return
@@ -1268,7 +1357,9 @@ func _rx_board(key: String, id: int, i: int, n: int, raw_size: int, piece: Packe
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_contract(state: Dictionary) -> void:
+func _rx_contract(state: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("contract", state.size())
 	if world_sync == null or world_sync.contracts_sync == null:
 		return
@@ -1284,7 +1375,9 @@ func _straws() -> Node:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_straw_add(adds: Array) -> void:
+func _rx_straw_add(adds: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("straw_add", adds.size())
 	var s := _straws()
 	if s != null:
@@ -1292,7 +1385,9 @@ func _rx_straw_add(adds: Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_straw_move(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
+func _rx_straw_move(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("straw_move", ids.size())
 	var s := _straws()
 	if s != null:
@@ -1300,7 +1395,9 @@ func _rx_straw_move(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: i
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_straw_del(ids: PackedInt64Array) -> void:
+func _rx_straw_del(ids: PackedInt64Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("straw_del", ids.size())
 	var s := _straws()
 	if s != null:
@@ -1308,7 +1405,9 @@ func _rx_straw_del(ids: PackedInt64Array) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_straw_census(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int) -> void:
+func _rx_straw_census(ids: PackedInt64Array, rows: PackedFloat32Array, sequence: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("straw_census", ids.size())
 	var s := _straws()
 	if s != null:
@@ -1316,7 +1415,9 @@ func _rx_straw_census(ids: PackedInt64Array, rows: PackedFloat32Array, sequence:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_straw_claim(sid: int) -> void:
+func _rx_straw_claim(sid: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	_trace("straw_claim")
 	var s := _straws()
 	if s != null:
@@ -1423,89 +1524,119 @@ func steam_name() -> String:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_belt_pick(seq: int) -> void:
+func _rx_belt_pick(seq: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and is_instance_valid(world_sync):
 		world_sync.belts_sync.on_pick(multiplayer.get_remote_sender_id(), seq)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_belt_pick_result(owner: int, id: int) -> void:
+func _rx_belt_pick_result(owner: int, id: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if not is_host and is_instance_valid(world_sync):
 		world_sync.belts_sync.on_pick_result(owner, id)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_mission_done(completed: PackedStringArray) -> void:
+func _rx_mission_done(completed: PackedStringArray, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and is_instance_valid(world_sync):
 		world_sync.on_mission_done(multiplayer.get_remote_sender_id(), completed)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_build_digest(digest: int) -> void:
+func _rx_build_digest(digest: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_instance_valid(world_sync):
 		world_sync.on_build_digest(digest)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_build_repair_request(revision: int) -> void:
+func _rx_build_repair_request(revision: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and is_instance_valid(world_sync) and not world_sync._applying_builds:
-		_rx_build_repair.rpc_id(multiplayer.get_remote_sender_id(), BuildSnapshot.buildings(world_sync.builds), revision)
+		_rx_build_repair.rpc_id(multiplayer.get_remote_sender_id(), BuildSnapshot.buildings(world_sync.builds), revision, _outgoing_world_seed())
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_build_repair(buildings: Array, revision: int) -> void:
+func _rx_build_repair(buildings: Array, revision: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_instance_valid(world_sync):
 		world_sync.on_build_repair(buildings, revision)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_tools_request(epoch: String, seq: int, added: Array, removed: Array) -> void:
+func _rx_tools_request(epoch: String, seq: int, added: Array, removed: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and world_sync != null:
 		world_sync.tools_sync.on_request(multiplayer.get_remote_sender_id(), epoch, seq, added, removed)
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_tools_inventory(epoch: String, revision: int, ack: int, ids: Array) -> void:
+func _rx_tools_inventory(epoch: String, revision: int, ack: int, ids: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null:
 		world_sync.tools_sync.on_inventory(epoch, revision, ack, ids)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_prop_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
+func _rx_prop_owner(id: int, owner: int, epoch: int, holding: bool, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	var p := _props()
 	if p != null:
 		p.on_owner(id, owner, epoch, holding)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_tech_purchase(id: String, expected_rank: int) -> void:
+func _rx_tech_purchase(id: String, expected_rank: int, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and world_sync != null:
 		world_sync.on_tech_purchase(multiplayer.get_remote_sender_id(), id, expected_rank)
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_tech_purchase_result(id: String, accepted: bool) -> void:
+func _rx_tech_purchase_result(id: String, accepted: bool, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null:
 		world_sync.on_tech_purchase_result(id, accepted)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _rx_economy_request(epoch: String, seq: int, action: String, args: Dictionary) -> void:
+func _rx_economy_request(epoch: String, seq: int, action: String, args: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host and world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_request(multiplayer.get_remote_sender_id(), epoch, seq, action, args)
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_economy_result(epoch: String, seq: int, result: Dictionary) -> void:
+func _rx_economy_result(epoch: String, seq: int, result: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_result(epoch, seq, result)
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_economy_state(epoch: String, state: Dictionary) -> void:
+func _rx_economy_state(epoch: String, state: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_state(epoch, state)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _rx_stand_visuals(epoch: String, sequence: int, hay: int, worth: float,
-		combo: int, gap: float, payouts: Array) -> void:
+		combo: int, gap: float, payouts: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_host or not active() or not is_instance_valid(world_sync) \
 			or not is_instance_valid(world_sync.economy) or epoch != world_sync.economy.epoch \
 			or not is_instance_valid(world_sync.builds):
@@ -1516,7 +1647,9 @@ func _rx_stand_visuals(epoch: String, sequence: int, hay: int, worth: float,
 
 
 @rpc("authority", "call_remote", "reliable")
-func _rx_prop_cleanup(policy: Dictionary) -> void:
+func _rx_prop_cleanup(policy: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if world_sync != null and is_instance_valid(world_sync.props_sync):
 		world_sync.props_sync.on_cleanup(policy)
 
@@ -1547,11 +1680,61 @@ func tool_identity(pid: int) -> String:
 	return "host" if pid == 1 else str(_tool_identities.get(pid, "peer:" + str(pid)))
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_needle_catalog(epoch: String, data: Dictionary) -> void:
+func _rx_needle_catalog(epoch: String, data: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_instance_valid(world_sync) and is_instance_valid(world_sync.needles_sync):
 		world_sync.needles_sync.on_catalog(epoch, data)
 
 @rpc("authority", "call_remote", "reliable", 0)
-func _rx_hoppers(epoch: String, seq: int, data: Dictionary) -> void:
+func _rx_hoppers(epoch: String, seq: int, data: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
 	if is_instance_valid(world_sync) and is_instance_valid(world_sync.hoppers_sync):
 		world_sync.hoppers_sync.on_state(epoch, seq, data)
+
+
+func _outgoing_world_seed() -> int:
+	if not is_instance_valid(world_sync) or _prestige_transition or world_sync._frozen:
+		return -1
+	return GameState.run_seed
+
+func _accept_world_seed(seed: int) -> bool:
+	if seed < 0 or not active() or not is_instance_valid(world_sync) or seed != GameState.run_seed:
+		return false
+	var peer := multiplayer.get_remote_sender_id()
+	if is_host and peer != 1 and (not players.has(peer) or str(players[peer].get("state", "")) != "world"):
+		return false
+	if _prestige_transition or world_sync._frozen:
+		return is_host and is_instance_valid(world_sync.prestige) and world_sync.prestige.accept_draining(peer)
+	return true
+
+@rpc("authority", "call_remote", "reliable")
+func _rx_prestige_prepare(token: String, seed: int) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.prestige):
+		world_sync.prestige.on_prepare(token, seed)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rx_prestige_ready(token: String, seed: int, report: Dictionary) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.prestige):
+		world_sync.prestige.on_ready(multiplayer.get_remote_sender_id(), token, seed, report)
+
+@rpc("authority", "call_remote", "reliable")
+func _rx_prestige_cancel(token: String, seed: int) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.prestige):
+		world_sync.prestige.on_cancel(token, seed)
+
+@rpc("authority", "call_remote", "reliable")
+func _rx_sweep_command(epoch: String, seed: int, token: String) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.sweep_sync):
+		world_sync.sweep_sync.on_command(epoch, seed, token)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rx_sweep_report(epoch: String, seed: int, token: String, rows: Array, ok: bool) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.sweep_sync):
+		world_sync.sweep_sync.on_report(multiplayer.get_remote_sender_id(), epoch, seed, token, rows, ok)
+
+@rpc("authority", "call_remote", "reliable")
+func _rx_sweep_finished(epoch: String, seed: int, token: String, result: Dictionary) -> void:
+	if is_instance_valid(world_sync) and is_instance_valid(world_sync.sweep_sync):
+		world_sync.sweep_sync.on_finished(epoch, seed, token, result)

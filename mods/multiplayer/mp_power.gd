@@ -192,11 +192,11 @@ func publish(pid: int = 0, force: bool = false) -> void:
 	if var_to_bytes(_packet).size() > MAX_BYTES:
 		return
 	if pid != 0:
-		mp._rx_power_state.rpc_id(pid, world_sync.economy.epoch, _packet)
+		mp._rx_power_state.rpc_id(pid, world_sync.economy.epoch, _packet, mp._outgoing_world_seed())
 	else:
 		for peer in mp.players:
 			if peer != 1 and mp.players[peer].get("state") == "world":
-				mp._rx_power_state.rpc_id(peer, world_sync.economy.epoch, _packet)
+				mp._rx_power_state.rpc_id(peer, world_sync.economy.epoch, _packet, mp._outgoing_world_seed())
 		_sent_revision = _revision
 
 func invalidate_builds() -> void:

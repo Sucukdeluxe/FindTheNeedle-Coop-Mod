@@ -5,9 +5,9 @@ const ADDON_MARKER := "ftn_production_speed_v1"
 const ARM_COSTS := [30.0, 60.0, 100.0, 160.0, 250.0, 380.0, 550.0, 800.0, 1320.0, 2180.0, 3600.0, 4800.0, 6000.0, 7000.0, 8000.0, 11000.0, 14000.0, 18000.0, 22000.0, 27000.0]
 const PORTIONS := [100, 200, 300, 500, 1000]
 const PORTION_COSTS := [1500.0, 3500.0, 7000.0, 13000.0]
-const TRANSPORT_SCALES := [1.0, 1.2, 1.4, 1.65, 2.0]
-const LIFT_COSTS := [1500.0, 3500.0, 7000.0, 13000.0]
-const STAIRS_COSTS := [750.0, 1750.0, 3500.0, 6500.0]
+const TRANSPORT_SCALES := [1.0, 1.2, 1.4, 1.65, 2.0, 2.25, 2.5, 2.8, 3.1, 3.5, 4.0]
+const LIFT_COSTS := [1500.0, 3500.0, 7000.0, 13000.0, 15000.0, 17000.0, 19000.0, 21000.0, 23000.0, 25000.0]
+const STAIRS_COSTS := [750.0, 1750.0, 3500.0, 6500.0, 7500.0, 8500.0, 9500.0, 10500.0, 11500.0, 12500.0]
 const DISTRIBUTOR_SCALES := [1.0, 1.15, 1.3, 1.45, 1.6, 1.75, 1.9, 2.05, 2.2, 2.35, 2.5]
 const DISTRIBUTOR_COSTS := [1000.0, 2000.0, 3500.0, 5500.0, 8000.0, 10000.0, 13000.0, 16000.0, 19000.0, 22000.0]
 const DISTRIBUTOR_BUILDS := ["splitter", "compact_splitter", "smart_splitter", "u_splitter", "t_splitter", "joiner", "u_joiner", "compact_joiner"]
@@ -52,7 +52,10 @@ func ensure_cards() -> void:
 			card["icon"] = "hay_lift+speed" if lift else "hay_stairs+speed"
 			card["blurb"] = "Erhöht das Transporttempo zusätzlich zum Bandmotor. Ein belegter Ausgang hält die Ladung weiterhin an." if german else "Increases transport speed in addition to the belt motor. A blocked output still holds the cargo."
 			card["base"] = "100%"
-			card["values"] = ["120%", "140%", "165%", "200%"]
+			var values: Array = []
+			for rank in range(1, TRANSPORT_SCALES.size()):
+				values.append("%d%%" % roundi(TRANSPORT_SCALES[rank] * 100.0))
+			card["values"] = values
 		nodes[id] = card
 		_ensure_order(id)
 

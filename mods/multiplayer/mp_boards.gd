@@ -100,11 +100,11 @@ func _send(b: Node, pid: int, force: bool = false) -> void:
 	for i in maxi(n, 1):
 		var piece := packed.slice(i * PIECE, mini((i + 1) * PIECE, packed.size()))
 		if pid > 0:
-			mp._rx_board.rpc_id(pid, _key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece)
+			mp._rx_board.rpc_id(pid, _key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece, mp._outgoing_world_seed())
 		elif not mp.is_host:
-			mp._rx_board.rpc_id(1, _key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece)
+			mp._rx_board.rpc_id(1, _key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece, mp._outgoing_world_seed())
 		else:
-			mp._rx_board.rpc(_key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece)
+			mp._rx_board.rpc(_key(b as Node3D), id, i, maxi(n, 1), raw.size(), piece, mp._outgoing_world_seed())
 
 
 # Host: a player just came in, show them every board as it is.

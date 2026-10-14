@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.47`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.48`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -19,14 +19,20 @@ The base ZIP does not replace `override.cfg`. See [German instructions](mods/mul
 - **Loading Hopper:** a new 2,500-cost structure in the conveyor/build catalog. Place it at a free, level conveyor input. Aim at it with the yard vacuum and press **M** to transfer up to its 50,000-strand capacity. It feeds only when the belt accepts cargo. Empty it before dismantling. Hopper operation works in single-player and multiplayer.
 - **Larger Belt Portions:** 100 → 200 → 300 → 500 → 1,000 strands per portion for direct M output and hoppers. Four upgrades cost 25,000 in total. A blocked belt retains the hay in the vacuum or hopper.
 - **Arm speed:** 20 total ranks; ranks 15–20 cost 100,000 combined. Already purchased ranks are preserved.
-- **Lift / stairs speed:** four ranks up to twice their base transport speed; 25,000 / 12,500 combined, in addition to the belt motor.
+- **Lift / stairs speed:** ten ranks up to four times their base transport speed, in addition to the belt motor. Existing ranks are preserved.
 - **Splitter / merger speed:** ten ranks up to 250% internal speed, 100,000 combined. Applies to normal, compact, U, smart and T variants. Filters and blocked exits still apply.
 - **Double Jump:** one shared 2,500 purchase in Fitness after Spring Heels. Release jump after taking off, then press again for one extra airborne jump. Landing restores it. An equipped jetpack retains its own control behavior.
-- **Next Load details:** the needle section also reports the remaining buried needles by type.
+- **Next Load details:** remaining buried needles and the number of represented types are shown on the delivery board and in its detail window.
 
-Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with each upgrade costing at most 100,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
+Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with prices reduced by 20% and each upgrade costing at most 80,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
 
-The hopper has an image in the building catalog and hotbar, generated from its original model. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
+The hopper has an industrial steel model and a matching image in the building catalog and hotbar. Its stock and controls appear in a readable HUD card. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
+
+## Prestige and scanner dismantling
+
+Use the delivery board’s Next Load sheet, then **Prestige · New map**. The host (or single-player) can preview the sale and select Standard, Large, Huge or Mountain once the physical haystack is empty and all six needle types have been collected. Buildings and saleable goods are converted to money, while tools, unlocks and purchased upgrades are retained. A new cycle requires its six needle types again. A backup is written before the map changes.
+
+Scanners can be dismantled with needles inside. Unique unclaimed needles are placed on the floor; a needle already held by a player is not spawned again.
 
 ## Synchronization fixes
 

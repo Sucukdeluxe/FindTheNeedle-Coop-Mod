@@ -483,9 +483,9 @@ func _send_poses() -> void:
 	# losing any fragment lost the whole batch, so big batches and the
 	# periodic full refresh go on the reliable channel instead.
 	if _full or packed.size() > BIG_PACKET or _has_arm_geometry(batch):
-		mp._rx_machines_big.rpc(packed, raw.size())
+		mp._rx_machines_big.rpc(packed, raw.size(), mp._outgoing_world_seed())
 	else:
-		mp._rx_machines.rpc(packed, raw.size())
+		mp._rx_machines.rpc(packed, raw.size(), mp._outgoing_world_seed())
 
 
 # Over Steam, in small pieces. Every guest crash over Steam came right after a
@@ -540,9 +540,9 @@ func _send_one(batch: Dictionary) -> void:
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	# the periodic full refresh has to arrive; the moves in between may drop
 	if _full or _has_arm_geometry(batch):
-		mp._rx_machines_big.rpc(packed, raw.size())
+		mp._rx_machines_big.rpc(packed, raw.size(), mp._outgoing_world_seed())
 	else:
-		mp._rx_machines.rpc(packed, raw.size())
+		mp._rx_machines.rpc(packed, raw.size(), mp._outgoing_world_seed())
 
 
 func _has_arm_geometry(batch: Dictionary) -> bool:
@@ -595,7 +595,7 @@ func _send_fields() -> void:
 			batch[key] = diff
 	if batch.is_empty():
 		return
-	mp._rx_machine_fields.rpc(batch)
+	mp._rx_machine_fields.rpc(batch, mp._outgoing_world_seed())
 
 
 # ------------------------------------------------------------------ from the net
@@ -786,7 +786,7 @@ func _send_edits() -> void:
 				batch[key] = diff
 	if batch.is_empty():
 		return
-	mp._rx_machine_edit.rpc_id(1, batch)
+	mp._rx_machine_edit.rpc_id(1, batch, mp._outgoing_world_seed())
 	if _log:
 		print("[MPMACH] guest sent %d machine edits" % batch.size())
 

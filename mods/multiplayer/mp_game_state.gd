@@ -1,6 +1,7 @@
 extends "res://autoload/game_state.gd"
 
 var mp_personal_tools: Dictionary = {}
+var mp_prestige: Dictionary = {}
 var mp_income_rate := -1.0
 var mp_needle_committed: Dictionary = {}
 var mp_hoppers: Dictionary = {}
@@ -14,6 +15,7 @@ func income_per_minute() -> float:
 
 func to_dict() -> Dictionary:
 	var data := super.to_dict()
+	data["mp_prestige"] = mp_prestige.duplicate(true)
 	data["mp_needle_committed"] = mp_needle_committed.duplicate()
 	data["mp_hoppers"] = mp_hoppers.duplicate(true)
 	data["mp_vacuum_transfers"] = mp_vacuum_transfers.duplicate(true)
@@ -25,6 +27,7 @@ func to_dict() -> Dictionary:
 func from_dict(data: Dictionary) -> void:
 	mp_income_rate = -1.0
 	super.from_dict(data)
+	mp_prestige = preload("res://mods/multiplayer/mp_prestige_state.gd").normalize(data.get("mp_prestige", {}), run_seed)
 	mp_needle_committed = {}
 	var spent: Variant = data.get("mp_needle_committed", {})
 	if spent is Dictionary:
@@ -49,6 +52,7 @@ func reset(seed_value: int, total_strands: float) -> void:
 	mp_income_rate = -1.0
 	super.reset(seed_value, total_strands)
 	mp_needle_committed.clear()
+	mp_prestige.clear()
 	mp_hoppers.clear()
 	mp_vacuum_transfers.clear()
 	mp_personal_tools = {}
@@ -66,6 +70,7 @@ func deposit_needle(index: int, at: Vector3) -> void:
 			return
 		mp_needle_committed[index] = "stored"
 	super.deposit_needle(index, at)
+	preload("res://mods/multiplayer/mp_prestige_state.gd").record(mp_prestige, index, type_of(index), run_seed)
 
 func withdraw_needle(type: int, at: Vector3 = Vector3.ZERO) -> int:
 	var service := _mp_needle_service()

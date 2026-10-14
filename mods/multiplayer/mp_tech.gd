@@ -11,5 +11,5 @@ func buy(id: String) -> bool:
 	if not can_buy(id).get("ok", false):
 		return false
 	pending[id] = true
-	mp_world.mp._rx_tech_purchase.rpc_id(1, id, int(ranks.get(id, 0)))
+	mp_world.mp._rx_tech_purchase.rpc_id(1, id, int(ranks.get(id, 0)), mp_world.mp._outgoing_world_seed())
 	return true

@@ -569,11 +569,11 @@ func send_all(peer: int = 0) -> void:
 	_seq += 1
 	var data := {"store": serialize(), "statuses": _statuses.duplicate()}
 	if peer > 0:
-		mp._rx_hoppers.rpc_id(peer, _epoch, _seq, data)
+		mp._rx_hoppers.rpc_id(peer, _epoch, _seq, data, mp._outgoing_world_seed())
 	else:
 		for id in mp.players:
 			if id != 1 and mp.players[id].get("state") == "world":
-				mp._rx_hoppers.rpc_id(id, _epoch, _seq, data)
+				mp._rx_hoppers.rpc_id(id, _epoch, _seq, data, mp._outgoing_world_seed())
 
 func on_state(epoch: String, seq: int, data: Dictionary) -> void:
 	if not _usable() or _mode != "guest" or epoch == "" or epoch.length() > 128 or seq < 1 or var_to_bytes(data).size() > 32768:

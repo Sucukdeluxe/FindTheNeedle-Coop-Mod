@@ -64,7 +64,7 @@ const ADD_F := ["money", "debt", "hay_total", "hay_dug", "hay_returned", "hay_so
 const ADD_A := ["needles_by_type", "needle_stock"]
 const OR_A := ["needle_taken", "discovered"]
 const HOST_ABS := ["run_secs", "lot_tier", "hay_initial", "money_peak", "pile_cleared",
-	"first_needle_secs", "first_clear_secs", "best_sale", "best_sale_strands"]
+	"first_needle_secs", "first_clear_secs", "best_sale", "best_sale_strands", "mp_prestige"]
 const HOST_MAX := ["mission_index", "contract_index"]
 
 var avatars := {}
@@ -110,6 +110,8 @@ var needles_sync: Node
 var hoppers_sync: Node
 var vacuum_transfer: Node
 var build_camera: Node
+var prestige: Node
+var sweep_sync: Node
 
 var _needles := {}  # needle index -> "free" | "held" | "away"
 var _holder := {}  # host: needle index -> peer holding it
@@ -198,6 +200,12 @@ func _ready() -> void:
 	power_sync = load(mp.base_dir + "/mp_power.gd").new()
 	add_child(power_sync)
 	power_sync.start(mp, self)
+	prestige = load(mp.base_dir + "/mp_prestige.gd").new()
+	add_child(prestige)
+	prestige.start(mp, self)
+	sweep_sync = load(mp.base_dir + "/mp_sweep.gd").new()
+	add_child(sweep_sync)
+	sweep_sync.start(mp, self)
 	diagnostics = load(mp.base_dir + "/mp_diagnostics.gd").new()
 	add_child(diagnostics)
 	if field != null:
@@ -215,6 +223,10 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	if is_instance_valid(prestige):
+		prestige.shutdown()
+	if is_instance_valid(sweep_sync):
+		sweep_sync.shutdown()
 	if is_instance_valid(build_camera):
 		build_camera.leave()
 	if is_instance_valid(vacuum_transfer):
@@ -292,6 +304,14 @@ func place_at_spawn() -> void:
 	var consts: Dictionary = world.get_script().get_script_constant_map()
 	var sp: Vector3 = consts.get("SPAWN_POS", Vector3(13.2, 0.4, 5.6))
 	var slot: int = mp.players.keys().find(multiplayer.get_unique_id())
+	if int(GameState.mp_prestige.get("cycles", 0)) > 0 and is_instance_valid(field):
+		var safe: Vector3 = preload("res://mods/multiplayer/mp_prestige_pile.gd").safe_spot({"extent": Cfg.FIELD_EXTENT, "heights": field.heights}, maxi(slot, 1))
+		if safe.is_finite():
+			player.global_position = safe
+			if player.has_method("set_look"):
+				player.set_look(player.rotation.y, 0.0)
+			player.velocity = Vector3.ZERO
+			return
 	sp += Vector3(0.0, 0.0, 0.9 * float(maxi(slot, 1)))
 	var at: Vector3 = world._seat(sp) if world.has_method("_seat") else sp
 	player.global_position = at
@@ -303,6 +323,8 @@ func place_at_spawn() -> void:
 
 
 func session_ended() -> void:
+	if is_instance_valid(prestige):
+		prestige.shutdown()
 	if is_instance_valid(build_camera):
 		build_camera.leave()
 	for service in [vacuum_transfer, hoppers_sync, scanner_sync, needles_sync, economy]:
@@ -361,7 +383,7 @@ func _process(delta: float) -> void:
 			var digest := _build_digest()
 			for peer_id in mp.players:
 				if peer_id != 1 and mp.players[peer_id].get("state") == "world":
-					mp._rx_build_digest.rpc_id(peer_id, digest)
+					mp._rx_build_digest.rpc_id(peer_id, digest, mp._outgoing_world_seed())
 	_build_t += delta
 	if _build_t >= BUILD_TICK:
 		_build_t = 0.0
@@ -396,7 +418,7 @@ func _send_pose() -> void:
 		crouch = float(player.crouch_amount())
 	var moving: float = (player.velocity * Vector3(1, 0, 1)).length() if "velocity" in player else 0.0
 	mp._rx_pose.rpc(player.global_position, player.rotation.y, pitch,
-		int(player.get("current_tool")), crouch, moving, _hands(), _tool_fill())
+		int(player.get("current_tool")), crouch, moving, _hands(), _tool_fill(), mp._outgoing_world_seed())
 
 
 # What is in our bare hands, in one number: how many straws in the low four
@@ -449,6 +471,10 @@ func clear_avatars() -> void:
 
 
 func forget_peer(id: int) -> void:
+	if is_instance_valid(sweep_sync):
+		sweep_sync.peer_gone(id)
+	if is_instance_valid(prestige):
+		prestige.peer_gone(id)
 	if is_instance_valid(scanner_sync):
 		scanner_sync.peer_gone(id)
 	if is_instance_valid(economy):
@@ -515,9 +541,9 @@ func _hay_tick(full: bool) -> void:
 		# settles them into its pile and sends the result to everybody; two
 		# players' digs and slides used to overwrite each other for good.
 		if mp.is_host:
-			mp._rx_hay.rpc(idx.slice(at, end), vals.slice(at, end))
+			mp._rx_hay.rpc(idx.slice(at, end), vals.slice(at, end), mp._outgoing_world_seed())
 		else:
-			mp._rx_hay.rpc_id(1, idx.slice(at, end), vals.slice(at, end))
+			mp._rx_hay.rpc_id(1, idx.slice(at, end), vals.slice(at, end), mp._outgoing_world_seed())
 		at = end
 
 
@@ -577,7 +603,7 @@ func _send_hay_sums() -> void:
 	var sums := _hay_block_sums()
 	for pid in mp.players.keys():
 		if pid != 1 and str(mp.players[pid].get("state", "")) == "world":
-			mp._rx_hay_sums.rpc_id(pid, sums)
+			mp._rx_hay_sums.rpc_id(pid, sums, mp._outgoing_world_seed())
 
 
 # Guest: the host's checksums. Anything we dug since our last tick goes out
@@ -599,7 +625,7 @@ func on_hay_sums(sums: PackedFloat32Array) -> void:
 	if is_instance_valid(diagnostics):
 		diagnostics.observe("hay", not want.is_empty(), want.size())
 	if not want.is_empty():
-		mp._rx_hay_want.rpc_id(1, want)
+		mp._rx_hay_want.rpc_id(1, want, mp._outgoing_world_seed())
 
 
 # Host: send a guest the blocks it asked for, as they are here.
@@ -623,7 +649,7 @@ func on_hay_want(pid: int, blocks: PackedInt32Array) -> void:
 	var at := 0
 	while at < idx.size():
 		var end := mini(at + HAY_BATCH, idx.size())
-		mp._rx_hay.rpc_id(pid, idx.slice(at, end), vals.slice(at, end))
+		mp._rx_hay.rpc_id(pid, idx.slice(at, end), vals.slice(at, end), mp._outgoing_world_seed())
 		at = end
 
 
@@ -688,7 +714,7 @@ func _flush_builds() -> void:
 			removes.append(_bkeys[k])
 	_bkeys = cur
 	if (not adds.is_empty() or not removes.is_empty()) and mp.is_host:
-		mp._rx_builds.rpc(adds, removes)
+		mp._rx_builds.rpc(adds, removes, mp._outgoing_world_seed())
 	if _is_client():
 		_freeze_client_machines()
 
@@ -765,7 +791,7 @@ func _mission_tick() -> void:
 		var completed := PackedStringArray()
 		for index in range(_mission_reported_index, reached):
 			completed.append(MissionBook.id_at(index))
-		mp._rx_mission_done.rpc_id(1, completed)
+		mp._rx_mission_done.rpc_id(1, completed, mp._outgoing_world_seed())
 	_mission_reported_index = reached
 
 
@@ -880,7 +906,7 @@ func on_build_digest(digest: int) -> void:
 	if _mismatch_count < 2 or now - _last_build_change < 2000 or now - _repair_requested_at < 5000:
 		return
 	_repair_requested_at = now
-	mp._rx_build_repair_request.rpc_id(1, _build_revision)
+	mp._rx_build_repair_request.rpc_id(1, _build_revision, mp._outgoing_world_seed())
 
 
 func on_build_repair(host_builds: Array, revision: int) -> void:
@@ -1100,7 +1126,7 @@ func _state_tick() -> void:
 			snap[f] = GameState.get(f)
 		for pid in mp.players.keys():
 			if pid != 1 and str(mp.players[pid].get("state", "")) == "world":
-				mp._rx_state_snap.rpc_id(pid, int(_peer_ack.get(pid, 0)), snap)
+				mp._rx_state_snap.rpc_id(pid, int(_peer_ack.get(pid, 0)), snap, mp._outgoing_world_seed())
 		return
 	var cur := _capture_state()
 	var delta := {}
@@ -1137,7 +1163,7 @@ func _state_tick() -> void:
 		return
 	_seq += 1
 	_st_pending.append([_seq, delta])
-	mp._rx_state_delta.rpc_id(1, _seq, delta)
+	mp._rx_state_delta.rpc_id(1, _seq, delta, mp._outgoing_world_seed())
 
 
 func on_state_delta(pid: int, seq: int, delta: Dictionary) -> void:
@@ -1305,7 +1331,7 @@ func _flush_tech() -> void:
 		_tech_paid.clear()
 		return
 	for id in _tech_queue:
-		mp._rx_tech.rpc(String(id), int(_tech_queue[id]), bool(_tech_paid.get(id, false)))
+		mp._rx_tech.rpc(String(id), int(_tech_queue[id]), bool(_tech_paid.get(id, false)), mp._outgoing_world_seed())
 	_tech_queue.clear()
 	_tech_paid.clear()
 
@@ -1403,7 +1429,7 @@ func send_full_sync(pid: int) -> void:
 		needles_sync.publish_catalog(pid)
 	if is_instance_valid(hoppers_sync):
 		hoppers_sync.send_all(pid)
-	mp._rx_full_sync.rpc_id(pid, field.heights, BuildSnapshot.buildings(builds), Tech.to_dict(), needles)
+	mp._rx_full_sync.rpc_id(pid, field.heights, BuildSnapshot.buildings(builds), Tech.to_dict(), needles, mp._outgoing_world_seed())
 	if props_sync != null and is_instance_valid(props_sync):
 		props_sync.send_all(pid)
 	if belts_sync != null and is_instance_valid(belts_sync):
@@ -1465,6 +1491,7 @@ func _on_pile_replaced() -> void:
 	GameState.mp_needle_committed.clear()
 	if not mp.active():
 		_pile_seed = GameState.run_seed
+		_frozen = false
 		return
 	if mp.is_host:
 		_frozen = true
@@ -1475,53 +1502,31 @@ func _on_pile_replaced() -> void:
 		rebaseline()
 		mp.resync_all()
 	else:
-		# We just paid for the load. Get that out before freezing stops the
-		# state tick, or the host undoes its own charge expecting ours and the
-		# pile ends up free for everyone. Say how we paid, so the host can put
-		# it back if it cannot take a new load after all.
-		var on_credit: bool = float(GameState.debt) > float(_st_base.get("debt", 0.0)) + 0.5
-		_state_tick()
 		_frozen = true
-		# the host owns the pile; ask it to swap its pile, it will send us the result
 		mp.ui.notify(mp.t("new_pile_client"))
-		mp._rx_new_pile_request.rpc_id(1, on_credit)
 
+func order_pile(peer: int, args: Dictionary) -> Dictionary:
+	if (mp.active() and not mp.is_host) or _frozen or int(args.get("pile_seed", -1)) != GameState.run_seed:
+		return {"ok": false, "message": "Die Welt hat sich geändert. Bitte erneut öffnen."}
+	if is_instance_valid(prestige) and prestige.busy() or is_instance_valid(sweep_sync) and sweep_sync.busy():
+		return {"ok": false, "message": "Eine Weltaktion läuft bereits."}
+	if peer != 1 and (not mp.players.has(peer) or str(mp.players[peer].get("state", "")) != "world"):
+		return {"ok": false, "message": "Spieler ist noch nicht bereit."}
+	if not args.get("pay_now", false) is bool or not GameState.may_order_pile():
+		return {"ok": false, "message": "Die Voraussetzungen für die nächste Ladung fehlen."}
+	var zone: Node = world.get("landing_zone")
+	if is_instance_valid(zone):
+		zone.refresh()
+		if zone.is_blocked():
+			return {"ok": false, "message": "Der Abladebereich ist blockiert."}
+	if bool(args.get("pay_now", false)) and not GameState.can_afford(GameState.next_stack_fee()):
+		return {"ok": false, "message": "Das gemeinsame Guthaben reicht nicht aus."}
+	_frozen = true
+	world._deliver_new_pile(bool(args.get("pay_now", false)))
+	return {"ok": true, "pending": true}
 
 func host_new_pile_for_client(pid: int, on_credit: bool = false) -> void:
-	# The client already paid on its side (that arrives as a state delta),
-	# so undo the host-side charge of the delivery.
-	var money: float = GameState.money
-	var debt: float = GameState.debt
-	var stacks: int = GameState.stacks_ordered
-	var seed_before := GameState.run_seed
-	if world.has_method("_deliver_new_pile"):
-		world._deliver_new_pile(false)
-	GameState.money = money
-	GameState.debt = debt
-	GameState.stacks_ordered = stacks
-	GameState.money_changed.emit(money)
-	GameState.debt_changed.emit(debt)
-	if GameState.run_seed == seed_before:
-		# The host could not take a new load right now (the landing spot is
-		# blocked, or no load may be ordered). The guest's payment already came
-		# in with its state delta: give it back, then put the guest back.
-		if GameState.stacks_ordered > 0:
-			GameState.stacks_ordered -= 1
-			if on_credit:
-				GameState.debt = maxf(0.0, GameState.debt - GameState.credit_stack_fee())
-				GameState.debt_changed.emit(GameState.debt)
-			else:
-				GameState.money += GameState.next_stack_fee()
-				GameState.money_changed.emit(GameState.money)
-		mp.send_world(pid)
-
-
-# ---------------------------------------------------------------- loose needles
-# Uncovered needles are physics bodies in LiveStrandManager.needles, tagged
-# with meta "needle_index". Everyone sees a needle once someone uncovers it;
-# picking it up claims it (it vanishes for the others) so it can only be
-# handed in once. States per index: "free" (lying here), "held" (in our hand),
-# "away" (someone else is holding it).
+	order_pile(pid, {"pile_seed": GameState.run_seed, "pay_now": not on_credit})
 
 func _live() -> Node:
 	return world.get("live")
@@ -1581,7 +1586,7 @@ func _needle_tick() -> void:
 			if mp.is_host:
 				_needle_out("spawn", idx, cur[idx].global_position, 0)
 			else:
-				mp._rx_needle_req.rpc_id(1, "spawn", idx, cur[idx].global_position)
+				mp._rx_needle_req.rpc_id(1, "spawn", idx, cur[idx].global_position, Vector3.ZERO, mp._outgoing_world_seed())
 		if held.has(idx) and st == "free":
 			_needles[idx] = "held"
 			_needle_claim(idx)
@@ -1591,7 +1596,7 @@ func _needle_tick() -> void:
 				_holder.erase(idx)
 				_needle_out("spawn", idx, cur[idx].global_position, 0)
 			else:
-				mp._rx_needle_req.rpc_id(1, "drop", idx, cur[idx].global_position)
+				mp._rx_needle_req.rpc_id(1, "drop", idx, cur[idx].global_position, Vector3.ZERO, mp._outgoing_world_seed())
 	for idx in _needles.keys():
 		if _needles[idx] == "away" or cur.has(idx) or held.has(idx):
 			continue
@@ -1603,11 +1608,11 @@ func _needle_tick() -> void:
 			_needle_out("gone", idx, Vector3.ZERO, 0)
 		elif was == "held":
 			# ours, and we used it up (handed it in)
-			mp._rx_needle_req.rpc_id(1, "gone", idx, Vector3.ZERO)
+			mp._rx_needle_req.rpc_id(1, "gone", idx, Vector3.ZERO, Vector3.ZERO, mp._outgoing_world_seed())
 		else:
 			# a loose needle vanished here only (our physics lost it): that is
 			# no reason to take it off everybody, ask the host where it is
-			mp._rx_needle_req.rpc_id(1, "want", idx, Vector3.ZERO)
+			mp._rx_needle_req.rpc_id(1, "want", idx, Vector3.ZERO, Vector3.ZERO, mp._outgoing_world_seed())
 
 
 func _holder_of(idx: int) -> int:
@@ -1617,13 +1622,13 @@ func _holder_of(idx: int) -> int:
 
 
 func _needle_out(kind: String, idx: int, pos: Vector3, holder: int, velocity: Vector3 = Vector3.ZERO) -> void:
-	mp._rx_needle.rpc(kind, idx, pos, holder, velocity)
+	mp._rx_needle.rpc(kind, idx, pos, holder, velocity, mp._outgoing_world_seed())
 
 
 # We picked a needle up. The host decides: first come, first served.
 func _needle_claim(idx: int) -> void:
 	if not mp.is_host:
-		mp._rx_needle_req.rpc_id(1, "claim", idx, Vector3.ZERO)
+		mp._rx_needle_req.rpc_id(1, "claim", idx, Vector3.ZERO, Vector3.ZERO, mp._outgoing_world_seed())
 		return
 	var h := int(_holder.get(idx, 0))
 	if h != 0 and h != 1:
@@ -1640,13 +1645,13 @@ func on_needle_req(sender: int, kind: String, idx: int, pos: Vector3, velocity: 
 		return
 	var h := _holder_of(idx)
 	if kind in ["spawn", "claim"] and h == 0 and is_instance_valid(needles_sync) and needles_sync._bank_contains(idx):
-		mp._rx_needle.rpc_id(sender, "gone", idx, Vector3.ZERO, 0)
+		mp._rx_needle.rpc_id(sender, "gone", idx, Vector3.ZERO, 0, Vector3.ZERO, mp._outgoing_world_seed())
 		return
 	match kind:
 		"claim":
 			if h != 0 and h != sender:
 				# somebody else has it: tell the guest who, so it lets go
-				mp._rx_needle.rpc_id(sender, "claim", idx, Vector3.ZERO, h)
+				mp._rx_needle.rpc_id(sender, "claim", idx, Vector3.ZERO, h, Vector3.ZERO, mp._outgoing_world_seed())
 				return
 			_holder[idx] = sender
 			_apply_needle("claim", idx, Vector3.ZERO, sender)
@@ -1671,11 +1676,11 @@ func on_needle_req(sender: int, kind: String, idx: int, pos: Vector3, velocity: 
 		"want":
 			var body: Variant = _needle_bodies().get(idx)
 			if h != 0:
-				mp._rx_needle.rpc_id(sender, "claim", idx, Vector3.ZERO, h)
+				mp._rx_needle.rpc_id(sender, "claim", idx, Vector3.ZERO, h, Vector3.ZERO, mp._outgoing_world_seed())
 			elif body != null:
-				mp._rx_needle.rpc_id(sender, "spawn", idx, (body as Node3D).global_position, 0)
+				mp._rx_needle.rpc_id(sender, "spawn", idx, (body as Node3D).global_position, 0, Vector3.ZERO, mp._outgoing_world_seed())
 			else:
-				mp._rx_needle.rpc_id(sender, "gone", idx, Vector3.ZERO, 0)
+				mp._rx_needle.rpc_id(sender, "gone", idx, Vector3.ZERO, 0, Vector3.ZERO, mp._outgoing_world_seed())
 
 
 func on_needle(kind: String, idx: int, pos: Vector3, holder: int = 0, velocity: Vector3 = Vector3.ZERO) -> void:
@@ -1741,7 +1746,7 @@ func _drop_needles_of(pid: int) -> void:
 
 func _on_needle_found(_index: int, _pos: Vector3) -> void:
 	if mp.active() and not _frozen:
-		mp._rx_event.rpc("needle", {})
+		mp._rx_event.rpc("needle", {}, mp._outgoing_world_seed())
 
 
 func _on_needle_discovered(type: int, _pos: Vector3) -> void:
@@ -1782,7 +1787,7 @@ func on_tech_purchase(sender: int, id: String, expected_rank: int) -> void:
 			accepted = Tech.buy(id)
 		elif current > expected_rank:
 			accepted = true
-	mp._rx_tech_purchase_result.rpc_id(sender, id, accepted)
+	mp._rx_tech_purchase_result.rpc_id(sender, id, accepted, mp._outgoing_world_seed())
 	_state_tick()
 
 func on_tech_purchase_result(id: String, accepted: bool) -> void:

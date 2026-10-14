@@ -81,11 +81,11 @@ func publish(peer: int = 0, force: bool = false) -> void:
 	_dirty = false
 	_sequence += 1
 	if peer != 0:
-		mp._rx_scanner_state.rpc_id(peer, world_sync.economy.epoch, _sequence, state)
+		mp._rx_scanner_state.rpc_id(peer, world_sync.economy.epoch, _sequence, state, mp._outgoing_world_seed())
 	else:
 		for id in mp.players:
 			if id != 1 and mp.players[id].get("state") == "world":
-				mp._rx_scanner_state.rpc_id(id, world_sync.economy.epoch, _sequence, state)
+				mp._rx_scanner_state.rpc_id(id, world_sync.economy.epoch, _sequence, state, mp._outgoing_world_seed())
 	_refresh_drawer()
 
 func on_state(epoch: String, sequence: int, state: Dictionary) -> void:
@@ -151,7 +151,7 @@ func request(node: Node3D, mode: String, index: int) -> void:
 	_send_request()
 
 func _send_request() -> void:
-	mp._rx_scanner_request.rpc_id(1, world_sync.economy.epoch, _pending.sequence, _pending.key, _pending.mode, _pending.index)
+	mp._rx_scanner_request.rpc_id(1, world_sync.economy.epoch, _pending.sequence, _pending.key, _pending.mode, _pending.index, mp._outgoing_world_seed())
 
 func on_request(peer: int, epoch: String, sequence: int, key: String, mode: String, index: int) -> void:
 	if not _ready_for_state() or not mp.is_host or epoch != world_sync.economy.epoch or sequence <= 0 or key.length() > 256 or not mp.players.has(peer) or mp.players[peer].get("state") != "world":
@@ -195,13 +195,13 @@ func on_request(peer: int, epoch: String, sequence: int, key: String, mode: Stri
 	_reply(peer, sequence, result)
 
 func _reply(peer: int, sequence: int, result: Dictionary) -> void:
-	mp._rx_scanner_result.rpc_id(peer, world_sync.economy.epoch, sequence, result)
+	mp._rx_scanner_result.rpc_id(peer, world_sync.economy.epoch, sequence, result, mp._outgoing_world_seed())
 
 func on_result(epoch: String, sequence: int, result: Dictionary) -> void:
 	if not _ready_for_state() or mp.is_host or epoch != world_sync.economy.epoch:
 		return
 	if _done.has(sequence):
-		mp._rx_scanner_ack.rpc_id(1, epoch, sequence, _done[sequence])
+		mp._rx_scanner_ack.rpc_id(1, epoch, sequence, _done[sequence], mp._outgoing_world_seed())
 		return
 	if _pending.is_empty() or sequence != _pending.sequence or result.get("key") != _pending.key or result.get("mode") != _pending.mode or result.get("index") != _pending.index:
 		return
@@ -221,7 +221,7 @@ func on_result(epoch: String, sequence: int, result: Dictionary) -> void:
 	if _done.size() > 256:
 		_done.erase(_done.keys()[0])
 	_pending.clear()
-	mp._rx_scanner_ack.rpc_id(1, epoch, sequence, success)
+	mp._rx_scanner_ack.rpc_id(1, epoch, sequence, success, mp._outgoing_world_seed())
 
 func on_ack(peer: int, epoch: String, sequence: int, success: bool) -> void:
 	if not _ready_for_state() or not mp.is_host or epoch != world_sync.economy.epoch:

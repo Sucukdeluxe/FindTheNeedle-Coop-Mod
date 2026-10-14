@@ -35,6 +35,16 @@ func to_array() -> Array:
 
 
 func is_spoken_for(item: Carryable) -> bool:
+	if is_instance_valid(mp_props) and item.has_meta("mp_id"):
+		var id := int(item.get_meta("mp_id"))
+		if bool(mp_props._held.get(id, false)) or mp_props._claim_pending.has(id):
+			return true
 	if is_instance_valid(mp_props) and is_instance_valid(mp_props.mp) and mp_props.mp.active() and preload("res://mods/multiplayer/mp_lift_cargo.gd").is_transported(item):
 		return true
 	return super.is_spoken_for(item)
+
+
+func sweep_floor() -> int:
+	if not preload("res://mods/multiplayer/mp_sweep.gd").native_allowed(self):
+		return 0
+	return super.sweep_floor()

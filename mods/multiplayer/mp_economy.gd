@@ -7,7 +7,7 @@ signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
-const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "vacuum_belt", "vacuum_resolve", "vacuum_ack"]
+const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
 const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
@@ -34,6 +34,10 @@ func start(session: Node, sync: Node) -> void:
 	_hook(sync.world.shop_menu, "mp_shop.gd")
 	_hook(sync.world.t_panel, "mp_t_panel.gd")
 	_hook(sync.world.load_panel, "mp_load_panel.gd")
+	_hook(sync.world.get("delivery_board"), "mp_delivery_board.gd")
+	get_tree().node_added.connect(_options_added)
+	for control in get_tree().root.find_children("*", "Control", true, false):
+		_options_added(control)
 	GameState.gifts_changed.connect(_gifts_changed)
 	GameState.purchased.connect(_purchase_changed)
 
@@ -65,6 +69,21 @@ func _hook(node: Node, file: String) -> void:
 	_replace(node, load(mp.base_dir + "/" + file))
 	node.set("mp_economy", self)
 
+func _options_added(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	var script: Script = node.get_script()
+	if script != null and script.resource_path == "res://scripts/ui/options_panel.gd":
+		_hook_options.call_deferred(node)
+
+func _hook_options(node: Node) -> void:
+	if not is_instance_valid(node) or not is_instance_valid(world_sync) or is_queued_for_deletion():
+		return
+	var script: Script = node.get_script()
+	if _originals.has(node) or script == null or script.resource_path != "res://scripts/ui/options_panel.gd":
+		return
+	_hook(node, "mp_options_panel.gd")
+
 func _replace(node: Node, script: Script) -> void:
 	var values := {}
 	for property in node.get_property_list():
@@ -76,6 +95,8 @@ func _replace(node: Node, script: Script) -> void:
 			node.set(key, values[key])
 
 func shutdown() -> void:
+	if get_tree().node_added.is_connected(_options_added):
+		get_tree().node_added.disconnect(_options_added)
 	if GameState.gifts_changed.is_connected(_gifts_changed):
 		GameState.gifts_changed.disconnect(_gifts_changed)
 	if GameState.purchased.is_connected(_purchase_changed):
@@ -125,7 +146,7 @@ func request(action: String, args: Dictionary) -> int:
 	if mp.is_host:
 		on_request(1, epoch, _next, action, args)
 	else:
-		mp._rx_economy_request.rpc_id(1, epoch, _next, action, args)
+		mp._rx_economy_request.rpc_id(1, epoch, _next, action, args, mp._outgoing_world_seed())
 	return _next
 
 func _execute_local(seq: int, action: String, args: Dictionary) -> void:
@@ -196,7 +217,7 @@ func _physics_process(_delta: float) -> void:
 	_results[peer][seq] = result.duplicate(true)
 	while _results[peer].size() > CACHE_LIMIT:
 		_results[peer].erase(_results[peer].keys()[0])
-	if not entry.action.begins_with("needle_") and not entry.action.begins_with("vacuum_") and entry.action != "hopper_deposit":
+	if not entry.action.begins_with("needle_") and not entry.action.begins_with("vacuum_") and entry.action not in ["hopper_deposit", "sweep_floor", "order_pile"]:
 		world_sync._flush_builds()
 	if entry.action == "t_configure" and result.get("ok", false):
 		world_sync.machines_sync._send_fields()
@@ -213,13 +234,13 @@ func _process(delta: float) -> void:
 	_retry = 0.0
 	for seq in pending:
 		var entry: Dictionary = pending[seq]
-		mp._rx_economy_request.rpc_id(1, epoch, int(seq), entry.action, entry.args)
+		mp._rx_economy_request.rpc_id(1, epoch, int(seq), entry.action, entry.args, mp._outgoing_world_seed())
 
 func _reply(peer: int, seq: int, result: Dictionary) -> void:
 	if peer == 1:
 		on_result(epoch, seq, result)
 	else:
-		mp._rx_economy_result.rpc_id(peer, epoch, seq, result)
+		mp._rx_economy_result.rpc_id(peer, epoch, seq, result, mp._outgoing_world_seed())
 
 func on_result(token: String, seq: int, result: Dictionary) -> void:
 	if token != epoch or not pending.has(seq):
@@ -266,11 +287,11 @@ func publish(pid: int = 0) -> void:
 		"gifts_given": GameState.gifts_given.duplicate(true),
 		"purchase_log": GameState.purchase_log.duplicate(true)}
 	if pid != 0:
-		mp._rx_economy_state.rpc_id(pid, epoch, state)
+		mp._rx_economy_state.rpc_id(pid, epoch, state, mp._outgoing_world_seed())
 	else:
 		for peer in mp.players:
 			if peer != 1 and mp.players[peer].get("state") == "world":
-				mp._rx_economy_state.rpc_id(peer, epoch, state)
+				mp._rx_economy_state.rpc_id(peer, epoch, state, mp._outgoing_world_seed())
 
 func on_state(token: String, state: Dictionary) -> void:
 	if mp.is_host:
@@ -365,6 +386,10 @@ func _prepare_build_tool(peer: int, args: Dictionary) -> int:
 	return 0
 
 func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
+	if action == "order_pile":
+		return world_sync.order_pile(peer, args)
+	if action == "sweep_floor":
+		return world_sync.sweep_sync.execute(peer, args)
 	if action.begins_with("hopper_"):
 		return world_sync.hoppers_sync.execute(peer, action, args)
 	if action in ["vacuum_belt", "vacuum_resolve", "vacuum_ack"]:

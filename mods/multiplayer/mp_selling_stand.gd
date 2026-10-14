@@ -87,7 +87,7 @@ func _physics_process(delta: float) -> void:
 			for peer in mp.players:
 				if peer != 1 and mp.players[peer].get("state") == "world":
 					mp._rx_stand_visuals.rpc_id(peer, economy.epoch, _visual_sequence,
-						_visual_hay, _visual_worth, _combo, minf(_combo_gap, Cfg.SELL_COMBO_BREAK + 1.0), _visual_payouts)
+						_visual_hay, _visual_worth, _combo, minf(_combo_gap, Cfg.SELL_COMBO_BREAK + 1.0), _visual_payouts, mp._outgoing_world_seed())
 	_visual_hay = 0
 	_visual_worth = 0.0
 	_visual_payouts.clear()

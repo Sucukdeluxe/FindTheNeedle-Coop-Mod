@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.47
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.48
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -28,15 +28,16 @@ NEU IN DIESER FASSUNG
 - Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
   zusammen 25.000. Gilt für direkte M-Bandausgabe und Trichter.
 - Armtempo: 20 Stufen; die sechs zusätzlichen Stufen kosten zusammen 100.000.
-- Heulift-/Heutreppentempo: je vier Stufen bis 200 %, zusätzlich zum Bandmotor.
-  Gesamtkosten 25.000 beim Lift und 12.500 bei der Treppe.
+- Heulift-/Heutreppentempo: je zehn Stufen bis 400 %, zusätzlich zum Bandmotor.
+  Bereits gekaufte Stufen bleiben erhalten.
 - Verteiler/Sammler: zehn Stufen bis 250 % internes Tempo, zusammen 100.000.
   Filter, gesperrte Ausgänge und Rückstau bleiben wirksam.
 - Doppelsprung: einmalig 2.500 im Bereich Fitness nach der Sprunghöhen-Technik.
   Nach dem Absprung die Sprungtaste loslassen und in der Luft erneut drücken.
   Eine Landung stellt den Extrasprung wieder her. Die Freischaltung gilt gemeinsam.
   Ein ausgerüstetes Jetpack behält seine bisherige Steuerung.
-- Die Nadelübersicht unter „Nächste Ladung“ zeigt verbliebene Nadeln je Art.
+- Das Lieferbrett und „Nächste Ladung“ zeigen die Anzahl verbliebener Nadeln
+  und Nadelarten im Haufen.
 - Nadelaufnahme und Schrankaktionen werden vom Host bestätigt. Doppelte
   Scannerverweise derselben Nadel werden bereinigt; verschiedene Nadeln derselben
   Art bleiben erhalten. Vorhandener Schrankbestand wird nicht auf Verdacht gelöscht.
@@ -69,7 +70,7 @@ SAUGER-UPGRADES
   14 zusätzliche Stufen mit jeweils 2.500 Halmen hinzu.
 - Saugkraft: 20 Stufen bis 1.000 Halme pro Sekunde.
 - Die drei nativen Basispreise bleiben erhalten. Bereits vorhandene erste sechs
-  Basispreise werden übernommen. Weitere Preise steigen bis höchstens 100.000
+  Basispreise werden übernommen. Alle Saugerpreise sind 20 % günstiger. Weitere Preise steigen bis höchstens 80.000
   pro Stufe, einschließlich der nativen Preisberechnung. Gekaufte Stufen bleiben.
 - Behebt die in .42/.43 fehlenden Stufen bei einem nativen Katalog mit drei Stufen.
 - Käufe werden weiterhin vom Host geprüft und gemeinsam synchronisiert.
@@ -99,9 +100,9 @@ STROMNETZ
 SAUGER AUTOMATISCH LEEREN
 - Sauger ausrüsten und M drücken. Erneut M, eine Maustaste, Werkzeugwechsel
   oder ein geöffnetes Menü brechen ab.
-- Ausgabe: bis zu 2.000 Halme je 0,1 Sekunden in Heuhaufen mit höchstens 100 Halmen.
-- Volle Ziele halten die Ausgabe an. Auf Bändern wartet die nächste Portion,
-  bis die vorherige gelandet ist und Platz hat; dort begrenzt das Band den Durchsatz.
+- Normale Bodenausgabe: bis zu 2.000 Halme je 0,1 Sekunden in Haufen mit höchstens 100 Halmen.
+- Direkte Bandausgabe: je nach Bandportionen-Upgrade 100 bis 1.000 Halme.
+  Volle Ziele halten die Ausgabe an; nicht angenommenes Heu bleibt im Sauger.
 - Behälter erhalten physisches Heu. Es wird kein fremder lokaler Füllstand geändert.
 - Die alte separate drop_all.gd wird nicht benötigt und sollte entfernt werden.
 - Die neue Funktion ist offline geprüft, noch nicht im laufenden V62-Multiplayer.
@@ -290,3 +291,13 @@ AUTOMATISCHE FEHLERDIAGNOSE
   Reparaturmechanismen bleiben aktiv.
 - Die Diagnose läuft in den lokalen Mehrspielertests mit. Ein Test über zwei
   getrennte Rechner und Internetanschlüsse steht weiterhin aus.
+
+NEU: PRESTIGE
+Am Lieferbrett „Nächste Ladung“ öffnen und „Prestige · Neue Karte“ wählen.
+Voraussetzungen: physisch leerer Heuhaufen UND alle sechs Nadelarten gesammelt.
+Der Host bzw. Einzelspieler wählt Standard, Groß, Riesig oder Der Berg.
+Vor dem Wechsel wird die Abrechnung angezeigt und eine Sicherung geschrieben.
+Gebäude und Verkaufsgüter werden abgerechnet. Werkzeuge, Freischaltungen und
+gekaufte Upgrades bleiben erhalten; im neuen Durchlauf wieder sechs Arten sammeln.
+Scanner lassen sich mit Nadeln abbauen; nicht bereits beanspruchte Nadeln
+fallen auf den Boden. Beide Spieler brauchen dieselbe Mod-Version.

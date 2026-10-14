@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.6-xRangerDE.48
+
+Add prestige map changes, safer scanner dismantling and shared hay cleanup for Demo V62.
+
+- Allow scanners containing needles to be dismantled. Release each unclaimed needle onto the floor once, while preserving active player ownership.
+- Expand lift and hay-stair speed to ten ranks, up to 400%. Keep existing purchased ranks. Reduce all yard-vacuum upgrade prices by 20%, with an 80,000 maximum per rank.
+- Replace the hopper with an original industrial steel model, a matching catalog image and a readable HUD status card.
+- Show remaining buried needles on the delivery board and in Next Load details.
+- Add Prestige through Next Load. After an empty haystack and six collected needle types, the host or single-player can preview the sale and choose Standard, Large, Huge or Mountain. Buildings and saleable goods are converted to money; tools, unlocks and purchased upgrades remain. Each new cycle requires its new needle types again. Save backups are created before the change.
+- Route shared floor cleanup and normal new-load orders through host validation. Deduplicate cleanup acknowledgements and retain a visible waiting state when a connected peer has not confirmed.
+- Reject delayed world messages from an earlier map generation instead of applying them to the new map.
+
+Validation uses standalone GDRE/Godot: native pile-generation routines, isolated inventory and save-failure tests, UI/layout checks, and local host/two-guest ENet tests including delayed and repeated packets. The game and Steam were not started. Full V62 gameplay, current GPU performance and two-PC Steam/WAN testing are not part of this verification. Complete process-crash durability of pending vacuum/cleanup transfers remains unverified.
+
+All players must install this version together. Existing saves and bought upgrades are retained; Prestige changes a save only after its explicit in-game confirmation.
+
 ## 0.19.6-xRangerDE.47
 
 Fix the overhead-camera key conflict and make the loading hopper usable in single-player.

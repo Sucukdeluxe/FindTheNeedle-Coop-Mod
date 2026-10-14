@@ -116,9 +116,9 @@ func send_all(pid: int = 0) -> void:
 		_since = 0.0
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	if pid > 0:
-		mp._rx_belts.rpc_id(pid, packed, raw.size())
+		mp._rx_belts.rpc_id(pid, packed, raw.size(), mp._outgoing_world_seed())
 	else:
-		mp._rx_belts.rpc(packed, raw.size())
+		mp._rx_belts.rpc(packed, raw.size(), mp._outgoing_world_seed())
 
 
 func on_belts(packed: PackedByteArray, raw_size: int) -> void:
@@ -246,7 +246,7 @@ func request_pick(record: Dictionary, onto_stack: bool) -> bool:
 		return false
 	_pick_pending = true
 	_pick_stack = onto_stack
-	mp._rx_belt_pick.rpc_id(1, seq)
+	mp._rx_belt_pick.rpc_id(1, seq, mp._outgoing_world_seed())
 	return true
 
 
@@ -259,17 +259,17 @@ func on_pick(sender: int, seq: int) -> void:
 				continue
 			var item: Variant = path.materialize_record(i)
 			if not is_instance_valid(item):
-				mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
+				mp._rx_belt_pick_result.rpc_id(sender, sender, 0, mp._outgoing_world_seed())
 				return
 			var id := int(item.get_meta("mp_id", 0))
 			if id == 0:
-				mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
+				mp._rx_belt_pick_result.rpc_id(sender, sender, 0, mp._outgoing_world_seed())
 				return
 			mp.world_sync.props_sync._assign_owner(id, sender, true)
-			mp._rx_belt_pick_result.rpc(sender, id)
+			mp._rx_belt_pick_result.rpc(sender, id, mp._outgoing_world_seed())
 			send_all()
 			return
-	mp._rx_belt_pick_result.rpc_id(sender, sender, 0)
+	mp._rx_belt_pick_result.rpc_id(sender, sender, 0, mp._outgoing_world_seed())
 
 
 func on_pick_result(owner: int, id: int) -> void:

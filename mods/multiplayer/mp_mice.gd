@@ -94,11 +94,11 @@ func publish(pid: int = 0) -> void:
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	_sequence += 1
 	if pid != 0:
-		mp._rx_mice.rpc_id(pid, world_sync.economy.epoch, _sequence, packed, raw.size())
+		mp._rx_mice.rpc_id(pid, world_sync.economy.epoch, _sequence, packed, raw.size(), mp._outgoing_world_seed())
 	else:
 		for peer in mp.players:
 			if peer != 1 and mp.players[peer].get("state") == "world":
-				mp._rx_mice.rpc_id(peer, world_sync.economy.epoch, _sequence, packed, raw.size())
+				mp._rx_mice.rpc_id(peer, world_sync.economy.epoch, _sequence, packed, raw.size(), mp._outgoing_world_seed())
 
 func on_state(epoch: String, sequence: int, packed: PackedByteArray, raw_size: int) -> void:
 	if not _ready_for_state() or mp.is_host or epoch != world_sync.economy.epoch or sequence <= 0:

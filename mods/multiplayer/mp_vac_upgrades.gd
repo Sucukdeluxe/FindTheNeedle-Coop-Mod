@@ -7,6 +7,9 @@ const SUCTION_LEGACY_RANK := 6
 const SUCTION_MAX_RANK := 20
 const SUCTION_RATES := [300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0, 650.0, 700.0, 760.0, 820.0, 880.0, 940.0, 1000.0]
 const PRICE_LIMIT := 100000.0
+const PRICE_SCALE := 0.8
+const PRICE_SCHEMA := "xranger_vacuum_price_v48"
+const SOURCE_COSTS := "xranger_vacuum_source_costs"
 const NATIVE_RANKS := 6
 const CARDS := {"vac_bin": CAPACITY_MAX_RANK, "vac_suction": SUCTION_MAX_RANK}
 const MARKER := "xranger_vacuum_schema"
@@ -23,10 +26,10 @@ static func suction(rank: int, native_value: float) -> float:
 
 static func price(rank: int, native_costs: Array, maximum: int) -> float:
 	if rank <= NATIVE_RANKS:
-		return clampf(float(native_costs[rank - 1]), 0.0, PRICE_LIMIT)
+		return clampf(float(native_costs[rank - 1]), 0.0, PRICE_LIMIT) * PRICE_SCALE
 	var anchor := clampf(float(native_costs[NATIVE_RANKS - 1]), 1.0, PRICE_LIMIT)
 	var progress := float(rank - NATIVE_RANKS) / float(maximum - NATIVE_RANKS)
-	return minf(PRICE_LIMIT, snappedf(anchor * pow(PRICE_LIMIT / anchor, progress), 100.0))
+	return minf(PRICE_LIMIT, snappedf(anchor * pow(PRICE_LIMIT / anchor, progress), 100.0)) * PRICE_SCALE
 
 func ensure_cards() -> void:
 	var nodes: Dictionary = TechTree.nodes()
@@ -39,10 +42,12 @@ func ensure_cards() -> void:
 		var old_values: Variant = card.get("values")
 		if not (old_costs is Array) or old_costs.size() < 3 or not (old_values is Array) or old_values.size() != old_costs.size():
 			continue
-		if card.has(MARKER) and card[MARKER] == locale and old_costs.size() == CARDS[id] and bool(card.get("flat", false)):
+		if card.get(PRICE_SCHEMA, false) and card.has(MARKER) and card[MARKER] == locale and old_costs.size() == CARDS[id] and bool(card.get("flat", false)):
 			continue
 		var native_costs: Array = old_costs.slice(0, NATIVE_RANKS)
-		var valid := true
+		if card.get(SOURCE_COSTS) is Array:
+			native_costs = card[SOURCE_COSTS].duplicate()
+		var valid := native_costs.size() >= 3 and native_costs.size() <= NATIVE_RANKS
 		for cost in native_costs:
 			if not (cost is float or cost is int) or not is_finite(float(cost)) or float(cost) <= 0.0:
 				valid = false
@@ -62,6 +67,8 @@ func ensure_cards() -> void:
 		card["base"] = _number(1500 if id == "vac_bin" else 100)
 		card["flat"] = true
 		card[MARKER] = locale
+		card[PRICE_SCHEMA] = true
+		card[SOURCE_COSTS] = native_costs.duplicate()
 		var german := locale.replace("-", "_").get_slice("_", 0) == "de"
 		if id == "vac_bin":
 			card["blurb"] = "Bis Stufe 27 jeweils 500 zusätzliche Halme, danach 2.500 je Stufe bis 50.000." if german else "Adds 500 strands per rank through rank 27, then 2,500 per rank up to 50,000."

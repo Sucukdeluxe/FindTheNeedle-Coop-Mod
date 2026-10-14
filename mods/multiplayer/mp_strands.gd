@@ -107,7 +107,7 @@ func _on_body_left(b: Node) -> void:
 		_mine.erase(sid)
 		_sent.erase(sid)
 		if mp != null and mp.active() and multiplayer.multiplayer_peer != null:
-			mp._rx_straw_del.rpc(PackedInt64Array([sid]))
+			mp._rx_straw_del.rpc(PackedInt64Array([sid]), mp._outgoing_world_seed())
 	for pid in _hands:
 		(_hands[pid] as Array).erase(b)
 	# the pool does not clear what we put on it, and the next straw made from
@@ -215,9 +215,9 @@ func _scan() -> void:
 			b.remove_meta("mp_sid")
 		drop.append(sid)
 	if not adds.is_empty():
-		mp._rx_straw_add.rpc(adds)
+		mp._rx_straw_add.rpc(adds, mp._outgoing_world_seed())
 	if drop.size() > 0:
-		mp._rx_straw_del.rpc(drop)
+		mp._rx_straw_del.rpc(drop, mp._outgoing_world_seed())
 
 
 func _send_moves() -> void:
@@ -242,7 +242,7 @@ func _send_moves() -> void:
 			break
 	if ids.size() > 0:
 		_pose_sequence += 1
-		mp._rx_straw_move.rpc(ids, rows, _pose_sequence)
+		mp._rx_straw_move.rpc(ids, rows, _pose_sequence, mp._outgoing_world_seed())
 
 
 func _census() -> void:
@@ -258,7 +258,7 @@ func _census() -> void:
 		rows.append_array(PackedFloat32Array([xf.origin.x, xf.origin.y, xf.origin.z,
 			q.x, q.y, q.z, q.w]))
 	_pose_sequence += 1
-	mp._rx_straw_census.rpc(ids, rows, _pose_sequence)
+	mp._rx_straw_census.rpc(ids, rows, _pose_sequence, mp._outgoing_world_seed())
 
 
 # ------------------------------------------------------------------ from the net
@@ -485,7 +485,7 @@ func _watch_hand() -> void:
 		# a real straw again: it can fall, be carried and be put in a bucket
 		b.collision_mask = LiveStrandManager.STRAND_MASK
 		b.continuous_cd = true
-		mp._rx_straw_claim.rpc(sid)
+		mp._rx_straw_claim.rpc(sid, mp._outgoing_world_seed())
 
 
 # Host only. A guest's straw landed in one of our machines' mouths. Our copy is
@@ -510,7 +510,7 @@ func host_take(b: Variant) -> bool:
 	b.continuous_cd = true
 	b.freeze = false
 	b.sleeping = false
-	mp._rx_straw_claim.rpc(sid)
+	mp._rx_straw_claim.rpc(sid, mp._outgoing_world_seed())
 	return true
 
 
