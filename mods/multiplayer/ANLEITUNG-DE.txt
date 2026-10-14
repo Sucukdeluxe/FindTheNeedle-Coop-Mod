@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.44
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.45
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -12,6 +12,11 @@ INSTALLATION AUF WEITEREN RECHNERN
    Vorhandene andere Einstellungen beibehalten.
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
+
+ROBOTERSTATUS
+- Strom-, Warte- und Störungsmeldungen sowie die Armtafel kommen vom Host.
+- Behebt abweichende Anzeigen wie „kein Strom“ beim Gast und „alles frei“ beim Host.
+- Die Reichweite und die Produktion des Arms bleiben unverändert.
 
 SCANNER-SCHUBLADE
 - Gäste entnehmen Nadeln erst nach Bestätigung durch den Host.

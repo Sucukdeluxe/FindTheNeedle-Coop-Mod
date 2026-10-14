@@ -7,7 +7,7 @@ extends Node
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.44"
+const VERSION := "0.19.6-xRangerDE.45"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000

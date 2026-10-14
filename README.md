@@ -1,6 +1,11 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.44`, based on upstream 0.19.5.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.45`, based on upstream 0.19.5.
+
+Robotic-arm operating messages, power state, waiting reason, panel status and
+throughput now come from the host. Guests no longer report local power faults
+when the host arm is merely waiting for hay. Initial state waits for the host;
+no guest production or collection is enabled.
 
 Scanner drawer withdrawals now require a host grant. Each needle leaves the host
 drawer once; guests receive it only after confirmation. Duplicate requests and

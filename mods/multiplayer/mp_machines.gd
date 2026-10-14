@@ -1,5 +1,6 @@
 extends Node
 
+const ArmState = preload("res://mods/multiplayer/mp_arm_state.gd")
 const ArmVisual = preload("res://mods/multiplayer/mp_arm_visual.gd")
 
 var _arm_visual := ArmVisual.new()
@@ -48,7 +49,7 @@ const FIELDS := {
 	"piston_rakes": ["switched_off", "throw_distance"],
 	"hay_drones": ["switched_off", "mode", "takes", "mp_zone", "mp_drop", "mp_drone_status"],
 	"pelletizers": ["switched_off", "throw_distance", "head_yaw", "stored"],
-	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "paid_cost", "legacy_refit", "pick_order", "mp_links"],
+	"robotic_arms": ["switched_off", "accept_mask", "tier_index", "paid_cost", "legacy_refit", "pick_order", "mp_links", "mp_arm_status"],
 	"scanners": ["switched_off", "tier_index", "stored"],
 	"compressors": ["switched_off", "stored"],
 	"pulpers": ["switched_off", "stored", "mp_taps"],
@@ -683,6 +684,9 @@ func on_fields(batch: Dictionary) -> void:
 				continue
 			if not FIELDS.get(_group.get(key, ""), []).has(f):
 				continue
+			if f == "mp_arm_status" and not ArmState.valid(diff[f]):
+				diagnostic_errors += 1
+				continue
 			if n is HayDrone and not DroneState.valid(str(f), diff[f]):
 				diagnostic_errors += 1
 				continue
@@ -986,6 +990,7 @@ func _copy_value(value: Variant) -> Variant:
 
 func _read_field(n: Node, field: String) -> Variant:
 	match field:
+		"mp_arm_status": return n.mp_status_snapshot() if n.has_method("mp_status_snapshot") else ArmState.capture(n)
 		"mp_drone_status": return DroneState.status(n)
 		"mp_t_revision":
 			return int(n.get_meta("mp_t_revision", 0)) if n is ConveyorTSplitter or n is ConveyorTJoiner else null
@@ -998,6 +1003,10 @@ func _read_field(n: Node, field: String) -> Variant:
 
 
 func _apply_field(n: Node, f: String, v: Variant) -> void:
+	if f == "mp_arm_status":
+		if not mp.is_host and n.has_method("mp_apply_status"):
+			n.mp_apply_status(v)
+		return
 	if f == "banked" and n is HaystackScanner:
 		return
 	if f == "mp_t_revision":

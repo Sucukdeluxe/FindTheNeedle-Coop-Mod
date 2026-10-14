@@ -1,5 +1,9 @@
 extends RoboticArm
 
+const ArmState = preload("res://mods/multiplayer/mp_arm_state.gd")
+
+var _mp_status := {}
+
 var mp_transport: Node
 var _mp_searching := false
 var _mp_snapshot_depth := 0
@@ -75,3 +79,56 @@ func _belt_load_under_claw(run: BeltPath) -> Carryable:
 	if picked == null or sync == null or sync._mine(int(picked.get_meta("mp_id", 0))):
 		return picked
 	return picked if _mp_candidate(picked, sync, true) and sync.host_take(picked) else null
+
+func _mp_remote() -> bool:
+	return is_instance_valid(mp_transport) and is_instance_valid(mp_transport.mp) and mp_transport.mp.active() and not mp_transport.mp.is_host
+
+func mp_status_snapshot() -> Dictionary:
+	return _mp_status.duplicate(true) if _mp_remote() else ArmState.capture(self)
+
+func mp_apply_status(value: Variant) -> void:
+	if not _mp_remote() or not ArmState.valid(value):
+		return
+	_mp_status = value.duplicate(true)
+	power = float(value.power)
+	line_power = float(value.line_power)
+	power_blocked = value.blocked
+	power_line = value.line
+
+func set_power(value: float) -> void:
+	if not _mp_remote() or _mp_status.is_empty():
+		super.set_power(value)
+
+func set_power_blocked(value: bool) -> void:
+	if not _mp_remote() or _mp_status.is_empty():
+		super.set_power_blocked(value)
+
+func set_power_line(value: int) -> void:
+	if not _mp_remote() or _mp_status.is_empty():
+		super.set_power_line(value)
+
+func alert_reason() -> String:
+	return str(_mp_status.get("alert", "")) if _mp_remote() else super.alert_reason()
+
+func alert_icon() -> String:
+	return str(_mp_status.get("icon", "")) if _mp_remote() else super.alert_icon()
+
+func waiting_reason() -> String:
+	return str(_mp_status.get("waiting", _mp_pending_text())) if _mp_remote() else super.waiting_reason()
+
+func is_clear() -> bool:
+	return bool(_mp_status.get("clear", false)) if _mp_remote() else super.is_clear()
+
+func plate_status(sign_up: bool) -> Array:
+	if not _mp_remote():
+		return super.plate_status(sign_up)
+	return _mp_status.get("plate_sign" if sign_up else "plate", [PLATE_WAITING, _mp_pending_text()]).duplicate()
+
+func hay_per_minute() -> int:
+	return int(_mp_status.get("rate", 0)) if _mp_remote() else super.hay_per_minute()
+
+func belts_in_reach() -> int:
+	return int(_mp_status.get("belts", 0)) if _mp_remote() else super.belts_in_reach()
+
+func _mp_pending_text() -> String:
+	return "Roboterstatus wird synchronisiert." if TranslationServer.get_locale().begins_with("de") else "Synchronizing robot arm status."

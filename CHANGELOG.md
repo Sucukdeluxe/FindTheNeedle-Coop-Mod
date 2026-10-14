@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.45
+
+Synchronize robotic-arm operating status from the host.
+
+- Guests receive the host's alert, waiting reason, clear state, panel messages, power state, throughput and nearby-belt count. Local guest power calculations cannot replace an accepted host state.
+- Show a pending status before the first snapshot rather than a guessed local power fault. Real host power failures and blocked belts remain visible.
+- Preserve arm reach, collection behavior, material quantities and existing saves. No guest production is enabled. Both players need the same version.
+
+Validation: 174 isolated checks passed using native status functions with explicit dependency fixtures. A separate local host and two guest processes received 25 state updates each with zero diagnostic mismatches, including the final clear state. Tests used standalone GDRE/Godot; the full game and Steam/WAN were not started or tested.
+
 ## 0.19.6-xRangerDE.44
 
 Fix vacuum upgrade cards remaining capped at 27 capacity and 6 suction ranks.
