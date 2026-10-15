@@ -528,6 +528,9 @@ func _hay_tick(full: bool) -> void:
 		_hay_base = h.duplicate()
 		_hay_cand.clear()
 		return
+	if full and h == _hay_base:
+		_hay_cand.clear()
+		return
 	var idx := PackedInt32Array()
 	var vals := PackedFloat32Array()
 	if full:

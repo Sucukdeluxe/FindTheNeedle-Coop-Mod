@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.54`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.55`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -50,6 +50,12 @@ Needle pickup, scanner withdrawals and cabinet deposits now use host-owned ident
 Press recovery also covers raw physical riders beyond its intake and raw hay on a directly connected wrapper deck. Guest pelletizer changes are queued before the first host baseline can overwrite them. Splitter/merger jam detection compares actual cargo movement, while keeping native filtering and backpressure.
 
 Robotic-arm operating status, claw loads and income/minute come from the host. Water-tap recovery, personal tool inventories, shared quests and purchases, host-side selling, mouse visuals and prior conveyor/lift corrections remain included. Stable machine hierarchies reuse cached part mappings; changed hierarchies rebuild them.
+
+## Synchronization performance
+
+Unchanged hayfield height buffers now skip the per-vertex GDScript scan after an exact comparison. Changed and restored heights still use the existing delta publication. An isolated native comparison measured 451 microseconds versus 2 microseconds median per unchanged-field call; this is a routine-level CPU measurement, not a total frame-rate result.
+
+The local checks include 1,200 conveyor records, a guest process crash and rejoin, and production through a press, wrapper, scanner and 90-degree bend to sale. Downward-lift tests cover eight item kinds, backpressure and a junction rebuild. Complete recovery of guest vacuum contents after a process crash remains a separate unresolved case.
 
 ## Verification and limits
 

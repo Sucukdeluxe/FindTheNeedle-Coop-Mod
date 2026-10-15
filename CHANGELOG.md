@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.55
+
+Reduce the CPU work of unchanged hayfield synchronization without changing inventory, prices, save data or transport rules.
+
+- Compare the current and last transmitted height buffers exactly before entering the full GDScript scan. Changed and restored height samples still publish through the existing path.
+- Keep only the measured improvement: the unchanged-field routine took 2 microseconds median versus 451 microseconds before in an isolated native comparison. A slower conveyor snapshot experiment was discarded.
+- Validate personal tool drops, hay retention, scanner withdrawals, competing purchases, vacuum/hopper quantities, 1,200-item conveyor snapshots, guest crash/rejoin, a press/wrapper/scanner/90-degree-curve sale route, and a downward lift with eight item kinds in local native instances.
+
+Local checks use isolated saves and simulated packet loss/duplication. They do not establish total rendered FPS or two-PC Steam/Internet reliability. Full guest vacuum-content recovery after a process crash remains unresolved; the passed rejoin case covers personal tools and existing world/belt objects.
+
 ## 0.19.6-xRangerDE.54
 
 Reduce late bucket and pouring costs, lower precise needle-location pricing and smooth the sale-price curve while preserving purchased levels.
