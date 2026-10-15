@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.6-xRangerDE.63
+
+Keep custom routing devices when loading a saved game.
+
+- Install the extended building loader before the world reads saved buildings. Previously, the native loader discarded all four-, six- and eight-port mergers and splitters before multiplayer initialization.
+- Retain saved device positions, rotation, selected input/output and round-robin state in single-player and host worlds, including clients joining the restored world.
+- Existing save files containing the device records load directly. If an affected world was saved again after the devices disappeared, restore a backup that still contains those records.
+
 ## 0.19.6-xRangerDE.62
 
 Connect robotic arms directly to routing devices and improve construction, hopper intake and sale-station placement.

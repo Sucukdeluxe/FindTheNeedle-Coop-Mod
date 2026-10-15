@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.62"
+const VERSION := "0.19.6-xRangerDE.63"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -83,6 +83,7 @@ func _ready() -> void:
 	add_child(vacuum_checkpoint)
 	vacuum_checkpoint.start(self)
 	_install_vacuum_tech()
+	get_tree().node_added.connect(_guard_build_manager)
 	get_tree().node_added.connect(_guard_sale_stand)
 	get_tree().node_added.connect(_guard_tech_panel)
 	get_tree().node_added.connect(_guard_build_icons)
@@ -234,6 +235,22 @@ func _ready() -> void:
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
 	print("[MPMod] v%s loaded from %s" % [VERSION, base_dir])
+
+
+func _guard_build_manager(node: Node) -> void:
+	if not node is BuildManager:
+		return
+	var original: Script = node.get_script()
+	if original == null or original.resource_path != "res://scripts/build/build_manager.gd":
+		return
+	var values := {}
+	for property in node.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = node.get(property.name)
+	node.set_script(load(base_dir + "/mp_builds.gd"))
+	for key in values:
+		if key in node:
+			node.set(key, values[key])
 
 
 func _guard_build_icons(node: Node) -> void:
