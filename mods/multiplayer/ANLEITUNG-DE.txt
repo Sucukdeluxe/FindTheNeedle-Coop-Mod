@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.56
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.57
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -30,8 +30,8 @@ WEITERE FUNKTIONEN
   um die tatsächliche Spielerposition. F7 öffnet die Baukamera statt „Problem Debug“.
   Strg+F7 öffnet weiterhin den Debugbericht. Andere eigene F7-Belegungen bleiben.
   Mit Bild↑/Bild↓ die Bauhöhe ändern; Pfeiltasten verschieben nur die Kamera.
-- Einfülltrichter: 2.500 Kaufpreis, 50.000 Halme Speicher. Am freien, waagerechten
-  Bandanfang platzieren. Mit dem Hofsauger darauf zielen und M drücken.
+- Einfülltrichter: 2.500 Kaufpreis, neue Trichter 10.000 bis 100.000 Halme Speicher.
+  Frei oder am waagerechten Bandanfang platzieren. M füllt ein, E öffnet Einstellungen.
   Volle Bänder stoppen die Ausgabe; vor dem Abbau muss der Trichter leer sein.
   Der Trichter funktioniert im Einzelspieler und Multiplayer.
 - Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
@@ -316,3 +316,9 @@ BALANCING .53
 - Nur der Host bzw. Einzelspieler schreibt die Gutschrift gut. Sie wird mit Guthaben und Spielstand gespeichert.
 - Geschenk-Stufen und unbelegte Käufe erhalten keine geschätzte Erstattung.
 - Alle Teilnehmer müssen dieselbe Mod-Version verwenden.
+
+
+TRICHTER UND SAMMLER (.57)
+Trichter frei oder am Bandanfang platzieren. M: Hofsauger direkt einfüllen. Lose Heuladung von oben in die Öffnung werfen: Der Host übernimmt sie automatisch; Überfüllung bleibt außerhalb erhalten. E: Ausgabe an/aus, Portion 100 bis 1.000 (höchstens freigeschaltete Bandportion), Kapazität je Trichter kaufen. Neue Trichter 10.000, neun Erweiterungen bis 100.000. Bestehende Trichter behalten 50.000 Plätze und ihren Inhalt.
+Arme verwenden den Trichter automatisch, wenn kein passendes Band vorhanden ist. In „Bänder aussuchen“ mit Rechtsklick auf den Trichter gezielt verbinden; der markierte Rand muss in Armreichweite liegen. Volle Trichter lassen den Arm mit seiner Ladung warten.
+Sammler mit vier/acht Anschlüssen: drei/sieben Eingänge, ein nummerierter Ausgang. Freischaltung mit intelligentem Verteiler. E ändert den Ausgang nur bei leerem Sammler. R dreht die Bauvorschau. Kosten 2.000/5.000. Im Einzelspieler und Multiplayer verfügbar.

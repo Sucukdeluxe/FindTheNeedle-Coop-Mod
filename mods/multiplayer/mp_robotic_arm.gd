@@ -132,3 +132,61 @@ func belts_in_reach() -> int:
 
 func _mp_pending_text() -> String:
 	return "Roboterstatus wird synchronisiert." if TranslationServer.get_locale().begins_with("de") else "Synchronizing robot arm status."
+
+var _mp_hopper_id := 0
+
+func _mp_hoppers() -> Node:
+	if is_instance_valid(mp_transport) and is_instance_valid(mp_transport.mp.world_sync):
+		return mp_transport.mp.world_sync.hoppers_sync
+	return null
+
+func _choose_drop(count: int, prop: Carryable = null, only: BeltPath = null, require_room: bool = true, skip: BeltPath = null, ahead: float = 0.0, empty_only: bool = false) -> Dictionary:
+	var service := _mp_hoppers()
+	if not is_instance_valid(service) or count <= 0 or (prop != null and not prop is HayWad):
+		_mp_hopper_id = 0
+		return super._choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
+	var row: Dictionary = service.arm_hopper(self, true)
+	if row.is_empty():
+		var belt := super._choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
+		if not belt.is_empty():
+			_mp_hopper_id = 0
+			return belt
+		row = service.arm_hopper(self)
+	if row.is_empty() or not link_in_reach(service.arm_point(row, self)) or (require_room and not service.arm_room(row.id, count)):
+		return {}
+	_mp_hopper_id = row.id
+	return {"point": service.arm_point(row, self), "forward": Vector3.ZERO, "conveyor": null}
+
+func _drop_run_clear() -> bool:
+	if _mp_hopper_id > 0 and _drop_run == null:
+		var service := _mp_hoppers()
+		return is_instance_valid(service) and service.arm_room(_mp_hopper_id, _payload_count)
+	return super._drop_run_clear()
+
+func _release_payload() -> void:
+	if _mp_hopper_id <= 0 or _drop_run != null:
+		super._release_payload()
+		return
+	var service := _mp_hoppers()
+	var needle := int(_payload_prop.needle_index) if is_instance_valid(_payload_prop) else -1
+	if not is_instance_valid(service) or not service.receive_arm(_mp_hopper_id, _payload_count, needle):
+		return
+	if is_instance_valid(_payload_prop):
+		props.remove(_payload_prop)
+	for entry in _payload:
+		var body: Variant = entry.get("body")
+		if is_instance_valid(body):
+			live.consume(body)
+	_clear_payload_visual()
+	_payload_pose_valid = false
+	last_record_seq = -1
+	last_cycle_needle = false
+	last_cycle_from_field = _pickup_from_field
+	completed_cycles += 1
+	_note_load(_payload_count)
+	_payload.clear()
+	_payload_prop = null
+	_payload_needle = null
+	_payload_count = 0
+	_decoy_count = 0
+	_mp_hopper_id = 0

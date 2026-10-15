@@ -4,6 +4,7 @@ const OUTLET := Vector3(0.0, 0.0, 0.7)
 static var _shared_mesh: ArrayMesh
 static var _materials: Array[StandardMaterial3D] = []
 var hopper_id := 0
+var intake: Area3D
 var preview := false
 var collision_bits := 0
 var _mesh: MeshInstance3D
@@ -43,6 +44,16 @@ func _ready() -> void:
 	solid.shape = shape
 	solid.position = Vector3(0.0, 0.92, -0.18)
 	body.add_child(solid)
+	intake = Area3D.new()
+	intake.collision_layer = 0
+	intake.collision_mask = Cfg.L_PROP | Cfg.L_STRAND
+	add_child(intake)
+	var mouth := CollisionShape3D.new()
+	var mouth_shape := BoxShape3D.new()
+	mouth_shape.size = Vector3(1.72, 0.9, 1.4)
+	mouth.shape = mouth_shape
+	mouth.position = Vector3(0.0, 1.72, -0.18)
+	intake.add_child(mouth)
 
 func set_preview_valid(ok: bool) -> void:
 	if not is_instance_valid(_mesh):
@@ -93,7 +104,8 @@ func _make_status() -> void:
 		var line := Label.new()
 		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.autowrap_mode = TextServer.AUTOWRAP_OFF
+		line.clip_text = true
 		line.add_theme_font_size_override("font_size", [18, 20, 16, 14][i])
 		line.add_theme_color_override("font_color", Color(0.97, 0.82, 0.45) if i == 0 else Color(0.91, 0.92, 0.89))
 		rows.add_child(line)
@@ -105,8 +117,8 @@ func _layout_status() -> void:
 	if not is_instance_valid(_status_panel):
 		return
 	var viewport_size := get_viewport().get_visible_rect().size
-	var width := minf(460.0, maxf(180.0, viewport_size.x - 32.0))
-	_status_panel.size = Vector2(width, 0.0)
+	var width := minf(560.0, maxf(180.0, viewport_size.x - 32.0))
+	_status_panel.size = Vector2(width, 116.0)
 	_position_status()
 
 func _position_status() -> void:
@@ -114,10 +126,10 @@ func _position_status() -> void:
 		return
 	var viewport_size := get_viewport().get_visible_rect().size
 	var panel_size := _status_panel.size
-	_status_panel.position = Vector2((viewport_size.x - panel_size.x) * 0.5, minf(viewport_size.y * 0.66, maxf(8.0, viewport_size.y - panel_size.y - 110.0)))
+	_status_panel.position = Vector2((viewport_size.x - panel_size.x) * 0.5, 12.0)
 
-func set_fill(amount: int) -> void:
-	var bucket := clampi(int(ceil(float(amount) / 5000.0)), 0, 10)
+func set_fill(amount: int, capacity: int = 50000) -> void:
+	var bucket := clampi(int(ceil(float(amount) * 10.0 / maxf(1.0, float(capacity)))), 0, 10)
 	if bucket == _shown_fill or not is_instance_valid(_fill):
 		return
 	_shown_fill = bucket

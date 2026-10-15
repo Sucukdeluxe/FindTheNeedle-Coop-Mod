@@ -9,6 +9,7 @@ const OUTPUT_INTERVAL := 0.1
 const CONNECTION_TOLERANCE := 0.045
 var mp: Node
 var world_sync: Node
+var receivers: Node
 var take_vacuum: Callable
 var _state := Store.empty()
 var _models := {}
@@ -29,16 +30,23 @@ var _focused := 0
 static var _catalog_locale := ""
 var _storage_valid := true
 var _mode := ""
+var _panel: CanvasLayer
+var _intake_clock := 0.0
+var _tracked := {}
 
 func start(session: Node, sync: Node) -> void:
 	mp = session
 	world_sync = sync
+	receivers = preload("res://mods/multiplayer/mp_receivers.gd").new()
+	receivers.hoppers = self
+	add_child(receivers)
 	ensure_catalog()
 	if is_instance_valid(world_sync.builds) and not world_sync.builds.changed.is_connected(invalidate_connections):
 		world_sync.builds.changed.connect(invalidate_connections)
 	if not world_sync.economy.completed.is_connected(_completed):
 		world_sync.economy.completed.connect(_completed)
 	set_process(true)
+	set_process_input(true)
 	session_started()
 
 func _role() -> String:
@@ -65,7 +73,7 @@ func session_started() -> void:
 	if not _storage_valid:
 		push_warning("[MP] Hopper storage is invalid; preserving saved data without simulation")
 		return
-	_state = Store.empty() if saved == null or saved == {} else saved.duplicate(true)
+	_state = Store.empty() if saved == null or saved == {} else Store.migrate(saved)
 	_epoch = str(Time.get_ticks_usec()) + ":" + str(randi()) if mode == "host" else ""
 	_seq = 0
 	_seen = -1
@@ -107,8 +115,11 @@ func shutdown() -> void:
 	_paths.clear()
 	_pending.clear()
 	set_process(false)
+	if is_instance_valid(receivers):
+		receivers.queue_free()
 
 static func ensure_catalog() -> void:
+	preload("res://mods/multiplayer/mp_receivers.gd").ensure_catalog()
 	var entries: Dictionary = BuildCatalog.entries()
 	var locale := TranslationServer.get_locale()
 	if entries.has(BUILD_ID) and _catalog_locale == locale:
@@ -116,9 +127,9 @@ static func ensure_catalog() -> void:
 	_catalog_locale = locale
 	entries[BUILD_ID] = {"name": _tr("Einfülltrichter", "Loading Hopper"), "short": _tr("TRICHTER", "HOPPER"),
 		"unlock": "belt", "category": "haulage", "mode": BuildTool.Mode.CONVEYOR,
-		"cost": _tr("$2.500", "$2,500"), "place": _tr("Trichter am freien Bandanfang platzieren", "Place hopper at a free belt input"),
-		"blurb": _tr("Speichert 50.000 Halme. Mit dem Hofsauger darauf zielen und M drücken. Gibt Heu nur bei Platz auf das Band aus.",
-			"Stores 50,000 strands. Aim at it with the yard vacuum and press M. Releases hay only when the belt has room."),
+		"cost": _tr("$2.500", "$2,500"), "place": _tr("Trichter frei oder am Bandanfang platzieren", "Place hopper freely or at a belt input"),
+		"blurb": _tr("10.000 bis 100.000 Halme. M leert den Hofsauger; Einwerfen von oben und Befüllen per Arm möglich. E öffnet die Einstellungen.",
+			"10,000 to 100,000 strands. Press M to empty the vacuum; accepts hay thrown from above or delivered by an arm. E opens settings."),
 		"note": _tr("rastet am freien Bandanfang ein", "snaps to a free belt input")}
 
 func serialize() -> Dictionary:
@@ -127,7 +138,7 @@ func serialize() -> Dictionary:
 func restore(value: Dictionary) -> bool:
 	if not Store.valid(value):
 		return false
-	_state = value.duplicate(true)
+	_state = Store.migrate(value)
 	invalidate_connections()
 	return true
 
@@ -152,6 +163,10 @@ func _process(delta: float) -> void:
 	_update_focus()
 	if _mode not in ["host", "offline"] or world_sync._frozen:
 		return
+	_intake_clock += delta
+	if _intake_clock >= 0.05:
+		_intake_clock = 0.0
+		_intake()
 	_tick += delta
 	if _tick >= OUTPUT_INTERVAL:
 		_tick = fmod(_tick, OUTPUT_INTERVAL)
@@ -163,12 +178,12 @@ func _process(delta: float) -> void:
 			var path: Node = _connected_path(row)
 			_statuses[row.id] = "disconnected" if path == null else ("paused" if row.paused else "empty")
 			if before > 0 and path != null:
-				var moved := Store.output(row, portion, _insert.bind(path))
+				var moved := Store.output(row, portion, _insert.bind(path, row))
 				_statuses[row.id] = "running" if moved > 0 else ("paused" if row.paused else "blocked")
 				if moved > 0:
 					_dirty = true
 			if is_instance_valid(_models.get(row.id)):
-				_models[row.id].set_fill(row.stored)
+				_models[row.id].set_fill(row.stored, Store.capacity(row))
 	_publish += delta
 	if _dirty or _publish >= 2.0:
 		_persist()
@@ -176,7 +191,7 @@ func _process(delta: float) -> void:
 		_dirty = false
 		_publish = 0.0
 
-func _insert(count: int, path: Node) -> bool:
+func _insert(count: int, path: Node, row: Dictionary) -> bool:
 	if not is_instance_valid(path) or path.is_queued_for_deletion() or not path.is_inside_tree():
 		return false
 	var line: PackedVector3Array = path.centre_line()
@@ -186,7 +201,12 @@ func _insert(count: int, path: Node) -> bool:
 	var along: Vector3 = (line[1] - first).normalized()
 	var at := first + along * minf(0.4, first.distance_to(line[1]) * 0.5)
 	var kind := BeltRun.Kind.WAD if count > 100 else BeltRun.Kind.TUFT
-	return int(path.push_record(kind, count, -1, {"strands": count}, at, -1.0, 0.15)) >= 0
+	var needle: int = row.needles[0] if not row.needles.is_empty() else -1
+	if int(path.push_record(kind, count, needle, {"strands": count, "needle": needle}, at, -1.0, 0.15)) < 0:
+		return false
+	if needle >= 0:
+		row.needles.pop_front()
+	return true
 
 func _row(id: int) -> Dictionary:
 	for row in _state.rows:
@@ -240,7 +260,12 @@ func candidate(camera: Transform3D, reach: float) -> Dictionary:
 		best = {"position": at, "yaw": yaw, "path": path}
 		best_score = score
 	if best.is_empty():
-		return {"ok": false, "reason": _tr("Auf einen freien, waagerechten Bandanfang zielen", "Aim at a free, level belt input")}
+		var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin + direction * reach, Cfg.L_WORLD | Cfg.L_BUILD)
+		var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+		if hit.is_empty() or hit.normal.y < 0.75:
+			return {"ok": false, "reason": _tr("Auf eine Baufläche oder einen freien Bandanfang zielen", "Aim at a building surface or free belt input")}
+		var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)
+		best = {"position": at, "yaw": snappedf(atan2(direction.x, direction.z), PI * 0.5), "path": null}
 	var why := _placement_reason(best.path, best.position, best.yaw)
 	best["ok"] = why == ""
 	best["reason"] = why
@@ -253,11 +278,12 @@ func _placement_reason(path: Node, at: Vector3, yaw: float) -> String:
 		if row.position.distance_to(at) < 1.5:
 			return _tr("Hier steht bereits ein Trichter", "A hopper is already placed here")
 	for other in BeltPath._live:
-		if is_instance_valid(other) and other != path and (other.downstream == path or other.end_deck == path):
+		if is_instance_valid(path) and is_instance_valid(other) and other != path and (other.downstream == path or other.end_deck == path):
 			return _tr("Dieser Bandanfang ist bereits verbunden", "This belt input is already connected")
 	var exclude: Array[RID] = []
-	for body in path.find_children("*", "CollisionObject3D", true, false):
-		exclude.append(body.get_rid())
+	if is_instance_valid(path):
+		for body in path.find_children("*", "CollisionObject3D", true, false):
+			exclude.append(body.get_rid())
 	if path is CollisionObject3D:
 		exclude.append(path.get_rid())
 	var shape := BoxShape3D.new()
@@ -369,7 +395,7 @@ func request_dump(vacuum: Node) -> bool:
 	if not _pending.is_empty():
 		return true
 	var row := _row(id)
-	if row.is_empty() or row.stored >= Store.CAPACITY:
+	if row.is_empty() or row.stored >= Store.capacity(row):
 		world_sync.toast(_tr("Trichter voll", "Hopper full"))
 		return true
 	if int(vacuum.call("fill")) <= 0:
@@ -379,7 +405,7 @@ func request_dump(vacuum: Node) -> bool:
 	if not is_instance_valid(transfer):
 		world_sync.toast(_tr("Sauger wird synchronisiert", "Synchronizing vacuum"))
 		return true
-	var seq: int = transfer.submit(vacuum, "hopper_deposit", {"id": id, "body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform}, Store.CAPACITY)
+	var seq: int = transfer.submit(vacuum, "hopper_deposit", {"id": id, "body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform}, Store.capacity(row))
 	if seq > 0:
 		_pending[seq] = "hopper_deposit"
 	return true
@@ -414,17 +440,21 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	var row := _row(id)
 	if row.is_empty() or not _near(peer, args, row.position, 7.0, action == "hopper_remove"):
 		return _failure(_tr("Trichter außer Reichweite", "Hopper out of reach"))
+	if action == "hopper_configure":
+		return _configure(row, args)
+	if action == "hopper_link":
+		return _link_arm(row, args)
 	if action == "hopper_remove":
 		if args.has("build_view") and _target_from_ray(_host_build_ray(peer, args)) != id:
 			return _failure(_tr("Trichter nicht im Blick", "Hopper is not under the cursor"))
-		if row.stored > 0:
+		if row.stored > 0 or not row.needles.is_empty():
 			return _failure(_tr("Trichter vor dem Abbau vollständig leeren", "Empty the hopper before dismantling it"))
 		_state.rows.erase(row)
 		GameState.add_money(Store.COST * 0.5)
 		_changed()
 		return {"ok": true}
 	if action == "hopper_deposit":
-		var room: int = Store.CAPACITY - int(row.stored)
+		var room: int = Store.capacity(row) - int(row.stored)
 		if room <= 0 or not take_vacuum.is_valid():
 			return _failure(_tr("Trichter voll oder Sauger noch nicht synchron", "Hopper full or vacuum not yet synchronized"))
 		var moved: int = int(take_vacuum.call(peer, room))
@@ -469,7 +499,7 @@ func _place(peer: int, args: Dictionary) -> Dictionary:
 		return _failure(_tr("Zu wenig Geld", "Not enough money"))
 	var id: int = _state.next_id
 	_state.next_id += 1
-	_state.rows.append({"id": id, "position": row.position, "yaw": float(row.yaw), "stored": 0, "paused": false})
+	_state.rows.append(Store.create(id, row.position, float(row.yaw)))
 	_changed()
 	return {"ok": true, "hopper": id}
 
@@ -531,7 +561,7 @@ func _update_focus() -> void:
 		status = _tr("Gibt Heu auf das Band aus", "Feeding hay onto belt")
 	elif state == "paused":
 		status = _tr("Angehalten", "Paused")
-	model.show_status(_tr("EINFÜLLTRICHTER", "LOADING HOPPER") + "\n" + _number(row.stored) + " / " + _number(Store.CAPACITY) + "\n" + status + "\n" + _tr("M · Hofsauger leeren     X halten · Abbauen", "M · Empty yard vacuum     Hold X · Dismantle"), true)
+	model.show_status(_tr("EINFÜLLTRICHTER", "LOADING HOPPER") + "\n" + _number(row.stored) + " / " + _number(Store.capacity(row)) + "\n" + status + "\n" + _tr("M · Einfüllen    E · Einstellen    X · Abbauen", "M · Fill    E · Settings    X · Dismantle"), true)
 
 func _changed() -> void:
 	_dirty = true
@@ -555,7 +585,7 @@ func _rebuild_models() -> void:
 			world_sync.world.add_child(model)
 			_models[row.id] = model
 		_models[row.id].global_transform = Transform3D(Basis(Vector3.UP, row.yaw), row.position)
-		_models[row.id].set_fill(row.stored)
+		_models[row.id].set_fill(row.stored, Store.capacity(row))
 	for id in _models.keys():
 		if not active.has(id):
 			if is_instance_valid(_models[id]):
@@ -590,7 +620,7 @@ func on_state(epoch: String, seq: int, data: Dictionary) -> void:
 			return
 	_epoch = epoch
 	_seen = seq
-	_state = data.store.duplicate(true)
+	_state = Store.migrate(data.store)
 	_statuses = data.statuses.duplicate()
 	_rebuild_models()
 
@@ -608,3 +638,166 @@ static func _number(value: int) -> String:
 		out = out.insert(at, separator)
 		at -= 3
 	return out
+
+func _input(event: InputEvent) -> void:
+	if not _usable() or not event.is_action_pressed("interact") or event.is_echo():
+		return
+	if is_instance_valid(_panel) and _panel.visible:
+		_panel.close()
+		get_viewport().set_input_as_handled()
+		return
+	var id := target_id()
+	if id <= 0:
+		return
+	if not is_instance_valid(_panel):
+		_panel = load("res://mods/multiplayer/mp_hopper_panel.gd").new()
+		_panel.service = self
+		add_child(_panel)
+	_panel.open(id)
+	get_viewport().set_input_as_handled()
+
+func request_configuration(id: int, paused: bool, portion: int, upgrade: bool = false) -> int:
+	var row := _row(id)
+	if row.is_empty():
+		return 0
+	return _request("hopper_configure", {"id": id, "paused": paused, "portion": portion,
+		"upgrade": upgrade, "revision": row.revision, "level": row.level,
+		"body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform})
+
+func _configure(row: Dictionary, args: Dictionary) -> Dictionary:
+	if not (args.get("paused") is bool) or not (args.get("portion") is int) or not (args.get("upgrade") is bool):
+		return _failure(_tr("Ungültige Einstellung", "Invalid setting"))
+	if args.get("revision") != row.revision or args.get("level") != row.level:
+		return _failure(_tr("Einstellung wurde bereits geändert", "Settings have already changed"))
+	var portion: int = args.portion
+	if portion < 100 or portion > 1000 or portion % 100 != 0 or portion > int(Tech.call("belt_portion")):
+		return _failure(_tr("Größere Bandportion zuerst freischalten", "Unlock the larger belt portion first"))
+	if args.upgrade:
+		if row.level >= 9:
+			return _failure(_tr("Maximale Kapazität erreicht", "Maximum capacity reached"))
+		if not GameState.spend_money(Store.UPGRADE_COSTS[row.level]):
+			return _failure(_tr("Zu wenig Geld", "Not enough money"))
+		row.level += 1
+	row.paused = args.paused
+	row.portion = portion
+	row.revision += 1
+	_changed()
+	return {"ok": true}
+
+func arm_hopper(arm: Node3D, explicit_only := false) -> Dictionary:
+	for row in _state.rows:
+		if row.arms.any(func(at: Vector3) -> bool: return at.distance_to(arm.global_position) < 0.05):
+			return row
+	if explicit_only:
+		return {}
+	var best := {}
+	var distance := INF
+	for row in _state.rows:
+		var point := arm_point(row, arm)
+		var d := arm.global_position.distance_squared_to(point)
+		if arm.link_in_reach(point) and row.stored < Store.capacity(row) and d < distance:
+			best = row
+			distance = d
+	return best
+
+func arm_point(row: Dictionary, arm: Node3D) -> Vector3:
+	var pose := Transform3D(Basis(Vector3.UP, row.yaw), row.position)
+	var local: Vector3 = pose.affine_inverse() * arm._shoulder_world()
+	return pose * Vector3(clampf(local.x, -0.72, 0.72), 1.6, clampf(local.z, -0.73, 0.37))
+
+func arm_room(id: int, count: int) -> bool:
+	var row := _row(id)
+	return _usable() and not row.is_empty() and count > 0 and count <= Store.capacity(row) - int(row.stored)
+
+func receive_arm(id: int, count: int, needle: int = -1) -> bool:
+	if _mode not in ["host", "offline"] or world_sync._frozen or not arm_room(id, count):
+		return false
+	var row := _row(id)
+	if needle >= 0 and row.needles.has(needle):
+		return false
+	Store.transfer(row, count)
+	if needle >= 0:
+		row.needles.append(needle)
+	_dirty = true
+	return true
+
+func request_arm_link(id: int, arm: Node3D) -> void:
+	_request("hopper_link", {"id": id, "arm": arm.global_position,
+		"body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform})
+
+func _link_arm(row: Dictionary, args: Dictionary) -> Dictionary:
+	var at: Variant = args.get("arm")
+	if not (at is Vector3) or not at.is_finite():
+		return _failure(_tr("Arm nicht gefunden", "Arm not found"))
+	var arm: Node3D
+	for other in world_sync.builds.robotic_arms:
+		if is_instance_valid(other) and other.global_position.distance_to(at) < 0.05:
+			arm = other
+			break
+	if arm == null or not arm.link_in_reach(arm_point(row, arm)):
+		return _failure(_tr("Trichter außerhalb der Armreichweite", "Hopper outside arm reach"))
+	var linked: bool = row.arms.has(at)
+	for other in _state.rows:
+		other.arms.erase(at)
+	if not linked:
+		row.arms.append(at)
+	row.revision += 1
+	_changed()
+	return {"ok": true}
+
+func _intake() -> void:
+	if _state.rows.is_empty() or not is_instance_valid(world_sync.world.props):
+		return
+	var alive := {}
+	for item in world_sync.world.props.items.duplicate():
+		if not is_instance_valid(item) or not item.is_inside_tree() or item.is_queued_for_deletion() or not item is HayWad:
+			continue
+		var id: int = item.get_instance_id()
+		alive[id] = true
+		var now: Vector3 = item.global_position
+		var previous: Vector3 = _tracked.get(id, now)
+		_tracked[id] = now
+		var claimed: bool = item.has_meta(PropManager.META_CLAIM) and int(item.get_meta(PropManager.META_CLAIM)) != world_sync.props_sync.get_instance_id()
+		if item.is_held() or BeltPath.is_rider(item) or claimed:
+			continue
+		for row in _state.rows:
+			var inverse := Transform3D(Basis(Vector3.UP, row.yaw), row.position).affine_inverse()
+			var a: Vector3 = inverse * previous
+			var b: Vector3 = inverse * now
+			var mouth := AABB(Vector3(-0.86, 1.3, -0.88), Vector3(1.72, 0.95, 1.4))
+			if not mouth.has_point(b) and mouth.intersects_segment(a, b) == null:
+				continue
+			if maxi(int(row.stored), 0) >= Store.capacity(row):
+				continue
+			var sync: Node = world_sync.props_sync
+			if _mode == "host" and int(item.get_meta("mp_id", 0)) > 0 and not sync._mine(int(item.get_meta("mp_id"))) and not sync.host_take(item):
+				continue
+			var count: int = item.hay_strands()
+			var moved := mini(count, Store.capacity(row) - int(row.stored))
+			var needle: int = item.needle_index
+			if moved <= 0 or (needle >= 0 and row.needles.has(needle)):
+				continue
+			if moved == count:
+				world_sync.world.props.remove(item)
+				if needle >= 0:
+					row.needles.append(needle)
+			else:
+				item.set_strands(count - moved)
+			Store.transfer(row, moved)
+			_dirty = true
+			break
+	for id in _tracked.keys():
+		if not alive.has(id):
+			_tracked.erase(id)
+	for row in _state.rows:
+		var model: Node = _models.get(row.id)
+		if not is_instance_valid(model) or not is_instance_valid(model.intake):
+			continue
+		for body in model.intake.get_overlapping_bodies():
+			if row.stored >= Store.capacity(row):
+				break
+			if not is_instance_valid(body) or not body is RigidBody3D or body.get_parent() != world_sync.world.live or body.has_meta("needle_index") or body.freeze:
+				continue
+			if world_sync.world.live.consume(body):
+				Store.transfer(row, 1)
+				_dirty = true

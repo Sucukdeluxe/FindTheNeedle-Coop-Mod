@@ -10,7 +10,11 @@ func _hoppers() -> Node:
 	return null
 
 func _is_hopper() -> bool:
-	return is_instance_valid(player) and player.build_id == HOPPER_ID
+	return is_instance_valid(player) and player.build_id in [HOPPER_ID, "mp_receiver4", "mp_receiver8"]
+
+func _service() -> Node:
+	var hoppers := _hoppers()
+	return hoppers.receivers if is_instance_valid(hoppers) and player.build_id in ["mp_receiver4", "mp_receiver8"] else hoppers
 
 func _sync_ghosts() -> void:
 	var active := _active
@@ -18,7 +22,13 @@ func _sync_ghosts() -> void:
 		_active = false
 	super._sync_ghosts()
 	_active = active
-	var hoppers := _hoppers()
+	var hoppers := _service()
+	var base := _hoppers()
+	if is_instance_valid(base):
+		if hoppers != base:
+			base.preview(player.camera.global_transform, _reach, false)
+		else:
+			base.receivers.preview(player.camera.global_transform, _reach, false)
 	if is_instance_valid(hoppers) and is_instance_valid(player) and is_instance_valid(player.camera):
 		hoppers.preview(player.camera.global_transform, _reach, active and _is_hopper())
 
@@ -27,7 +37,7 @@ func _process(delta: float) -> void:
 		super._process(delta)
 		return
 	_tick_dismantle(delta)
-	var hoppers := _hoppers()
+	var hoppers := _service()
 	if is_instance_valid(hoppers):
 		hoppers.preview(player.camera.global_transform, _reach, player.is_mouse_captured() and not player.menu_is_up())
 
@@ -35,7 +45,7 @@ func primary() -> void:
 	if not _is_hopper():
 		super.primary()
 		return
-	var hoppers := _hoppers()
+	var hoppers := _service()
 	if not _active or request_id != 0 or not is_instance_valid(hoppers):
 		return
 	request_id = hoppers.request_place(player.camera.global_transform, player.global_transform, _reach)
@@ -43,12 +53,12 @@ func primary() -> void:
 func status() -> Dictionary:
 	if not _is_hopper():
 		return super.status()
-	var hoppers := _hoppers()
+	var hoppers := _service()
 	var evaluated := {"ok": false, "reason": ""}
 	if is_instance_valid(hoppers):
 		evaluated = hoppers.build_candidate(player.camera.global_transform, _reach)
 	return {"kind": "mp_hopper", "placing": false, "ok": evaluated.get("ok", false),
-		"reason": evaluated.get("reason", ""), "length": 0.0, "cost": 2500.0, "reach": _reach}
+		"reason": evaluated.get("reason", ""), "length": 0.0, "cost": (5000.0 if player.build_id == "mp_receiver8" else (2000.0 if player.build_id == "mp_receiver4" else 2500.0)), "reach": _reach}
 
 func _begin_dismantle(loud := true) -> void:
 	var hoppers := _hoppers()

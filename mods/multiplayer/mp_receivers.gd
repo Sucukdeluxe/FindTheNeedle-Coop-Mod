@@ -1,0 +1,207 @@
+extends Node
+
+const Receiver = preload("res://mods/multiplayer/mp_receiver.gd")
+var hoppers: Node
+var _ghost: Node3D
+var _count := 4
+var _turn := 0
+var _menu: CanvasLayer
+var _menu_target: Node3D
+var _status: Label
+
+static func ensure_catalog() -> void:
+	var entries: Dictionary = BuildCatalog.entries()
+	for count in [4, 8]:
+		var id := "mp_receiver%d" % count
+		entries[id] = {"name": _tr("Sammler · %d Anschlüsse", "Merger · %d Ports") % count,
+			"short": _tr("SAMMLER %d", "MERGER %d") % count, "unlock": "smart_splitter",
+			"category": "haulage", "mode": BuildTool.Mode.CONVEYOR,
+			"cost": "$2.000" if count == 4 else "$5.000",
+			"place": _tr("Sammler platzieren · R drehen", "Place merger · R to rotate"),
+			"blurb": _tr("%d Eingänge, ein Ausgang. E wählt den Ausgang bei leerem Sammler. Übernimmt Verteiler-Upgrades.", "%d inputs, one output. E selects the output when empty. Uses distributor upgrades.") % (count - 1),
+			"note": _tr("Schließt Bänder und Maschinen zusammen", "Joins belts and machines")}
+
+static func _tr(de: String, en: String) -> String:
+	return de if TranslationServer.get_locale().begins_with("de") else en
+
+func selected() -> bool:
+	return is_instance_valid(hoppers.world_sync.player) and hoppers.world_sync.player.build_id in ["mp_receiver4", "mp_receiver8"]
+
+func _input(event: InputEvent) -> void:
+	if not hoppers._usable() or event.is_echo():
+		return
+	var player: Node = hoppers.world_sync.player
+	if is_instance_valid(_menu) and _menu.visible:
+		if event.is_action_pressed("free_mouse") or event.is_action_pressed("interact"):
+			_close()
+			get_viewport().set_input_as_handled()
+		return
+	if not player.is_mouse_captured() or player.menu_is_up():
+		return
+	if selected() and player.build._active and event is InputEventKey and event.pressed and event.physical_keycode == KEY_R:
+		_turn = (_turn + 1) % 8
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("interact"):
+		var target := target()
+		if target != null:
+			_open(target)
+			get_viewport().set_input_as_handled()
+
+func target() -> Node3D:
+	var player: Node = hoppers.world_sync.player
+	var from: Vector3 = player.eye_position()
+	var query := PhysicsRayQueryParameters3D.create(from, from + player.look_direction() * 6.0, Cfg.L_BUILD)
+	var hit: Dictionary = player.get_world_3d().direct_space_state.intersect_ray(query)
+	var node: Node = hit.get("collider")
+	for i in 8:
+		if not is_instance_valid(node):
+			break
+		if node.get_script() == Receiver:
+			return node
+		node = node.get_parent()
+	return null
+
+func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
+	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
+	return candidate(ray, 4 if hoppers.world_sync.player.build_id == "mp_receiver4" else 8, _turn * PI / 4.0)
+
+func candidate(ray: Dictionary, count: int, yaw: float) -> Dictionary:
+	if ray.is_empty():
+		return {"ok": false, "reason": _tr("Keine Baufläche", "No build surface")}
+	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * ray.length, Cfg.L_WORLD | Cfg.L_BUILD)
+	var hit: Dictionary = hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or hit.normal.y < 0.75:
+		return {"ok": false, "reason": _tr("Auf eine ebene Baufläche zielen", "Aim at a level building surface")}
+	var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)
+	at.x = snappedf(at.x, 0.25)
+	at.z = snappedf(at.z, 0.25)
+	var radius := 1.25 if count == 4 else 2.05
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(radius * 1.3, 0.6, radius * 1.3)
+	var probe := PhysicsShapeQueryParameters3D.new()
+	probe.shape = shape
+	probe.transform = Transform3D(Basis(Vector3.UP, yaw), at + Vector3.UP * 0.22)
+	probe.collision_mask = Cfg.L_BUILD | Cfg.L_PILE
+	var blocked: bool = not hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_shape(probe, 1).is_empty()
+	return {"ok": not blocked, "reason": _tr("Baufläche belegt", "Build surface blocked") if blocked else "", "position": at, "yaw": yaw, "count": count}
+
+func preview(camera: Transform3D, reach: float, show: bool) -> Dictionary:
+	if not show:
+		if is_instance_valid(_ghost):
+			_ghost.hide()
+		return {}
+	var row := build_candidate(camera, reach)
+	var count := 4 if hoppers.world_sync.player.build_id == "mp_receiver4" else 8
+	if is_instance_valid(_ghost) and _count != count:
+		_ghost.queue_free()
+		_ghost = null
+	_count = count
+	if not is_instance_valid(_ghost):
+		_ghost = Receiver.new()
+		_ghost.port_count = count
+		_ghost.placement_preview = true
+		hoppers.world_sync.world.add_child(_ghost)
+	_ghost.visible = row.has("position")
+	if _ghost.visible:
+		_ghost.global_transform = Transform3D(Basis(Vector3.UP, row.yaw), row.position)
+		_ghost.set_preview_valid(row.ok)
+	return row
+
+func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
+	var row := build_candidate(camera, reach)
+	if not row.get("ok", false):
+		hoppers.world_sync.toast(row.get("reason", ""))
+		return 0
+	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw, "count": row.count}
+	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
+	if ray.has("view"):
+		args.build_view = ray.view
+	return hoppers._request("receiver_place", args)
+
+func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
+	if not hoppers._usable() or hoppers._mode not in ["host", "offline"] or hoppers.world_sync._frozen or not hoppers.world_sync.economy.executing:
+		return {"ok": false}
+	var at: Variant = args.get("position")
+	if not (at is Vector3) or not at.is_finite() or not hoppers._near(peer, args, at, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 2.0, true):
+		return {"ok": false}
+	if action == "receiver_configure":
+		for target in hoppers.world_sync.builds.joiners:
+			if target.get_script() != Receiver or target.global_position.distance_to(at) > 0.05:
+				continue
+			if not (args.get("output") is int) or args.output < 0 or args.output >= target.port_count or target.output_port != args.get("previous") or not target.empty():
+				return {"ok": false, "message": _tr("Sammler zuerst leerlaufen lassen", "Let the merger empty first")}
+			var count: int = target.port_count
+			var yaw: float = target.global_rotation.y
+			var builds: Node = hoppers.world_sync.builds
+			builds.joiners.erase(target)
+			builds.remove_child(target)
+			target.queue_free()
+			builds.add_receiver(at, yaw, count, args.output)
+			return {"ok": true}
+		return {"ok": false}
+	if args.get("count") not in [4, 8] or not (args.get("yaw") is float) or not is_finite(args.yaw) or absf(args.yaw) > TAU or not BuildCatalog.is_unlocked("mp_receiver%d" % args.count):
+		return {"ok": false}
+	var ray: Dictionary = hoppers._host_build_ray(peer, args) if args.has("build_view") else {"origin": args.camera.origin, "direction": -args.camera.basis.z, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
+	var row := candidate(ray, args.count, args.yaw)
+	if not row.get("ok", false) or row.position.distance_to(at) > 0.05:
+		return {"ok": false, "message": row.get("reason", "")}
+	var price := 2000.0 if args.count == 4 else 5000.0
+	if not GameState.spend_money(price):
+		return {"ok": false, "message": _tr("Zu wenig Geld", "Not enough money")}
+	hoppers.world_sync.builds.add_receiver(row.position, row.yaw, args.count)
+	return {"ok": true}
+
+func _open(target: Node3D) -> void:
+	if is_instance_valid(_menu):
+		_menu.queue_free()
+	_menu_target = target
+	_menu = CanvasLayer.new()
+	_menu.layer = 20
+	add_child(_menu)
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04,0.05,0.06,0.98)
+	style.border_color = Color(0.65,0.55,0.3)
+	style.set_border_width_all(1)
+	for edge in ["left", "right", "top", "bottom"]:
+		style.set("content_margin_" + edge, 16.0)
+	card.add_theme_stylebox_override("panel", style)
+	_menu.add_child(card)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 8)
+	card.add_child(rows)
+	_status = Label.new()
+	_status.text = _tr("Sammler: Ausgang wählen (nur leer)", "Merger: select output (when empty)")
+	_status.add_theme_font_size_override("font_size", 18)
+	rows.add_child(_status)
+	for side in target.port_count:
+		var button := Button.new()
+		button.text = _tr("Anschluss %d%s", "Port %d%s") % [side + 1, _tr(" · Ausgang", " · output") if side == target.output_port else ""]
+		button.custom_minimum_size.y = 34
+		button.pressed.connect(_set_output.bind(side))
+		rows.add_child(button)
+	var done := Button.new()
+	done.text = _tr("Schließen", "Close")
+	done.custom_minimum_size.y = 34
+	done.pressed.connect(_close)
+	rows.add_child(done)
+	card.size = Vector2(380, 100 + target.port_count * 42)
+	card.position = (get_viewport().get_visible_rect().size - card.size) * 0.5
+	hoppers.world_sync.player.capture_mouse(false)
+
+func _set_output(side: int) -> void:
+	if not is_instance_valid(_menu_target):
+		_close()
+		return
+	var player: Node = hoppers.world_sync.player
+	hoppers._request("receiver_configure", {"position": _menu_target.global_position, "output": side, "previous": _menu_target.output_port, "body": player.global_transform, "camera": player.camera.global_transform})
+	_close()
+
+func _close() -> void:
+	if is_instance_valid(_menu):
+		_menu.hide()
+	hoppers.world_sync.player.capture_mouse(true)
+
+func _exit_tree() -> void:
+	if is_instance_valid(_ghost):
+		_ghost.queue_free()

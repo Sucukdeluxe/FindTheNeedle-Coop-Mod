@@ -159,3 +159,35 @@ func _mp_pipe_ends_at(point: Vector3) -> bool:
 			if endpoint.distance_to(point) <= Cfg.PIPE_JOIN_TOLERANCE:
 				return true
 	return false
+
+func add_receiver(at: Vector3, yaw: float, count: int, output: int = 0) -> ConveyorJoiner:
+	var receiver := preload("res://mods/multiplayer/mp_receiver.gd").new()
+	receiver.name = _free_name("Receiver", joiners.size())
+	receiver.port_count = count
+	receiver.output_port = output
+	receiver.next_side = 1 if output == 0 else 0
+	receiver.setup(at, yaw)
+	joiners.append(receiver)
+	add_child(receiver)
+	rebuild_junctions()
+	_refresh_wye_supports_at(receiver.ports())
+	refit_runs_at(receiver.ports())
+	changed.emit()
+	return receiver
+
+func from_array(data: Array) -> void:
+	var native_rows := []
+	var receiver_rows := []
+	for row in data:
+		if row is Dictionary and row.get("type") in ["mp_receiver4", "mp_receiver8"]:
+			receiver_rows.append(row)
+		else:
+			native_rows.append(row)
+	await super.from_array(native_rows)
+	for row in receiver_rows:
+		var count := 4 if row.type == "mp_receiver4" else 8
+		if not (row.get("position") is Vector3) or not row.position.is_finite():
+			continue
+		var receiver := add_receiver(row.position, float(row.get("yaw", 0.0)), count, clampi(int(row.get("receiver_output", 0)), 0, count - 1))
+		var side := int(row.get("next_side", 0))
+		receiver.next_side = side if side in receiver.inlet_sides() else receiver.inlet_sides()[0]

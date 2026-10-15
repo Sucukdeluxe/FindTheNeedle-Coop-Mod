@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.6-xRangerDE.57
+
+Expand the loading hopper and add four- and eight-port mergers.
+
+- Accept loose hay thrown through the hopper opening on the authoritative host, including guest-owned loads. Preserve unaccepted overflow and embedded needles.
+- Add E settings for output on/off, 100–1,000-strand portions within the unlocked belt limit, and nine capacity upgrades from 10,000 to 100,000. Existing hoppers retain their 50,000 capacity and contents.
+- Support automatic arm delivery when no belt destination is available and explicit right-click hopper links in the arm's belt-selection mode.
+- Replace the full-height hopper information panel with a compact card. Add matching catalog/hotbar icons and numbered merger ports.
+- Add mergers with three/seven inputs and one configurable output, unlocked with Smart Splitter. They reuse belt transport and distributor upgrades. Changing the output requires an empty merger.
+
+Validated with isolated native headless instances and targeted local regression tests. No visible game was launched. This does not claim rendered GPU performance or two-PC Steam/Internet verification. Both players must install the same version.
+
 ## 0.19.6-xRangerDE.56
 
 Restore a guest’s vacuum contents after its process crashes and rejoins the same host world.

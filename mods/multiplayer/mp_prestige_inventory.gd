@@ -136,5 +136,7 @@ func capture(sync: Node) -> Dictionary:
 		building_value += 2500.0
 		buildings += 1
 		raw(float(row.get("stored", 0)))
+		for needle in row.get("needles", []):
+			needles[int(needle)] = true
 	raw(maxf(0.0, float(GameState.hay_returned)))
 	return {"hay": hay, "worth": worth, "building_value": building_value, "buildings": buildings, "needles": needles.keys(), "kept_tools": kept_tools}

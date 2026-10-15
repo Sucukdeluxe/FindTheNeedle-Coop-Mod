@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.56"
+const VERSION := "0.19.6-xRangerDE.57"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -157,6 +157,11 @@ func _ready() -> void:
 		"mp_hopper_build_tool.gd",
 		"mp_hopper_icon.gd",
 		"mp_hopper_model.gd",
+		"mp_hopper_panel.gd",
+		"mp_receiver.gd",
+		"mp_receiver_icon.gd",
+		"mp_receivers.gd",
+		"mp_arm_link_mode.gd",
 		"mp_hopper_state.gd",
 		"mp_hoppers.gd",
 		"mp_hotkey_bar.gd",
