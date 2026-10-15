@@ -1,14 +1,17 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.53`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.54`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
 ## Balanced prices and legacy credit
 
-Sale price now has 20 ranks, each adding five percentage points to the base price (up to ×2). The original first five ranks and all purchased upgrade levels are preserved. Seventeen upgrade ladders use fixed total budgets and no additional native late-rank surcharge.
+Bucket capacity upgrades now cost 10,000 in total, faster pouring 12,000, and precise needle location 7,500. Sale ranks 5–8 cost 250, 300, 350 and 365. Existing ranks are never reduced or charged again.
 
-When loading an older save, recorded overpayments for the repriced ranks are credited once to the shared balance. Only the host or single-player performs this calculation. The credit marker and balance are stored in the same save snapshot; guest joins and repeat loads cannot pay it again. Gifted ranks and purchases without a recorded paid amount are not assigned an estimated refund. Existing saves are not modified by copying the mod files; the credit applies on the next load and is retained when the game is saved.
+
+Sale price now has 20 ranks, each adding five percentage points to the base price (up to ×2). All purchased upgrade levels are preserved. The 20-rank sale-price ladder has a monotonic price curve and still costs 12,885 in total. Seventeen upgrade ladders use fixed total budgets and no additional native late-rank surcharge.
+
+When loading an older save, recorded overpayments for the repriced ranks are credited once, deducting refunds already received in .53 to the shared balance. Only the host or single-player performs this calculation. The credit marker and balance are stored in the same save snapshot; guest joins and repeat loads cannot pay it again. Gifted ranks and purchases without a recorded paid amount are not assigned an estimated refund. Existing saves are not modified by copying the mod files; the credit applies on the next load and is retained when the game is saved.
 
 ## Install
 

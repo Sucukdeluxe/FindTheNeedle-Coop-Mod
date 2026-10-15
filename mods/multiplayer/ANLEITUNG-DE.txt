@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.53
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.54
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -13,7 +13,16 @@ INSTALLATION AUF WEITEREN RECHNERN
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
 
-NEU IN DIESER FASSUNG
+PREISE UND GUTSCHRIFT .54
+- Größerer Eimer: alle Stufen zusammen 10.000.
+- Schneller ausschütten: alle Stufen zusammen 12.000.
+- Präzise Nadelortung: 7.500. Verkaufspreis-Stufen: zusammen weiterhin 12.885.
+- Vorhandene Stufen bleiben erhalten. Dokumentierte Überzahlungen werden beim
+  Laden beim Host bzw. im Einzelspieler gutgeschrieben. Gutschriften aus .53
+  werden angerechnet; erneutes Laden zahlt sie nicht nochmals aus.
+- Ohne gespeicherten Kaufbeleg wird kein Erstattungsbetrag geschätzt.
+
+WEITERE FUNKTIONEN
 - F7: Bauteil wählen, dann Vogelperspektive einschalten. WASD/Pfeile verschieben,
   Umschalt beschleunigt, Mausrad zoomt, Linksklick baut, Rechtsklick geht einen
   Bauschritt zurück. F7/Escape stellt die vorige Ansicht wieder her.

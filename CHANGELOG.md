@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.6-xRangerDE.54
+
+Reduce late bucket and pouring costs, lower precise needle-location pricing and smooth the sale-price curve while preserving purchased levels.
+
+- Bucket upgrades cost 10,000 in total, pouring upgrades 12,000, and precise needle location 7,500.
+- Sale ranks 5–8 now cost 250, 300, 350 and 365; all 20 ranks still cost 12,885 and retain the same effects.
+- Credit only recorded overpayments. Existing .53 refunds are deducted, and repeat loading cannot pay them again. Existing ranks, saves, shared money and personal inventories are preserved.
+- Include the existing multiplayer add-ons in the optional Multiplayer-Addons ZIP. All players must use this version.
+
+Validated with 397 focused checks of the production GDScript in an isolated Godot test project, covering prices, old-save refund histories, repeated loads, serialized balances and host/guest guards. No game executable, Steam session or native multiplayer session was launched for this release.
+
 ## 0.19.6-xRangerDE.53
 
 Rebalance expensive late upgrades, extend sale-price progression and credit recorded overpayments without resetting purchased ranks.
@@ -159,7 +170,7 @@ Restore valid pulper water connections and distinguish splitter operation from b
 - Commit a pending pulper tap only when a built water-pipe endpoint reaches it. Recover missing taps on the native drum connection surface when loading a host world or rebuilding water connections. No pipe relocation, extra purchase or save-format change is required.
 - Compare all available splitter routes in the building topology digest instead of its transient active outlet. Missing routes, invalid destinations and broken fixed connections remain detectable.
 
-Validation: 61 native water-connection checks and 393 checks with a local host plus two guests passed. The tests cover six saved splitters, alternating routes, real missing connections, water-tap recovery, unconnected previews and packet delay/loss. All 50 production scripts compile in V62. No new Steam/WAN test was performed.
+Validation: 61 native water-connection checks and 397 checks with a local host plus two guests passed. The tests cover six saved splitters, alternating routes, real missing connections, water-tap recovery, unconnected previews and packet delay/loss. All 50 production scripts compile in V62. No new Steam/WAN test was performed.
 
 ## 0.19.6-xRangerDE.39
 

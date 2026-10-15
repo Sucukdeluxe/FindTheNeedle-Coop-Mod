@@ -1,6 +1,7 @@
 extends RefCounted
 
-const SCHEMA := "xranger_balance_v53"
+const SCHEMA := "xranger_balance_v54"
+const PREVIOUS_SCHEMA := "xranger_balance_v53"
 const PRICES := {
 	"vac_bin": [80,160,280,292,295,298,301,305,311,317,324,333,344,357,373,391,413,440,472,511,557,613,680,760,857,972,1110,1276,1475,1714,2001,2345,2757,3253,3847,4561,5417,6444,7677,9156,10931],
 	"vac_suction": [80,160,280,378,511,690,960,1172,1351,1565,1822,2131,2501,2947,3480,4120,4887,5809,6915,8241],
@@ -19,7 +20,10 @@ const PRICES := {
 	"hay_stairs_speed": [750,925,1110,1332,1599,1919,2304,2764,3317,3980],
 	"distributor_speed": [1000,2000,3500,4196,4336,4503,4705,4945,5234,5581],
 	"arm_speed": [30,60,100,160,250,380,550,800,1320,2180,2918,3482,4159,4971,5945,7114,8517,10200,12220,14644],
-	"hay_price": [10,25,50,135,365,250,300,350,400,500,600,700,800,900,1000,1100,1200,1300,1400,1500]
+	"hay_price": [10,25,50,135,250,300,350,365,400,500,600,700,800,900,1000,1100,1200,1300,1400,1500],
+	"bucket_size": [25,60,130,250,400,600,900,1300,1700,2100,2535],
+	"smooth_pour": [25,60,120,162,219,296,500,800,1200,1800,2800,4018],
+	"detector_pinpoint": [7500]
 }
 
 static func costs_for(id: String, count: int = -1) -> Array:
@@ -30,7 +34,7 @@ static func ensure_cards() -> void:
 	var nodes: Dictionary = TechTree.nodes()
 	for id in PRICES:
 		var card: Variant = nodes.get(id)
-		if not card is Dictionary or card.get("kind") != "ranked":
+		if not card is Dictionary or card.get("kind") not in ["ranked", "unlock"]:
 			continue
 		var current: Variant = card.get("costs")
 		if not current is Array:
@@ -53,7 +57,11 @@ static func ensure_cards() -> void:
 		card["flat"] = true
 		card[SCHEMA] = costs.size()
 
-static func refund(purchases: Array, ranks: Dictionary) -> Dictionary:
+static func refund(purchases: Array, ranks: Dictionary, previous: Dictionary = {}) -> Dictionary:
+	var history := _previous_credit(previous)
+	if not history.ok:
+		return {}
+	var credited: Dictionary = history.entries
 	var paid_by_rank := {}
 	for row in purchases:
 		if not row is Array or row.size() != 5 or row[1] != "card" or not row[2] is String or not PRICES.has(row[2]):
@@ -72,28 +80,69 @@ static func refund(purchases: Array, ranks: Dictionary) -> Dictionary:
 		var cents := roundi(paid * 100.0)
 		if not paid_by_rank.has(key) or cents < int(paid_by_rank[key].paid):
 			paid_by_rank[key] = {"id": id, "rank": rank, "paid": cents}
-	var total := 0
-	var entries: Array = []
+	var total: int = history.cents
+	var additional := 0
 	for receipt: Dictionary in paid_by_rank.values():
+		var key: String = receipt.id + ":" + str(receipt.rank)
+		var prior: int = int(credited.get(key, {}).get("cents", 0))
 		var due := maxi(0, int(receipt.paid) - roundi(float(PRICES[receipt.id][receipt.rank - 1]) * 100.0))
-		if due > 0:
-			total += due
-			entries.append({"id": receipt.id, "rank": receipt.rank, "cents": due})
-	return {"schema": SCHEMA, "settled": true, "cents": total, "entries": entries}
+		if due > prior:
+			additional += due - prior
+			total += due - prior
+			credited[key] = {"id": receipt.id, "rank": receipt.rank, "cents": due}
+	var entries: Array = []
+	for entry: Dictionary in credited.values():
+		entries.append(entry)
+	return {"schema": SCHEMA, "settled": true, "cents": total, "last_credit_cents": additional, "entries": entries}
+
+static func _previous_credit(previous: Dictionary) -> Dictionary:
+	if previous.is_empty():
+		return {"ok": true, "cents": 0, "entries": {}}
+	if previous.get("schema", "") not in [PREVIOUS_SCHEMA, SCHEMA] or previous.get("settled") != true:
+		return {"ok": false}
+	var total: Variant = previous.get("cents")
+	var rows: Variant = previous.get("entries")
+	if not _valid_cents(total) or not rows is Array:
+		return {"ok": false}
+	var entries := {}
+	var counted := 0
+	for row in rows:
+		if not row is Dictionary or not row.get("id") is String or not PRICES.has(row.id):
+			return {"ok": false}
+		var rank: Variant = row.get("rank")
+		var cents: Variant = row.get("cents")
+		if not _valid_cents(rank) or int(rank) < 1 or int(rank) > PRICES[row.id].size() or not _valid_cents(cents):
+			return {"ok": false}
+		var key: String = row.id + ":" + str(int(rank))
+		if entries.has(key):
+			return {"ok": false}
+		entries[key] = {"id": row.id, "rank": int(rank), "cents": int(cents)}
+		counted += int(cents)
+	if counted != int(total):
+		return {"ok": false}
+	return {"ok": true, "cents": counted, "entries": entries}
+
+static func _valid_cents(value: Variant) -> bool:
+	if not (value is int or value is float):
+		return false
+	var number := float(value)
+	return is_finite(number) and number == floor(number) and number >= 0.0 and number <= 100000000000000.0
 
 static func apply_credit() -> int:
 	var session := GameState.get_node_or_null("/root/MPMod")
 	if is_instance_valid(session) and session.active() and not session.is_host:
 		return 0
-	if not GameState.mp_balance.is_empty():
+	if GameState.mp_balance.get("schema") == SCHEMA:
 		return 0
-	var result := refund(GameState.purchase_log, Tech.ranks)
+	var result := refund(GameState.purchase_log, Tech.ranks, GameState.mp_balance)
+	if result.is_empty():
+		return 0
 	GameState.mp_balance = result
-	var cents := int(result.cents)
+	var cents := int(result.last_credit_cents)
 	if cents > 0:
 		GameState.add_money(float(cents) / 100.0)
 		print("[MPMod] Balance credit: ", float(cents) / 100.0)
 	return cents
 
 static func fresh_state() -> Dictionary:
-	return {"schema": SCHEMA, "settled": true, "cents": 0, "entries": []}
+	return {"schema": SCHEMA, "settled": true, "cents": 0, "last_credit_cents": 0, "entries": []}
