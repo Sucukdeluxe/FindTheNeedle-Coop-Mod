@@ -18,6 +18,10 @@ var _refresh_wait := 0.0
 var _startup_checkpoint := {}
 var _startup_checkpoint_applied := false
 var _restore_blocked := false
+var _journal: RefCounted
+var _journal_loaded := false
+var _writing_fill := false
+var _observed_fill := -1
 
 func start(session: Node, sync: Node, saved_checkpoint: Dictionary = {}) -> bool:
 	mp = session
@@ -71,6 +75,17 @@ func _role() -> String:
 	return "host" if mp.is_host else "guest"
 
 func _load_local() -> bool:
+	if _mode == "guest" and not _journal_loaded:
+		_journal = preload("res://mods/multiplayer/mp_vacuum_journal.gd").new()
+		var saved_state: Dictionary = _journal.read(str(mp.tool_profile))
+		_journal_loaded = true
+		if _journal.error != "":
+			return _journal_failure()
+		if not saved_state.is_empty():
+			if not valid_local(saved_state.local):
+				return _journal_failure()
+			if _local.is_empty() and mp.vacuum_transfer_local.is_empty():
+				_local = saved_state.local.duplicate(true)
 	if not _local.is_empty():
 		return valid_local(_local)
 	var saved: Variant = mp.get("vacuum_transfer_local")
@@ -209,8 +224,10 @@ func prepare(vacuum: Node, requested: int) -> Dictionary:
 	_local.escrows[_realm] = {"payload": payload.duplicate(), "after": after, "sequences": [], "sent": false}
 	_vacuum = vacuum
 	_lock(vacuum, true)
+	if not _save_local(after):
+		_local.escrows.erase(_realm)
+		return {}
 	_write_fill(vacuum, after)
-	_save_local()
 	return payload
 
 func submit(vacuum: Node, action: String, args: Dictionary, amount: int) -> int:
@@ -221,8 +238,14 @@ func submit(vacuum: Node, action: String, args: Dictionary, amount: int) -> int:
 		return 0
 	var request := args.duplicate(true)
 	request["vacuum_escrow"] = payload
+	var reserved := _pending()
+	reserved.sent = true
+	if not _save_local():
+		_lock(vacuum, true)
+		return 0
 	var seq: int = world_sync.economy.request(action, request)
 	if seq == 0:
+		reserved.sent = false
 		_abort_unsent()
 		return 0
 	var pending := _pending()
@@ -237,11 +260,18 @@ func bind_vacuum(vacuum: Node) -> void:
 		return
 	_vacuum = vacuum
 	var pending := _pending()
+	if _mode == "guest" and _journal != null:
+		var saved_fill: Variant = _journal.state.get("fills", {}).get(_realm)
+		if saved_fill is Dictionary and saved_fill.get("seed") == GameState.run_seed and saved_fill.get("fill") is int and saved_fill.fill >= 0 and saved_fill.fill <= 1000000:
+			_write_fill(vacuum, int(saved_fill.fill))
 	if pending.is_empty():
+		_save_local()
 		return
 	_lock(vacuum, true)
 	_write_fill(vacuum, int(pending.after))
-	if pending.has("receipt"):
+	if not bool(pending.sent):
+		_abort_unsent()
+	elif pending.has("receipt"):
 		_finish(pending.receipt)
 
 func locked() -> bool:
@@ -329,12 +359,15 @@ func _finish(receipt: Dictionary) -> void:
 	var pending := _pending()
 	if pending.is_empty() or not is_instance_valid(_vacuum):
 		return
-	var restored := int(receipt.amount) - int(receipt.moved)
-	_write_fill(_vacuum, maxi(0, int(_vacuum.call("fill"))) + restored)
-	_lock(_vacuum, false)
+	var restored := int(pending.after) + int(receipt.amount) - int(receipt.moved)
 	var payload: Dictionary = pending.payload.duplicate()
 	_local.escrows.erase(_realm)
-	_save_local()
+	if not _save_local(restored):
+		_local.escrows[_realm] = pending
+		_lock(_vacuum, true)
+		return
+	_write_fill(_vacuum, restored)
+	_lock(_vacuum, false)
 	if is_instance_valid(world_sync) and mp.active() and world_sync.economy.epoch != "":
 		world_sync.economy.request("vacuum_ack", {"vacuum_escrow": payload, "moved": int(receipt.moved)})
 
@@ -342,11 +375,15 @@ func _abort_unsent() -> void:
 	var pending := _pending()
 	if pending.is_empty() or pending.sent:
 		return
-	if is_instance_valid(_vacuum):
-		_write_fill(_vacuum, int(pending.after) + int(pending.payload.amount))
-		_lock(_vacuum, false)
+	var restored := int(pending.after) + int(pending.payload.amount)
 	_local.escrows.erase(_realm)
-	_save_local()
+	if not _save_local(restored):
+		_local.escrows[_realm] = pending
+		return
+	if is_instance_valid(_vacuum):
+		_write_fill(_vacuum, restored)
+		_lock(_vacuum, false)
+
 
 func _matches_local(payload: Dictionary) -> bool:
 	var pending := _pending()
@@ -364,9 +401,11 @@ func _lock(vacuum: Node, on: bool) -> void:
 			vacuum.call("set_pouring", false)
 
 func _write_fill(vacuum: Node, amount: int) -> void:
+	_writing_fill = true
 	vacuum.set("_fill", amount)
 	if vacuum.has_method("_draw_fill"):
 		vacuum.call("_draw_fill")
+	_writing_fill = false
 
 func try_belt(vacuum: Node) -> bool:
 	if not _usable() or not is_instance_valid(world_sync) or not is_instance_valid(world_sync.player) or not is_instance_valid(vacuum):
@@ -474,11 +513,39 @@ func _save_host() -> void:
 	if _valid and is_instance_valid(mp) and _mode in ["host", "offline"]:
 		GameState.set("mp_vacuum_transfers", serialize_host())
 
-func _save_local() -> void:
-	if not valid_local(_local):
+func _journal_failure() -> bool:
+	_restore_blocked = true
+	if is_instance_valid(world_sync.player):
+		_vacuum = world_sync.player.get("yard_vac")
+		if is_instance_valid(_vacuum):
+			_lock(_vacuum, true)
+	var reason := _tr("Saugersicherung nicht les- oder schreibbar. Daten bleiben erhalten; Sauger gesperrt.", "Vacuum recovery data cannot be read or written. Data preserved; vacuum locked.")
+	push_warning("[MP] " + reason)
+	if is_instance_valid(world_sync):
+		world_sync.toast(reason)
+	return false
+
+func capture_fill(vacuum: Node) -> void:
+	if _writing_fill or _mode != "guest" or not _usable() or vacuum != _vacuum or not _pending().is_empty():
 		return
-	if valid_local(_local) and is_instance_valid(mp):
-		mp.set("vacuum_transfer_local", serialize_local())
+	if int(vacuum.call("fill")) == _observed_fill:
+		return
+	if not _save_local():
+		_lock(vacuum, true)
+		_restore_blocked = true
+		push_warning("[MP] Vacuum recovery journal could not be saved; vacuum paused")
+
+func _save_local(fill_override: int = -1) -> bool:
+	if not valid_local(_local) or not is_instance_valid(mp):
+		return false
+	if _mode == "guest" and _journal != null and _realm != "" and (fill_override >= 0 or is_instance_valid(_vacuum)):
+		var fill := fill_override if fill_override >= 0 else int(_vacuum.call("fill"))
+		if not _journal.write(str(mp.tool_profile), _local, _realm, GameState.run_seed, fill):
+			return _journal_failure()
+		_observed_fill = fill
+	mp.set("vacuum_transfer_local", serialize_local())
+	return true
+
 
 static func valid_payload(value: Variant) -> bool:
 	if not (value is Dictionary) or value.size() != 4:

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.56
+
+Restore a guest’s vacuum contents after its process crashes and rejoins the same host world.
+
+- Persist fill and pending direct belt/hopper reservations in a profile-scoped, checked two-generation local journal. Capture native intake, pouring and clearing through the existing fill-update callback.
+- Persist a sent reservation before submitting it, reconcile it with the host receipt on rejoin, and commit the final fill before acknowledging the receipt. Repeated results and world resynchronization do not credit the same reservation again.
+- Keep unchanged fill updates in memory, retain the existing host/single-player save path, and preserve unreadable journal data while locking the vacuum.
+
+This targets guest-process recovery in the same host world. It does not provide rollback recovery for an earlier host save, unconfirmed floor-cleanup reports, or new Steam/WAN performance guarantees.
+
 ## 0.19.6-xRangerDE.55
 
 Reduce the CPU work of unchanged hayfield synchronization without changing inventory, prices, save data or transport rules.

@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.55"
+const VERSION := "0.19.6-xRangerDE.56"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -205,6 +205,7 @@ func _ready() -> void:
 		"mp_vac_tech.gd",
 		"mp_vac_upgrades.gd",
 		"mp_vacuum_transfer.gd",
+		"mp_vacuum_journal.gd",
 		"mp_vacuum_checkpoint.gd",
 		"mp_wire_mode.gd",
 		"mp_world.gd",

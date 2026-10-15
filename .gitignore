@@ -20,3 +20,5 @@ PROJECT_MEMORY.md
 /override.cfg
 
 /builds/
+
+mp_vacuum_guest.*.dat

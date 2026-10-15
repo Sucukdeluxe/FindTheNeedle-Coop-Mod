@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.55`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.56`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -37,6 +37,10 @@ Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands
 
 The hopper has an industrial steel model and a matching image in the building catalog and hotbar. Its stock and controls appear in a readable HUD card. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
 
+## Guest vacuum recovery
+
+Vacuum fill and pending direct-transfer reservations are stored in `user://mp_vacuum_guest.0.dat` and `user://mp_vacuum_guest.1.dat`. These are private local recovery files; do not distribute them with the mod. Unchanged fill does not cause disk writes. Failed journal reads or writes lock the vacuum and report the problem instead of clearing the recovery data.
+
 ## Prestige and scanner dismantling
 
 Use the delivery board’s Next Load sheet, then **Prestige · New map**. The host (or single-player) can preview the sale and select Standard, Large, Huge or Mountain once the physical haystack is empty and all six needle types have been collected. Buildings and saleable goods are converted to money, while tools, unlocks and purchased upgrades are retained. A new cycle requires its six needle types again. A backup is written before the map changes.
@@ -55,13 +59,13 @@ Robotic-arm operating status, claw loads and income/minute come from the host. W
 
 Unchanged hayfield height buffers now skip the per-vertex GDScript scan after an exact comparison. Changed and restored heights still use the existing delta publication. An isolated native comparison measured 451 microseconds versus 2 microseconds median per unchanged-field call; this is a routine-level CPU measurement, not a total frame-rate result.
 
-The local checks include 1,200 conveyor records, a guest process crash and rejoin, and production through a press, wrapper, scanner and 90-degree bend to sale. Downward-lift tests cover eight item kinds, backpressure and a junction rebuild. Complete recovery of guest vacuum contents after a process crash remains a separate unresolved case.
+The local checks include 1,200 conveyor records, a guest process crash and rejoin, and production through a press, wrapper, scanner and 90-degree bend to sale. Downward-lift tests cover eight item kinds, backpressure and a junction rebuild. Guest vacuum contents now use the recovery journal described below.
 
 ## Verification and limits
 
 Validation combines isolated GDRE/Godot tests with actual Demo V62 headless instances using the native BeltRunCore extension. Separate host and guest save directories protect existing saves. Local multiplayer tests cover scanner inventory, competing and repeated purchases, personal tool transfers, vacuum/hopper quantities, production routes and the complete prestige save/reload. Packet loss and duplication are injected on loopback; Steam multiplayer is not started.
 
-These results do **not** establish GPU frame rates, a two-PC Steam/WAN session, or freedom from every possible bug. Headless runs cannot measure rendered graphics performance. The supplied older game copy identifies as V33 and was not used as the V62 compatibility baseline. Host and single-player saves now include the vacuum fill and matching transfer reservation in the same snapshot as the world. Loading restores that snapshot once, including an uncommitted reservation or a transfer already received by a hopper. A save is deferred while shared floor cleanup is pending, and pause-menu exit waits for a successful save. Full guest-process-crash recovery is still incomplete: guest vacuum contents and unconfirmed local cleanup reports require an authoritative persistent inventory protocol. Unsaved progress after a host crash still rolls back to the last successful save.
+These results do **not** establish GPU frame rates, a two-PC Steam/WAN session, or freedom from every possible bug. Headless runs cannot measure rendered graphics performance. The supplied older game copy identifies as V33 and was not used as the V62 compatibility baseline. Host and single-player saves now include the vacuum fill and matching transfer reservation in the same snapshot as the world. Loading restores that snapshot once, including an uncommitted reservation or a transfer already received by a hopper. A save is deferred while shared floor cleanup is pending, and pause-menu exit waits for a successful save. A guest process restart now restores its last committed vacuum fill from a local journal scoped to the player profile and world. Open direct belt/hopper transfers are reconciled against host receipts before the vacuum is unlocked. The journal uses two checked generations and ignores incomplete writes. Keep the same local profile and host world when reconnecting. Recovery of unconfirmed local cleanup reports and rollback of a host to an earlier world snapshot remain outside this fix. Unsaved progress after a host crash still rolls back to the last successful save.
 
 Only the host saves the shared world. Tools remain personal. Machines simulate on the host, with guest visual replication. Keep both installations on the same release and back up a save before changing mod versions. Do not downgrade a save containing new hoppers without a compatible backup.
 

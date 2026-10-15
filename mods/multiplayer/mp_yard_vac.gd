@@ -166,3 +166,10 @@ func _let_needle_out(body: RigidBody3D, at: Vector3, velocity: Vector3) -> void:
 	super._let_needle_out(body, at, velocity)
 	if is_instance_valid(mp_tools) and is_instance_valid(mp_tools.mp.world_sync.needles_sync):
 		mp_tools.mp.world_sync.needles_sync.released(body)
+
+func _draw_fill() -> void:
+	super._draw_fill()
+	if is_instance_valid(mp_tools) and is_instance_valid(mp_tools.mp.world_sync):
+		var transfer: Node = mp_tools.mp.world_sync.get("vacuum_transfer")
+		if is_instance_valid(transfer):
+			transfer.capture_fill(self)
