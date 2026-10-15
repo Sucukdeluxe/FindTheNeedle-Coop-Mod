@@ -1,7 +1,22 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.61
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.62
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
+
+NEUE BEDIENUNG .62
+- R halten und Maus links/rechts: frei drehen. R antippen: feste Drehschritte.
+- F6: Laufrichtung des gerade gezeichneten Förderbands umkehren.
+- Strg+G: Parallel-Modus für benachbarte, gerade Förderbänder umschalten.
+- Vogelperspektive: Maschine mit Maus anvisieren und E für Einstellungen drücken.
+- Trichter: Rechtsklick mit getragenem Heu, Schaufel, Heugabel oder Hofsauger.
+  Nur der aufnehmbare Anteil wird übertragen. M für den Sauger bleibt erhalten.
+- Roboterarme können direkt auf Sammler und Verteiler ablegen; die Ziele lassen
+  sich auch manuell verbinden, speichern und wieder laden.
+- E an einer Verkaufsstelle: leere Verkaufsstelle versetzen. Vier neue
+  Freischaltstufen erlauben zusammen fünf Verkaufsstellen. Zusätzliche Waagen
+  stehen im Baukatalog und kosten je 500.
+- Wände rasten an äußeren Plattformkanten ein. Vier Farbvarianten für Wände,
+  Türen und Fenster stehen im Baukatalog; Dächer passen sich an Wandkanten an.
 
 INSTALLATION AUF WEITEREN RECHNERN
 1. Spiel vollständig beenden.

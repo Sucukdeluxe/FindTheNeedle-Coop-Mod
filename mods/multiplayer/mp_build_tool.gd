@@ -2,13 +2,16 @@ extends "res://scripts/build/build_tool.gd"
 
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+const BuildAlignment = preload("res://mods/multiplayer/mp_build_alignment.gd")
+const WallPalette = preload("res://mods/multiplayer/mp_wall_palette.gd")
+const ParallelBelts = preload("res://mods/multiplayer/mp_parallel_belts.gd")
 
 
 const INPUT_FIELDS := ["_state", "_anchor", "_anchor_dir", "_anchor_side", "_anchor_span",
 	"_upstream", "_stair_outward", "_ghost_turn", "_roof_turn", "_t_turn", "_grid_on",
 	"_snap_off", "_work_height", "_work_base", "_reach", "pipe_shape", "_fit_roll",
 	"_tee_stop", "_tee_stop_at", "_finished_at", "_route", "_route_pinned",
-	"_turned_since_place", "_copied_since_place"]
+	"_turned_since_place", "_copied_since_place", "_mp_yaw_locked", "_mp_yaw", "_mp_flow_manual", "_mp_parallel"]
 const COUNTER_FIELDS := ["dismantled", "reversed", "upgraded", "downgraded", "placed",
 	"placed_on_grid", "placed_turned", "placed_copied"]
 var mp_economy: Node
@@ -19,22 +22,39 @@ var price_limit := INF
 var last_place_request := 0
 var cancelled_place_request := 0
 var cancel_requested := false
+var _mp_yaw_locked := false
+var _mp_yaw := 0.0
+var _mp_rotate_held := false
+var _mp_rotate_dragged := false
+var _mp_rotate_pending := 0.0
+var _mp_flow_manual := false
+var _mp_parallel := false
+const FLOW_TOGGLE_KEY := KEY_F6
+const ROTATE_RADIANS_PER_PIXEL := 0.008
+const ROTATE_DRAG_THRESHOLD := 3.0
 
 func _exit_tree() -> void:
 	_drop_taps()
 
 func set_mode(mode: Mode) -> void:
+	_mp_flow_manual = false
+	_end_rotation(false)
+	_mp_yaw_locked = false
+	_mp_yaw = 0.0
 	_cancel_remote()
 	input_revision += 1
 	super.set_mode(mode)
 
 func set_active(on: bool) -> void:
 	if not on:
+		_end_rotation(false)
 		_cancel_remote()
 		input_revision += 1
 	super.set_active(on)
 
 func cancel() -> void:
+	_mp_flow_manual = false
+	_end_rotation(false)
 	_cancel_remote()
 	input_revision += 1
 	super.cancel()
@@ -203,3 +223,237 @@ func _update_ghost(delta: float) -> void:
 func dismantle_reach() -> float:
 	var ray := _camera_ray()
 	return float(ray.length) if not ray.is_empty() else super.dismantle_reach()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed and not event.alt_pressed and event.physical_keycode == KEY_G and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
+		_mp_parallel = not _mp_parallel
+		_pick += 1
+		input_revision += 1
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not event.meta_pressed and (event.physical_keycode == FLOW_TOGGLE_KEY or event.keycode == FLOW_TOGGLE_KEY):
+		if toggle_flow():
+			get_viewport().set_input_as_handled()
+		return
+	if _mp_rotate_held and event.is_action_released("build_rotate"):
+		_end_rotation(_rotation_available())
+		get_viewport().set_input_as_handled()
+		return
+	if not _rotation_available():
+		_end_rotation(false)
+		return
+	if event.is_action_pressed("build_rotate") and not event.is_echo():
+		_mp_rotate_held = true
+		_mp_rotate_dragged = false
+		_mp_rotate_pending = 0.0
+		var controller: Variant = player.get("mp_build_camera") if "mp_build_camera" in player else null
+		if is_instance_valid(controller) and controller.active:
+			controller.begin_rotation()
+		get_viewport().set_input_as_handled()
+	elif _mp_rotate_held and event is InputEventMouseMotion:
+		var movement: float = event.relative.x
+		if is_finite(movement):
+			_mp_rotate_pending += clampf(movement, -1000.0, 1000.0)
+			if _mp_rotate_dragged or absf(_mp_rotate_pending) >= ROTATE_DRAG_THRESHOLD:
+				if not _mp_rotate_dragged:
+					_begin_free_rotation()
+					_mp_rotate_dragged = true
+				_rotate_free(_mp_rotate_pending * ROTATE_RADIANS_PER_PIXEL)
+				_mp_rotate_pending = 0.0
+		get_viewport().set_input_as_handled()
+
+func _rotation_available() -> bool:
+	return _active and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up() and (can_turn() or _mode == Mode.ROBOTIC_ARM) and _mode != Mode.BELT_GATE and not (_mode in [Mode.WATER_SPLITTER, Mode.WATER_TEE] and fitting_snapped()) and not (_is_roof(_mode) and _state == State.RUNNING)
+
+func _begin_free_rotation() -> void:
+	var direction := _aim_forward()
+	if _is_roof(_mode) and is_instance_valid(_roof_ghost):
+		direction = _roof_ghost.b - _roof_ghost.a
+	elif _mode == Mode.ROBOTIC_ARM and is_instance_valid(_arm_ghost):
+		direction = _arm_ghost.global_basis.z
+	_mp_yaw = wrapf(atan2(direction.x, direction.z), -PI, PI)
+	_mp_yaw_locked = true
+	_ghost_turn = 0
+	_roof_turn = 0
+
+func _rotate_free(amount: float) -> void:
+	if not is_finite(amount):
+		return
+	_mp_yaw = wrapf(_mp_yaw + clampf(amount, -TAU, TAU), -PI, PI)
+	_turned_since_place = true
+	input_revision += 1
+	_pick += 1
+
+func _step_rotation() -> void:
+	var event := InputEventAction.new()
+	event.action = "build_rotate"
+	event.pressed = true
+	super._unhandled_input(event)
+	input_revision += 1
+	_pick += 1
+
+func _end_rotation(apply_tap: bool) -> void:
+	if is_instance_valid(player) and "mp_build_camera" in player:
+		var controller: Variant = player.get("mp_build_camera")
+		if is_instance_valid(controller):
+			controller.end_rotation()
+	if _mp_rotate_held and not _mp_rotate_dragged and apply_tap:
+		_step_rotation()
+	_mp_rotate_held = false
+	_mp_rotate_dragged = false
+	_mp_rotate_pending = 0.0
+
+func _aim_forward(fallback: Vector3 = Vector3.BACK) -> Vector3:
+	if not _mp_yaw_locked:
+		return super._aim_forward(fallback)
+	var angle := _mp_yaw + PI * 0.5 * float(posmod(_ghost_turn, 4))
+	return Vector3(sin(angle), 0.0, cos(angle))
+
+func _turn_in_cell(a: Vector3, b: Vector3, side: int) -> Dictionary:
+	if not _mp_yaw_locked:
+		return super._turn_in_cell(a, b, side)
+	var direction := b - a
+	direction.y = 0.0
+	if direction.length_squared() < 0.000001:
+		return {"a": a, "b": b, "side": side}
+	var right := Vector3(direction.z, 0.0, -direction.x).normalized()
+	var centre := (a + b) * 0.5 + right * (float(side) * Cfg.ROOF_DEPTH * 0.5)
+	var angle := _mp_yaw + PI * 0.5 * float(posmod(_roof_turn, 4)) - atan2(direction.x, direction.z)
+	return {"a": centre + (a - centre).rotated(Vector3.UP, angle), "b": centre + (b - centre).rotated(Vector3.UP, angle), "side": side}
+
+static func rotation_inputs_allowed(inputs: Dictionary) -> bool:
+	if inputs.has("_mp_parallel") and not (inputs._mp_parallel is bool):
+		return false
+	if inputs.has("_mp_flow_manual") and not (inputs._mp_flow_manual is bool):
+		return false
+	if inputs.has("_mp_yaw_locked") and not (inputs._mp_yaw_locked is bool):
+		return false
+	if inputs.has("_mp_yaw") and (not (inputs._mp_yaw is float) or not is_finite(inputs._mp_yaw) or absf(inputs._mp_yaw) > PI):
+		return false
+	return not inputs.get("_mp_yaw_locked", false) or inputs.has("_mp_yaw")
+
+func can_toggle_flow() -> bool:
+	return _active and _is_conveyor_mode() and _state == State.RUNNING and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up() and BuildCamera.key_available(FLOW_TOGGLE_KEY)
+
+func toggle_flow() -> bool:
+	if not can_toggle_flow():
+		return false
+	var reversed := _upstream or _out_of_t(_aim_point())
+	_mp_flow_manual = true
+	_upstream = not reversed
+	_drop_route()
+	input_revision += 1
+	_pick += 1
+	return true
+
+func flow_hint() -> String:
+	if not _active or not _is_conveyor_mode() or not BuildCamera.key_available(FLOW_TOGGLE_KEY):
+		return ""
+	var reversed := _upstream or (_state == State.RUNNING and _out_of_t(_aim_point()))
+	var direction := "B → A" if reversed else "A → B"
+	return "F6 · Bandrichtung umkehren (%s)" % direction if TranslationServer.get_locale().begins_with("de") else "F6 · Reverse belt direction (%s)" % direction
+
+func _out_of_t(point: Vector3) -> bool:
+	return false if _mp_flow_manual else super._out_of_t(point)
+
+func _chain_on(end: Vector3, joined: bool) -> void:
+	super._chain_on(end, joined)
+	if _state == State.AIMING:
+		_mp_flow_manual = false
+
+func _wrong_side_reason(from: Vector3, to: Vector3) -> String:
+	if is_instance_valid(builds) and (builds.intake_at(from) or is_instance_valid(builds.outfeed_owner_at(to))):
+		return tr("wrong side  ·  hay goes the other way here")
+	return super._wrong_side_reason(from, to)
+
+func _update_run(from: Vector3, to: Vector3, delta: float) -> void:
+	super._update_run(from, to, delta)
+	if _state != State.RUNNING or not _is_conveyor_mode() or _mp_flow_manual or bool(_eval.get("ok", false)) or not is_instance_valid(builds):
+		return
+	var wrong := builds.intake_at(from) or is_instance_valid(builds.outfeed_owner_at(to)) or builds.t_role_at(from) == ConveyorTSplitter.ROLE_IN or builds.t_role_at(to) == ConveyorTSplitter.ROLE_OUT
+	if not wrong:
+		return
+	var opposite := _evaluate(to, from, true)
+	if opposite.get("ok", false):
+		_upstream = from.is_equal_approx(_anchor)
+		_drop_route()
+		super._update_run(to, from, delta)
+	else:
+		super._update_run(from, to, 0.0)
+
+func _aim_point() -> Vector3:
+	var native := super._aim_point()
+	if not _mp_parallel or not _is_conveyor_mode():
+		return native
+	var raw := _heighted(_raw_surface_point(Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR))
+	var aligned := ParallelBelts.snap(builds, raw, _anchor if _state == State.RUNNING else Vector3.INF)
+	if not aligned.is_equal_approx(raw):
+		_joined = false
+		return aligned
+	return native
+
+func _guided(anchor: Vector3, point: Vector3) -> Vector3:
+	if _mp_parallel and _is_conveyor_mode():
+		var aligned := ParallelBelts.snap(builds, point, anchor)
+		if not aligned.is_equal_approx(point):
+			_guide_turn = NAN
+			return aligned
+	return super._guided(anchor, point)
+
+func control_hint() -> String:
+	var hints := PackedStringArray()
+	var german := TranslationServer.get_locale().begins_with("de")
+	if _is_conveyor_mode():
+		hints.append(flow_hint())
+		hints.append(("Strg+G · Parallel-Modus: " if german else "Ctrl+G · Parallel mode: ") + (("Ein" if german else "On") if _mp_parallel else ("Aus" if german else "Off")))
+	if can_turn() or _mode == Mode.ROBOTIC_ARM or (has_method("_is_hopper") and call("_is_hopper")):
+		hints.append("R halten + Maus · Frei drehen" if german else "Hold R + mouse · Rotate freely")
+	return "  ·  ".join(hints)
+
+func status() -> Dictionary:
+	var state := super.status()
+	var note := control_hint()
+	if not note.is_empty():
+		state["aim_note"] = (str(state.get("aim_note", "")) + "\n" + note).strip_edges()
+	return state
+
+func _update_arm_ghost() -> void:
+	super._update_arm_ghost()
+	if _mp_yaw_locked and is_instance_valid(_arm_ghost):
+		var forward := _aim_forward()
+		_arm_ghost.global_rotation = Vector3(0.0, atan2(forward.x, forward.z), 0.0)
+		_update_arm_feeds(_arm_ghost.global_position)
+		_tint_arm_feeds(bool(_eval.get("ok", false)))
+
+func _wall_point() -> Vector3:
+	var native := super._wall_point()
+	if snap_stopped():
+		return native
+	return BuildAlignment.wall_point(builds, _raw_surface_point(0.0), _square_wall(_surface_point(0.0)), native, _anchor if _state == State.RUNNING else Vector3.INF, _gridding())
+
+func _roof_point() -> Vector3:
+	var native := super._roof_point()
+	if _state == State.RUNNING or snap_stopped():
+		return native
+	return BuildAlignment.roof_point(builds, player.eye_position(), player.look_direction(), _reach, native)
+
+func _roof_heading(at: Vector3) -> Vector3:
+	if not snap_stopped() and not _mp_yaw_locked:
+		var aligned := BuildAlignment.roof_heading(builds, at, player.look_direction())
+		if aligned.is_finite():
+			return aligned
+	return super._roof_heading(at)
+
+func _roof_side(from: Vector3, to: Vector3) -> int:
+	var native := super._roof_side(from, to)
+	return native if snap_stopped() else BuildAlignment.roof_side(builds, from, to, native)
+
+func _wall_primary() -> void:
+	var had_color := builds.has_meta("mp_wall_color")
+	var previous: Variant = builds.get_meta("mp_wall_color") if had_color else 0
+	builds.set_meta("mp_wall_color", WallPalette.index(player.build_id))
+	super._wall_primary()
+	if had_color:
+		builds.set_meta("mp_wall_color", previous)
+	else:
+		builds.remove_meta("mp_wall_color")

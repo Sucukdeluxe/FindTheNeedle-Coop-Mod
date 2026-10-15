@@ -186,6 +186,9 @@ func _scan() -> void:
 			# straw in a hand, a bucket or on a tool travels with whatever
 			# holds it, so it is not ours to scatter on the floor
 			if bool(b.get_meta("protected", false)):
+				var held_sid := int(b.get_meta("mp_sid", 0))
+				if held_sid != 0 and _mine.get(held_sid) == b:
+					seen[held_sid] = true
 				continue
 			var body := b as Node3D
 			if not body.is_inside_tree() or not _near(body.global_position, watchers):
@@ -209,6 +212,8 @@ func _scan() -> void:
 		if seen.has(sid):
 			continue
 		var b: Variant = _mine[sid]
+		if is_instance_valid(b) and b.is_inside_tree() and bool(b.get_meta("protected", false)):
+			continue
 		_mine.erase(sid)
 		_sent.erase(sid)
 		if b != null and is_instance_valid(b):
@@ -219,6 +224,25 @@ func _scan() -> void:
 	if drop.size() > 0:
 		mp._rx_straw_del.rpc(drop, mp._outgoing_world_seed())
 
+
+func register_loaded(body: RigidBody3D) -> int:
+	if not is_instance_valid(body) or not body.is_inside_tree() or body.get_parent() != live or not live._active.has(body) or body.has_meta("needle_index") or body.has_meta("mp_ghost"):
+		return 0
+	var sid := int(body.get_meta("mp_sid", 0))
+	if sid > 0 and _mine.get(sid) == body and int(sid / 1000000) == _me():
+		return sid
+	if _mine.get(sid) == body:
+		_mine.erase(sid)
+		_sent.erase(sid)
+	if _mine.size() >= MINE_CAP:
+		return 0
+	sid = _new_sid()
+	body.set_meta("mp_sid", sid)
+	_mine[sid] = body
+	_watch(body)
+	_sent[sid] = body.global_transform
+	mp._rx_straw_add.rpc([[sid, body.global_transform, body.get_meta("tint", Color(1, 1, 1))]], mp._outgoing_world_seed())
+	return sid
 
 func _send_moves() -> void:
 	if _mine.is_empty():
@@ -266,13 +290,14 @@ func _census() -> void:
 func on_add(sender: int, adds: Array) -> void:
 	if sender <= 0 or live == null or not is_instance_valid(live) or adds.size() > ADD_BUDGET:
 		return
+	var owned_count: int = _owner.values().count(sender)
 	for row in adds:
 		if not (row is Array) or (row as Array).size() != 3:
 			continue
 		if not (row[0] is int) or not (row[1] is Transform3D) or not (row[2] is Color):
 			continue
 		var sid: int = row[0]
-		if sid <= 0 or _ghost.has(sid) or _mine.has(sid):
+		if sid <= 0 or owned_count >= MINE_CAP or _ghost.has(sid) or _mine.has(sid):
 			continue
 		var xf: Transform3D = row[1]
 		var tint: Color = row[2]
@@ -289,6 +314,7 @@ func on_add(sender: int, adds: Array) -> void:
 		_place(b, xf)
 		_ghost[sid] = b
 		_owner[sid] = sender
+		owned_count += 1
 		_watch(b)
 
 
@@ -519,6 +545,10 @@ func on_claim(sender: int, sid: int) -> void:
 		return
 	var mine: Variant = _mine.get(sid)
 	if mine != null:
+		var hopper_service: Variant = mp.world_sync.get("hoppers_sync") if is_instance_valid(mp.world_sync) else null
+		var input_service: Variant = hopper_service.get("tool_input") if is_instance_valid(hopper_service) else null
+		if is_instance_valid(input_service):
+			input_service.retire_claimed(mine)
 		_mine.erase(sid)
 		_sent.erase(sid)
 		if is_instance_valid(mine) and live != null:

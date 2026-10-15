@@ -10,6 +10,8 @@ const CONNECTION_TOLERANCE := 0.045
 var mp: Node
 var world_sync: Node
 var receivers: Node
+var sale_stations: Node
+var tool_input: Node
 var take_vacuum: Callable
 var _state := Store.empty()
 var _models := {}
@@ -33,6 +35,8 @@ var _mode := ""
 var _panel: CanvasLayer
 var _intake_clock := 0.0
 var _tracked := {}
+var _build_yaw := 0.0
+var _build_yaw_set := false
 
 func start(session: Node, sync: Node) -> void:
 	mp = session
@@ -48,6 +52,12 @@ func start(session: Node, sync: Node) -> void:
 	set_process(true)
 	set_process_input(true)
 	session_started()
+	sale_stations = preload("res://mods/multiplayer/mp_sale_stations.gd").new()
+	add_child(sale_stations)
+	sale_stations.start(self)
+	tool_input = preload("res://mods/multiplayer/mp_hopper_tool_input.gd").new()
+	add_child(tool_input)
+	tool_input.start(self)
 
 func _role() -> String:
 	if not is_instance_valid(mp):
@@ -57,6 +67,8 @@ func _role() -> String:
 	return "host" if mp.is_host else "guest"
 
 func session_started() -> void:
+	if is_instance_valid(sale_stations):
+		sale_stations.session_started()
 	ensure_catalog()
 	var mode := _role()
 	if mode == "":
@@ -84,6 +96,10 @@ func session_started() -> void:
 	_rebuild_models()
 
 func session_ended() -> void:
+	if is_instance_valid(tool_input):
+		tool_input.session_ended()
+	if is_instance_valid(sale_stations):
+		sale_stations.session_ended()
 	if _mode in ["host", "offline"]:
 		_persist()
 	_mode = ""
@@ -99,6 +115,10 @@ func _usable() -> bool:
 	return _storage_valid and _mode != "" and _role() == _mode
 
 func shutdown() -> void:
+	if is_instance_valid(tool_input):
+		tool_input.shutdown()
+	if is_instance_valid(sale_stations):
+		sale_stations.shutdown()
 	session_ended()
 	if is_instance_valid(world_sync) and is_instance_valid(world_sync.builds) and world_sync.builds.changed.is_connected(invalidate_connections):
 		world_sync.builds.changed.disconnect(invalidate_connections)
@@ -119,6 +139,8 @@ func shutdown() -> void:
 		receivers.queue_free()
 
 static func ensure_catalog() -> void:
+	preload("res://mods/multiplayer/mp_wall_palette.gd").ensure_catalog()
+	preload("res://mods/multiplayer/mp_sale_stations.gd").ensure_catalog()
 	preload("res://mods/multiplayer/mp_receivers.gd").ensure_catalog()
 	var entries: Dictionary = BuildCatalog.entries()
 	var locale := TranslationServer.get_locale()
@@ -128,8 +150,8 @@ static func ensure_catalog() -> void:
 	entries[BUILD_ID] = {"name": _tr("Einfülltrichter", "Loading Hopper"), "short": _tr("TRICHTER", "HOPPER"),
 		"unlock": "belt", "category": "haulage", "mode": BuildTool.Mode.CONVEYOR,
 		"cost": _tr("$2.500", "$2,500"), "place": _tr("Trichter frei oder am Bandanfang platzieren", "Place hopper freely or at a belt input"),
-		"blurb": _tr("10.000 bis 100.000 Halme. M leert den Hofsauger; Einwerfen von oben und Befüllen per Arm möglich. E öffnet die Einstellungen.",
-			"10,000 to 100,000 strands. Press M to empty the vacuum; accepts hay thrown from above or delivered by an arm. E opens settings."),
+		"blurb": _tr("10.000 bis 100.000 Halme. Rechtsklick füllt Heu aus Hand, Schaufeln, Heugabel und Hofsauger ein. Einwerfen von oben und Befüllen per Arm möglich. E öffnet die Einstellungen.",
+			"10,000 to 100,000 strands. Right-click to fill from the hand, shovels, pitchfork or yard vacuum. Accepts hay thrown from above or delivered by an arm. E opens settings."),
 		"note": _tr("rastet am freien Bandanfang ein", "snaps to a free belt input")}
 
 func serialize() -> Dictionary:
@@ -234,7 +256,7 @@ func _connected_path(row: Dictionary) -> Node:
 		return path
 	return null
 
-func candidate(camera: Transform3D, reach: float) -> Dictionary:
+func candidate(camera: Transform3D, reach: float, free_yaw: float = NAN) -> Dictionary:
 	var best := {}
 	var best_score := INF
 	var direction := -camera.basis.z.normalized()
@@ -265,11 +287,25 @@ func candidate(camera: Transform3D, reach: float) -> Dictionary:
 		if hit.is_empty() or hit.normal.y < 0.75:
 			return {"ok": false, "reason": _tr("Auf eine Baufläche oder einen freien Bandanfang zielen", "Aim at a building surface or free belt input")}
 		var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)
-		best = {"position": at, "yaw": snappedf(atan2(direction.x, direction.z), PI * 0.5), "path": null}
+		best = {"position": at, "yaw": free_yaw if is_finite(free_yaw) else snappedf(atan2(direction.x, direction.z), PI * 0.5), "path": null}
 	var why := _placement_reason(best.path, best.position, best.yaw)
 	best["ok"] = why == ""
 	best["reason"] = why
 	return best
+
+func build_yaw() -> float:
+	if _build_yaw_set or not is_instance_valid(world_sync.player):
+		return _build_yaw
+	var direction: Vector3 = -world_sync.player.camera.global_basis.z
+	return snappedf(atan2(direction.x, direction.z), PI * 0.5)
+
+func set_build_yaw(value: float) -> void:
+	if is_finite(value):
+		_build_yaw = wrapf(value, -PI, PI)
+		_build_yaw_set = true
+
+func step_build_rotation() -> void:
+	set_build_yaw(build_yaw() + PI * 0.5)
 
 func _placement_reason(path: Node, at: Vector3, yaw: float) -> String:
 	if _state.rows.size() >= Store.LIMIT:
@@ -341,7 +377,7 @@ func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	var ray := _local_build_ray(camera, reach)
 	if ray.is_empty():
 		return {"ok": false, "reason": _tr("Außerhalb des Baubereichs", "Outside the build area")}
-	var row := candidate(ray.transform, float(ray.length))
+	var row := candidate(ray.transform, float(ray.length), build_yaw())
 	if row.has("position") and ray.has("view") and not _placement_in_area(row, world_sync.player.global_position):
 		row["ok"] = false
 		row["reason"] = _tr("Außerhalb des Baubereichs", "Outside the build area")
@@ -428,6 +464,8 @@ func _completed(seq: int, result: Dictionary) -> void:
 func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	if not _usable() or _mode not in ["host", "offline"] or (_mode == "offline" and peer != 1) or not world_sync.economy.executing or world_sync._frozen:
 		return _failure(_tr("Aktion nicht verfügbar", "Action unavailable"))
+	if action in ["hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve"] and is_instance_valid(tool_input):
+		return tool_input.execute(peer, action, args)
 	if action == "hopper_place":
 		return _place(peer, args)
 	if action == "hopper_deposit":
@@ -438,7 +476,7 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	if not (id is int):
 		return _failure(_tr("Trichter nicht gefunden", "Hopper not found"))
 	var row := _row(id)
-	if row.is_empty() or not _near(peer, args, row.position, 7.0, action == "hopper_remove"):
+	if row.is_empty() or not _near(peer, args, row.position, 7.0, action in ["hopper_remove", "hopper_configure"]):
 		return _failure(_tr("Trichter außer Reichweite", "Hopper out of reach"))
 	if action == "hopper_configure":
 		return _configure(row, args)
@@ -487,7 +525,7 @@ func _place(peer: int, args: Dictionary) -> Dictionary:
 	if not _near(peer, args, at, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 2.0, true):
 		return _failure(_tr("Position außer Reichweite", "Placement out of reach"))
 	var ray := _host_build_ray(peer, args) if args.has("build_view") else {"transform": args.camera, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
-	var row := candidate(ray.transform, float(ray.length))
+	var row := candidate(ray.transform, float(ray.length), float(yaw))
 	if args.has("build_view") and row.has("position") and not _placement_in_area(row, ray.anchor):
 		return _failure(_tr("Außerhalb des Baubereichs", "Outside the build area"))
 	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or absf(angle_difference(row.yaw, float(yaw))) > 0.01:
@@ -561,7 +599,7 @@ func _update_focus() -> void:
 		status = _tr("Gibt Heu auf das Band aus", "Feeding hay onto belt")
 	elif state == "paused":
 		status = _tr("Angehalten", "Paused")
-	model.show_status(_tr("EINFÜLLTRICHTER", "LOADING HOPPER") + "\n" + _number(row.stored) + " / " + _number(Store.capacity(row)) + "\n" + status + "\n" + _tr("M · Einfüllen    E · Einstellen    X · Abbauen", "M · Fill    E · Settings    X · Dismantle"), true)
+	model.show_status(_tr("EINFÜLLTRICHTER", "LOADING HOPPER") + "\n" + _number(row.stored) + " / " + _number(Store.capacity(row)) + "\n" + status + "\n" + _tr("Rechtsklick · Einfüllen    E · Einstellen    X · Abbauen", "Right-click · Fill    E · Settings    X · Dismantle"), true)
 
 func _changed() -> void:
 	_dirty = true
@@ -598,6 +636,8 @@ func send_all(peer: int = 0) -> void:
 		return
 	_seq += 1
 	var data := {"store": serialize(), "statuses": _statuses.duplicate()}
+	if is_instance_valid(sale_stations):
+		data["sales"] = sale_stations.serialize()
 	if peer > 0:
 		mp._rx_hoppers.rpc_id(peer, _epoch, _seq, data, mp._outgoing_world_seed())
 	else:
@@ -623,6 +663,8 @@ func on_state(epoch: String, seq: int, data: Dictionary) -> void:
 	_state = Store.migrate(data.store)
 	_statuses = data.statuses.duplicate()
 	_rebuild_models()
+	if is_instance_valid(sale_stations) and data.has("sales"):
+		sale_stations.on_state(data.sales)
 
 static func _failure(message: String) -> Dictionary:
 	return {"ok": false, "message": message}
@@ -646,7 +688,7 @@ func _input(event: InputEvent) -> void:
 		_panel.close()
 		get_viewport().set_input_as_handled()
 		return
-	var id := target_id()
+	var id := target_id(true)
 	if id <= 0:
 		return
 	if not is_instance_valid(_panel):
@@ -660,9 +702,13 @@ func request_configuration(id: int, paused: bool, portion: int, upgrade: bool = 
 	var row := _row(id)
 	if row.is_empty():
 		return 0
-	return _request("hopper_configure", {"id": id, "paused": paused, "portion": portion,
+	var args := {"id": id, "paused": paused, "portion": portion,
 		"upgrade": upgrade, "revision": row.revision, "level": row.level,
-		"body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform})
+		"body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform}
+	var ray := _local_build_ray(args.camera, 6.0)
+	if ray.has("view"):
+		args["build_view"] = ray.view
+	return _request("hopper_configure", args)
 
 func _configure(row: Dictionary, args: Dictionary) -> Dictionary:
 	if not (args.get("paused") is bool) or not (args.get("portion") is int) or not (args.get("upgrade") is bool):

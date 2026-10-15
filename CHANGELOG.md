@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.6-xRangerDE.62
+
+Connect robotic arms directly to routing devices and improve construction, hopper intake and sale-station placement.
+
+- Add direct arm delivery and pickup on native and four/six/eight-port mergers and splitters, including saved links and queued guest edits after rebuilding a machine.
+- Restore native merger arbitration instead of jumping cargo into the center. Preserve backpressure, mixed cargo and needle identities; maximum-rank saturated flow reaches approximately 7.5 portions/second in the isolated test.
+- Add right-click hopper intake for raw hay held by hand, blades or vacuum, preserving partial loads and embedded needles. Move the hopper control cabinet and feeder clear of the support frame.
+- Add four sale-station unlocks, compact native scales and safe relocation of empty sale stations. Keep sale prices and money shared.
+- Add held-R free rotation, F6 belt direction, Ctrl+G parallel belts and E machine settings in overhead view. Retain ordinary stepped rotation and valid port/collision checks.
+- Improve platform-edge wall placement and roof alignment; add four saved native-material wall colors.
+
+Validation uses isolated native V62 tests and local host/guest instances. No visible game launch, new Steam/WAN test or rendered frame-rate measurement is claimed. Existing save data and purchased ranks are retained.
+
 ## 0.19.6-xRangerDE.61
 
 Complete the approved merger, splitter and loading-hopper update with native hay visuals driven by actual hopper contents.

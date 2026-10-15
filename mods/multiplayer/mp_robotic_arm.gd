@@ -1,6 +1,7 @@
 extends RoboticArm
 
 const ArmState = preload("res://mods/multiplayer/mp_arm_state.gd")
+const ArmRoutes = preload("res://mods/multiplayer/mp_arm_routes.gd")
 
 var _mp_status := {}
 
@@ -128,7 +129,7 @@ func hay_per_minute() -> int:
 	return int(_mp_status.get("rate", 0)) if _mp_remote() else super.hay_per_minute()
 
 func belts_in_reach() -> int:
-	return int(_mp_status.get("belts", 0)) if _mp_remote() else super.belts_in_reach()
+	return int(_mp_status.get("belts", 0)) if _mp_remote() else super.belts_in_reach() + ArmRoutes.drops(builds, _shoulder_world(), work_reach()).size()
 
 func _mp_pending_text() -> String:
 	return "Roboterstatus wird synchronisiert." if TranslationServer.get_locale().begins_with("de") else "Synchronizing robot arm status."
@@ -144,10 +145,10 @@ func _choose_drop(count: int, prop: Carryable = null, only: BeltPath = null, req
 	var service := _mp_hoppers()
 	if not is_instance_valid(service) or count <= 0 or (prop != null and not prop is HayWad):
 		_mp_hopper_id = 0
-		return super._choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
+		return _mp_choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
 	var row: Dictionary = service.arm_hopper(self, true)
 	if row.is_empty():
-		var belt := super._choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
+		var belt := _mp_choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
 		if not belt.is_empty():
 			_mp_hopper_id = 0
 			return belt
@@ -157,11 +158,98 @@ func _choose_drop(count: int, prop: Carryable = null, only: BeltPath = null, req
 	_mp_hopper_id = row.id
 	return {"point": service.arm_point(row, self), "forward": Vector3.ZERO, "conveyor": null}
 
+func _mp_choose_drop(count: int, prop: Carryable, only: BeltPath, require_room: bool, skip: BeltPath, ahead: float, empty_only: bool) -> Dictionary:
+	var native := super._choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
+	if not native.is_empty():
+		return native
+	for candidate in ArmRoutes.drops(builds, _shoulder_world(), work_reach(), only):
+		var path: BeltPath = candidate.conveyor
+		if path == skip or not _may_put_on(path) or (empty_only and not _carries_nothing(path)):
+			continue
+		var release := _release_on_run(path, _put_aim(path, candidate.point), count, prop, require_room, ahead)
+		if release.is_empty():
+			continue
+		candidate.point = release.point
+		_drop_fault = FAULT_NONE
+		return candidate
+	return {}
+
+func _release_on_run(path: BeltPath, point: Vector3, count: int, prop: Carryable, require_room: bool, ahead: float = 0.0) -> Dictionary:
+	var release := super._release_on_run(path, point, count, prop, require_room, ahead)
+	if not release.is_empty() and not ArmRoutes.valid_drop(path, release.point):
+		return {}
+	return release
+
+func set_link(path: BeltPath, at: Vector3, role: int) -> int:
+	if ArmRoutes.owner_of(path) == null:
+		return super.set_link(path, at, role)
+	if role not in [LINK_TAKE, LINK_PUT]:
+		return link_role(path)
+	if role == LINK_PUT:
+		path = ArmRoutes.drop_path(path, at)
+	if not ArmRoutes.usable(path):
+		return LINK_NONE
+	at = ArmRoutes.point(path, at, role == LINK_PUT)
+	for index in _links.size():
+		var link: Dictionary = _links[index]
+		if _link_run(link) != path:
+			continue
+		if int(link.role) == role:
+			_links.remove_at(index)
+			_links_changed()
+			return LINK_NONE
+		if not link_in_reach(at):
+			return int(link.role)
+		link.role = role
+		link.at = at
+		link.erase("stuck")
+		_links_changed()
+		return role
+	if not link_in_reach(at):
+		return LINK_NONE
+	_links.append({"role": role, "at": at, "run": path})
+	_links_changed()
+	return role
+
+func _link_run(link: Dictionary) -> BeltPath:
+	var path := super._link_run(link)
+	if int(link.get("role", LINK_NONE)) == LINK_PUT and ArmRoutes.owner_of(path) != null:
+		path = ArmRoutes.drop_path(path, link.at)
+		link.run = path
+	return path
+
+func _belt_at(at: Vector3) -> BeltPath:
+	var found := super._belt_at(at)
+	var distance := found._point_at(found.s_at(at)).distance_to(at) if found != null else LINK_SNAP
+	for candidate in ArmRoutes.all(builds):
+		var path: BeltPath = candidate
+		var d := path._point_at(path.s_at(at)).distance_to(at)
+		if d < distance:
+			distance = d
+			found = path
+	return found
+
+func _links_changed() -> void:
+	super._links_changed()
+	if is_instance_valid(mp_transport):
+		mp_transport.queue_setting(self, "mp_links", links_to_save())
+
 func _drop_run_clear() -> bool:
 	if _mp_hopper_id > 0 and _drop_run == null:
 		var service := _mp_hoppers()
 		return is_instance_valid(service) and service.arm_room(_mp_hopper_id, _payload_count)
 	return super._drop_run_clear()
+
+func _release_carried_prop(ignore_until: float) -> void:
+	if _payload_prop is HayTuft and ArmRoutes.owner_of(_drop_run) != null:
+		var item := _payload_prop
+		if item.has_meta(PropManager.META_CLAIM) and int(item.get_meta(PropManager.META_CLAIM)) == get_instance_id():
+			item.remove_meta(PropManager.META_CLAIM)
+		item.set_meta(LiveStrandManager.META_ARM_IGNORE_UNTIL, ignore_until)
+		if _drop_run.board_made_body(item, _drop_target, Tech.belt_speed()):
+			_payload_prop = null
+			return
+	super._release_carried_prop(ignore_until)
 
 func _release_payload() -> void:
 	if _mp_hopper_id <= 0 or _drop_run != null:

@@ -131,6 +131,16 @@ func capture(sync: Node) -> Dictionary:
 			raw(1)
 	var stand: Node = sync.world.stand
 	add(float(stand.get("_pending_hay")), float(stand.get("_pending")))
+	var stations: Variant = sync.hoppers_sync.get("sale_stations")
+	if is_instance_valid(stations):
+		for row in stations.serialize().get("rows", []):
+			if int(row.id) == 1:
+				continue
+			building_value += preload("res://mods/multiplayer/mp_sale_state.gd").COST
+			buildings += 1
+			var extra: Node = stations.model(row.id)
+			if is_instance_valid(extra):
+				add(float(extra.get("_pending_hay")), float(extra.get("_pending")))
 	var hoppers: Dictionary = sync.hoppers_sync.serialize()
 	for row in hoppers.get("rows", []):
 		building_value += 2500.0

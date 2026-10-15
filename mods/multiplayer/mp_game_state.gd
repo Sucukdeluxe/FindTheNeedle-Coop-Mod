@@ -6,6 +6,7 @@ var mp_prestige: Dictionary = {}
 var mp_income_rate := -1.0
 var mp_needle_committed: Dictionary = {}
 var mp_hoppers: Dictionary = {}
+var mp_sale_stations: Dictionary = {}
 var mp_vacuum_transfers: Dictionary = {}
 var mp_vacuum_checkpoint: Variant = {}
 var _mp_vacuum_read_id := 0
@@ -22,6 +23,7 @@ func to_dict() -> Dictionary:
 	data["mp_prestige"] = mp_prestige.duplicate(true)
 	data["mp_needle_committed"] = mp_needle_committed.duplicate()
 	data["mp_hoppers"] = mp_hoppers.duplicate(true)
+	data["mp_sale_stations"] = mp_sale_stations.duplicate(true)
 	data["mp_vacuum_transfers"] = mp_vacuum_transfers.duplicate(true)
 	var session := get_node_or_null("/root/MPMod")
 	var checkpoint: Variant = session.get("vacuum_checkpoint") if is_instance_valid(session) else null
@@ -51,6 +53,8 @@ func from_dict(data: Dictionary) -> void:
 				mp_needle_committed[key] = spent[key]
 	var hoppers: Variant = data.get("mp_hoppers", {})
 	mp_hoppers = hoppers.duplicate(true) if hoppers is Dictionary else {}
+	var stations: Variant = data.get("mp_sale_stations", {})
+	mp_sale_stations = stations.duplicate(true) if stations is Dictionary else {"invalid": true}
 	var transfers: Variant = data.get("mp_vacuum_transfers", {})
 	mp_vacuum_transfers = transfers.duplicate(true) if transfers is Dictionary else {}
 	var checkpoint: Variant = data.get("mp_vacuum_checkpoint", {})
@@ -73,6 +77,7 @@ func reset(seed_value: int, total_strands: float) -> void:
 	mp_needle_committed.clear()
 	mp_prestige.clear()
 	mp_hoppers.clear()
+	mp_sale_stations.clear()
 	mp_vacuum_transfers.clear()
 	mp_vacuum_checkpoint = {}
 	mp_personal_tools = {}

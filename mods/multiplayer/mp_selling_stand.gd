@@ -8,6 +8,7 @@ var _visual_payouts: Array = []
 var _visual_sequence := 0
 var _received_sequence := 0
 var _received_epoch := ""
+var mp_station_id := 1
 
 
 static func install(node: Node, patch: Script) -> void:
@@ -86,8 +87,12 @@ func _physics_process(delta: float) -> void:
 			_visual_sequence += 1
 			for peer in mp.players:
 				if peer != 1 and mp.players[peer].get("state") == "world":
-					mp._rx_stand_visuals.rpc_id(peer, economy.epoch, _visual_sequence,
-						_visual_hay, _visual_worth, _combo, minf(_combo_gap, Cfg.SELL_COMBO_BREAK + 1.0), _visual_payouts, mp._outgoing_world_seed())
+					if mp_station_id == 1:
+						mp._rx_stand_visuals.rpc_id(peer, economy.epoch, _visual_sequence,
+							_visual_hay, _visual_worth, _combo, minf(_combo_gap, Cfg.SELL_COMBO_BREAK + 1.0), _visual_payouts, mp._outgoing_world_seed())
+					else:
+						mp._rx_sale_visuals.rpc_id(peer, economy.epoch, mp_station_id, _visual_sequence,
+							_visual_hay, _visual_worth, _combo, minf(_combo_gap, Cfg.SELL_COMBO_BREAK + 1.0), _visual_payouts, mp._outgoing_world_seed())
 	_visual_hay = 0
 	_visual_worth = 0.0
 	_visual_payouts.clear()
@@ -116,3 +121,45 @@ func apply_visuals(epoch: String, sequence: int, hay: int, worth: float,
 		_fly_combo(combo)
 	for payout in payouts:
 		super._celebrate(float(payout[0]), 0, payout[1], payout[2])
+
+func mp_can_move() -> bool:
+	if _pending > 0.0 or _pending_hay > 0.0 or _hold > 0.0 or _notch_queue > 0 or _notches > 0 or _strand_bank > 0.0 or _coins_out > 0:
+		return false
+	if is_instance_valid(_belt) and (_belt.has_strands() or not _belt._riders.is_empty() or _belt.run.count() > 0):
+		return false
+	for area in [_payout_area, _skirt_area]:
+		if is_instance_valid(area) and not area.get_overlapping_bodies().is_empty():
+			return false
+	return true
+
+func mp_move_to(pose: Transform3D) -> void:
+	if global_transform.is_equal_approx(pose):
+		return
+	var delta := pose * global_transform.affine_inverse()
+	var free_nodes := {}
+	for node in find_children("*", "Node3D", true, false):
+		if node.top_level:
+			free_nodes[node] = node.global_transform
+	for node in [_belt, get_node_or_null("BeltDrums"), get_node_or_null("BeltSupports")]:
+		if is_instance_valid(node):
+			if node == _belt:
+				_belt.clear_path()
+			remove_child(node)
+			node.queue_free()
+	if Tech.tech_changed.is_connected(_on_belt_tech_changed):
+		Tech.tech_changed.disconnect(_on_belt_tech_changed)
+	if Tech.tech_reset.is_connected(_retime_belt):
+		Tech.tech_reset.disconnect(_retime_belt)
+	if Tech.specimens_changed.is_connected(_retime_belt):
+		Tech.specimens_changed.disconnect(_retime_belt)
+	global_transform = pose
+	for node in free_nodes:
+		if is_instance_valid(node) and node.is_inside_tree():
+			node.global_transform = delta * free_nodes[node]
+	_popup_at = delta * _popup_at
+	_coins_at = delta * _coins_at
+	_coins_face = delta.basis * _coins_face
+	_footprint_known = false
+	_build_belt()
+	if is_instance_valid(_sale_fx):
+		_sale_fx.watch(_sack, _sack_mesh, _sack_fill, _coins_at - Vector3(0.0, COIN_SPOUT_UP, 0.0))

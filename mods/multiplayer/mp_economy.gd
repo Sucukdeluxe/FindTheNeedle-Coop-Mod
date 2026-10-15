@@ -7,7 +7,7 @@ signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
-const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "hopper_configure", "hopper_link", "receiver_place", "receiver_configure", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
+const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "hopper_configure", "hopper_link", "receiver_place", "receiver_configure", "sale_place", "sale_move", "sale_remove", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
 const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
@@ -218,7 +218,7 @@ func _physics_process(_delta: float) -> void:
 	_results[peer][seq] = result.duplicate(true)
 	while _results[peer].size() > CACHE_LIMIT:
 		_results[peer].erase(_results[peer].keys()[0])
-	if not entry.action.begins_with("needle_") and not entry.action.begins_with("vacuum_") and entry.action not in ["hopper_deposit", "sweep_floor", "order_pile"]:
+	if not entry.action.begins_with("needle_") and not entry.action.begins_with("vacuum_") and entry.action not in ["hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "sweep_floor", "order_pile"]:
 		world_sync._flush_builds()
 	if entry.action == "t_configure" and result.get("ok", false):
 		world_sync.machines_sync._send_fields()
@@ -391,6 +391,8 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return world_sync.order_pile(peer, args)
 	if action == "sweep_floor":
 		return world_sync.sweep_sync.execute(peer, args)
+	if action.begins_with("sale_"):
+		return world_sync.hoppers_sync.sale_stations.execute(peer, action, args)
 	if action.begins_with("receiver_"):
 		return world_sync.hoppers_sync.receivers.execute(peer, action, args)
 	if action.begins_with("hopper_"):
@@ -635,6 +637,8 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var tool := _build_tool(actor)
 	actor.build_id = id
 	var inputs: Dictionary = args.get("inputs", {})
+	if not tool.rotation_inputs_allowed(inputs):
+		return _failure("purchase_declined")
 	if actor.has_meta("mp_build_view") and not BuildCamera.inputs_allowed(inputs, actor.get_meta("mp_build_view").anchor):
 		return _failure("purchase_declined")
 	tool.prepare_mode(BuildCatalog.mode_of(id), inputs)

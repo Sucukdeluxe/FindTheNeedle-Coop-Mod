@@ -24,8 +24,9 @@ func _ready() -> void:
 	_mesh = MeshInstance3D.new()
 	_mesh.mesh = _shared_mesh
 	add_child(_mesh)
-	_add_native_part("Silo_Feeder", Vector3(0.30, 0.38, -0.06), 0.4)
-	_add_native_part("Silo_Cabinet", Vector3(0.75, 0.8, 0.24), 0.16, -PI * 0.5)
+	_add_native_part("Silo_Feeder", Vector3(-0.108, 0.17, -0.16), 0.4)
+	_add_native_part("Silo_Cabinet", Vector3(0.7, 0.82, 0.49), 0.16, -PI * 0.5)
+	_add_cabinet_bracket()
 	var badge := Label3D.new()
 	badge.text = "HOPPER"
 	badge.font_size = 28
@@ -89,6 +90,24 @@ func _add_native_part(part_name: String, at: Vector3, size: float, yaw: float = 
 	var basis := Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size)
 	part.transform = Transform3D(basis, at - basis * part.mesh.get_aabb().get_center())
 	add_child(part)
+
+func _add_cabinet_bracket() -> void:
+	var cabinet := get_node_or_null("Silo_Cabinet") as MeshInstance3D
+	if cabinet == null:
+		return
+	var bounds := cabinet.transform * cabinet.mesh.get_aabb()
+	var back := bounds.position.z
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_material(_materials[2])
+	_box(st, Vector3(0.7, 0.82, back - 0.006), Vector3(0.2, 0.28, 0.012))
+	for height in [0.74, 0.9]:
+		_beam(st, Vector3(0.7, height, 0.34), Vector3(0.7, height, back - 0.012), 0.025, 0.025)
+	st.generate_tangents()
+	var bracket := MeshInstance3D.new()
+	bracket.name = "CabinetBracket"
+	bracket.mesh = st.commit()
+	add_child(bracket)
 
 func set_preview_valid(ok: bool) -> void:
 	if not is_instance_valid(_mesh):

@@ -79,6 +79,7 @@ func open(id: int) -> void:
 	_portion.set_value_no_signal(mini(row.portion, int(_portion.max_value)))
 	_portion_changed(_portion.value)
 	visible = true
+	service.world_sync.player.set_meta("mp_build_menu", self)
 	service.world_sync.player.capture_mouse(false)
 	_fit()
 	_refresh()
@@ -86,6 +87,8 @@ func open(id: int) -> void:
 func close() -> void:
 	visible = false
 	if is_instance_valid(service.world_sync.player):
+		if service.world_sync.player.has_meta("mp_build_menu") and service.world_sync.player.get_meta("mp_build_menu") == self:
+			service.world_sync.player.remove_meta("mp_build_menu")
 		service.world_sync.player.capture_mouse(true)
 
 func _fit() -> void:

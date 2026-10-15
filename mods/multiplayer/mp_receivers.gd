@@ -8,6 +8,8 @@ var _ghost: Node3D
 var _count := 4
 var _preview_id := ""
 var _turn := 0
+var _build_yaw := 0.0
+var _build_yaw_set := false
 var _menu: CanvasLayer
 var _menu_target: Node3D
 var _status: Label
@@ -42,10 +44,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if not player.is_mouse_captured() or player.menu_is_up():
 		return
-	if selected() and player.build._active and event is InputEventKey and event.pressed and event.physical_keycode == KEY_R:
-		_turn = (_turn + 1) % maxi(1, Catalog.count_for(player.build_id))
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("interact"):
+	if event.is_action_pressed("interact"):
 		var target := target()
 		if target != null:
 			_open(target)
@@ -53,8 +52,10 @@ func _input(event: InputEvent) -> void:
 
 func target() -> Node3D:
 	var player: Node = hoppers.world_sync.player
-	var from: Vector3 = player.eye_position()
-	var query := PhysicsRayQueryParameters3D.create(from, from + player.look_direction() * 6.0, Cfg.L_BUILD)
+	var ray: Dictionary = hoppers._local_build_ray(player.camera.global_transform, 6.0)
+	if ray.is_empty():
+		return null
+	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
 	var hit: Dictionary = player.get_world_3d().direct_space_state.intersect_ray(query)
 	var node: Node = hit.get("collider")
 	for i in 8:
@@ -65,14 +66,28 @@ func target() -> Node3D:
 		node = node.get_parent()
 	return null
 
+func build_yaw() -> float:
+	if _build_yaw_set:
+		return _build_yaw
+	return _turn * TAU / maxi(Catalog.count_for(hoppers.world_sync.player.build_id), 1)
+
+func set_build_yaw(value: float) -> void:
+	if not is_finite(value):
+		return
+	_build_yaw = wrapf(value, -PI, PI)
+	_build_yaw_set = true
+
+func step_build_rotation() -> void:
+	set_build_yaw(build_yaw() + TAU / maxi(Catalog.count_for(hoppers.world_sync.player.build_id), 1))
+
 func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	var id: String = hoppers.world_sync.player.build_id
 	var count := Catalog.count_for(id)
-	return candidate(ray, count, _turn * TAU / maxi(count, 1), false, Catalog.is_distributor(id))
+	return candidate(ray, count, build_yaw(), false, Catalog.is_distributor(id))
 
 func candidate(ray: Dictionary, count: int, yaw: float, check_cargo: bool = false, distributor: bool = false) -> Dictionary:
-	if ray.is_empty() or count not in Catalog.COUNTS:
+	if ray.is_empty() or count not in Catalog.COUNTS or not is_finite(yaw) or absf(yaw) > TAU:
 		return {"ok": false, "reason": _tr("Keine Baufläche", "No build surface")}
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * ray.length, Cfg.L_WORLD | Cfg.L_BUILD)
 	var hit: Dictionary = hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
@@ -239,6 +254,7 @@ func _open(target: Node3D) -> void:
 	rows.add_child(done)
 	card.size = Vector2(380, 100 + target.port_count * 42)
 	card.position = (get_viewport().get_visible_rect().size - card.size) * 0.5
+	hoppers.world_sync.player.set_meta("mp_build_menu", _menu)
 	hoppers.world_sync.player.capture_mouse(false)
 
 func _set_output(side: int) -> void:
@@ -246,10 +262,16 @@ func _set_output(side: int) -> void:
 		_close()
 		return
 	var player: Node = hoppers.world_sync.player
-	hoppers._request("receiver_configure", {"position": _menu_target.global_position, "output": side, "previous": (_menu_target.input_port if _menu_target.get_script() == Distributor else _menu_target.output_port), "distributor": _menu_target.get_script() == Distributor, "body": player.global_transform, "camera": player.camera.global_transform})
+	var args := {"position": _menu_target.global_position, "output": side, "previous": (_menu_target.input_port if _menu_target.get_script() == Distributor else _menu_target.output_port), "distributor": _menu_target.get_script() == Distributor, "body": player.global_transform, "camera": player.camera.global_transform}
+	var ray: Dictionary = hoppers._local_build_ray(player.camera.global_transform, 6.0)
+	if ray.has("view"):
+		args.build_view = ray.view
+	hoppers._request("receiver_configure", args)
 	_close()
 
 func _close() -> void:
+	if hoppers.world_sync.player.has_meta("mp_build_menu") and hoppers.world_sync.player.get_meta("mp_build_menu") == _menu:
+		hoppers.world_sync.player.remove_meta("mp_build_menu")
 	if is_instance_valid(_menu):
 		_menu.hide()
 	hoppers.world_sync.player.capture_mouse(true)

@@ -212,6 +212,7 @@ func _rescan() -> void:
 		if Time.get_ticks_msec() - int(_pending_settings[key].time) > 10000:
 			_pending_settings.erase(key)
 	var groups: Array = ws.get_script().get_script_constant_map().get("CLIENT_FROZEN", [])
+	var previous_nodes := _nodes.duplicate()
 	_nodes.clear()
 	# walk the models again: the game adds and drops nodes as it runs
 	_fx.clear()
@@ -224,6 +225,13 @@ func _rescan() -> void:
 			if is_instance_valid(n) and n is Node3D and n.is_inside_tree() and not n.is_queued_for_deletion():
 				_protect_processor(n)
 				var key := _key(String(group), n)
+				if previous_nodes.get(key) != n:
+					for cache in [_parts, _ids, _slot, _part_shapes, _sent, _flags, _vals, _goal, _fx_sent, _theirs]:
+						cache.erase(key)
+					_queued_settings.erase(key)
+					for pending_key in _pending_settings.keys():
+						if str(pending_key).begins_with(key + "|"):
+							_pending_settings.erase(pending_key)
 				_nodes[key] = n
 				_group[key] = String(group)
 	for key in _parts.keys():
@@ -796,14 +804,22 @@ func queue_setting(node: Node, field: String, value: Variant) -> void:
 		return
 	if not is_instance_valid(node) or not node.is_inside_tree() or node.is_queued_for_deletion():
 		return
-	if field not in ["throw_distance", "head_yaw", "switched_off"] or not node is HayPelletizer:
+	var group := "pelletizers"
+	if node is RoboticArm:
+		if field != "mp_links" or not value is Array or value.size() > 128:
+			return
+		for link in value:
+			if not link is Dictionary or link.get("role") not in ["take", "put"] or not link.get("at") is Vector3 or not link.at.is_finite():
+				return
+		group = "robotic_arms"
+	elif field not in ["throw_distance", "head_yaw", "switched_off"] or not node is HayPelletizer:
 		return
-	if field == "switched_off":
+	elif field == "switched_off":
 		if not value is bool:
 			return
 	elif not (value is int or value is float) or not is_finite(float(value)):
 		return
-	var key := _key("pelletizers", node)
+	var key := _key(group, node)
 	if _nodes.get(key) != node:
 		_rescan()
 	if _nodes.get(key) != node:
@@ -831,6 +847,12 @@ func _feed_mouths() -> void:
 	var stand: Node = builds.get("stand") as Node if is_instance_valid(builds) else null
 	if is_instance_valid(stand):
 		feeders.append(stand)
+	var hoppers: Variant = mp.world_sync.get("hoppers_sync")
+	if is_instance_valid(hoppers) and is_instance_valid(hoppers.sale_stations):
+		for row in hoppers.sale_stations.serialize().get("rows", []):
+			var station: Node = hoppers.sale_stations.model(row.id)
+			if is_instance_valid(station) and station != stand:
+				feeders.append(station)
 	for n in feeders:
 		if n == null or not is_instance_valid(n) or not (n as Node3D).is_inside_tree():
 			continue

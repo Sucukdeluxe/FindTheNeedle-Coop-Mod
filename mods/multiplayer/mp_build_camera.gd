@@ -26,6 +26,8 @@ var _anchor := Vector3.ZERO
 var _focus := Vector3.ZERO
 var _height := 20.0
 var _size := 16.0
+var _rotation_cursor := Vector2.INF
+var _rotation_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 
 func start(target: Node3D) -> void:
 	if active:
@@ -92,6 +94,7 @@ func enter() -> bool:
 func leave() -> void:
 	if not active:
 		return
+	end_rotation()
 	active = false
 	if is_instance_valid(player):
 		if is_instance_valid(_source_camera):
@@ -130,8 +133,9 @@ func _process(delta: float) -> void:
 	if player.global_position.distance_to(_anchor) > 0.5:
 		leave()
 		return
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _rotation_cursor.is_finite() else Input.MOUSE_MODE_VISIBLE
 	if _menu_up():
+		end_rotation()
 		return
 	if "_mouse_captured" in player:
 		player.set("_mouse_captured", true)
@@ -167,8 +171,23 @@ func request_view(pixel: Vector2 = Vector2.INF) -> Dictionary:
 	if dimensions.x <= 0.0 or dimensions.y <= 0.0:
 		return {}
 	if not pixel.is_finite():
-		pixel = viewport.get_mouse_position()
+		pixel = _rotation_cursor if _rotation_cursor.is_finite() else viewport.get_mouse_position()
 	return {"mode": MODE, "focus": _focus, "height": _height, "size": _size, "aspect": dimensions.x / dimensions.y, "cursor": pixel / dimensions * 2.0 - Vector2.ONE}
+
+func begin_rotation() -> void:
+	if not active or _menu_up() or _rotation_cursor.is_finite():
+		return
+	_rotation_cursor = _camera.get_viewport().get_mouse_position()
+	_rotation_mouse_mode = Input.mouse_mode
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func end_rotation() -> void:
+	if not _rotation_cursor.is_finite():
+		return
+	var cursor := _rotation_cursor
+	_rotation_cursor = Vector2.INF
+	Input.mouse_mode = _rotation_mouse_mode
+	Input.warp_mouse(cursor)
 
 func current_ray() -> Dictionary:
 	return validate_view(request_view(), _anchor)
@@ -234,8 +253,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 	elif InputMap.has_action("interact") and event.is_action_pressed("interact"):
-		if not current_ray().is_empty() and is_instance_valid(tool) and bool(tool.call("is_active")) and tool.has_method("begin_reverse"):
-			tool.call("begin_reverse")
+		if not current_ray().is_empty():
+			var opened := player.has_method("mp_open_build_console") and bool(player.call("mp_open_build_console"))
+			if not opened and is_instance_valid(tool) and bool(tool.call("is_active")) and tool.has_method("begin_reverse"):
+				tool.call("begin_reverse")
 		get_viewport().set_input_as_handled()
 
 static func key_available(key: Key) -> bool:

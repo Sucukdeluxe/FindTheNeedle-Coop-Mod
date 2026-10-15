@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.61"
+const VERSION := "0.19.6-xRangerDE.62"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -165,6 +165,17 @@ func _ready() -> void:
 		"mp_receiver_icon.gd",
 		"mp_receivers.gd",
 		"mp_arm_link_mode.gd",
+		"mp_arm_routes.gd",
+		"mp_parallel_belts.gd",
+		"mp_build_alignment.gd",
+		"mp_wall_palette.gd",
+		"mp_yard_wall.gd",
+		"mp_sale_state.gd",
+		"mp_sale_scale.gd",
+		"mp_sale_stations.gd",
+		"mp_sale_panel.gd",
+		"mp_sale_icon.gd",
+		"mp_hopper_tool_input.gd",
 		"mp_hopper_state.gd",
 		"mp_hoppers.gd",
 		"mp_hotkey_bar.gd",
@@ -1707,6 +1718,19 @@ func _rx_stand_visuals(epoch: String, sequence: int, hay: int, worth: float,
 	var stand: Node = world_sync.builds.get("stand") as Node
 	if is_instance_valid(stand) and stand.has_method("apply_visuals"):
 		stand.apply_visuals(epoch, sequence, hay, worth, combo, gap, payouts)
+
+@rpc("authority", "call_remote", "reliable", 0)
+func _rx_sale_visuals(epoch: String, station: int, sequence: int, hay: int, worth: float,
+		combo: int, gap: float, payouts: Array, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed) or is_host or not active() or not is_instance_valid(world_sync) \
+			or not is_instance_valid(world_sync.economy) or epoch != world_sync.economy.epoch:
+		return
+	var hoppers: Variant = world_sync.get("hoppers_sync")
+	if not is_instance_valid(hoppers) or not is_instance_valid(hoppers.sale_stations):
+		return
+	var station_node: Node = hoppers.sale_stations.model(station)
+	if is_instance_valid(station_node):
+		station_node.apply_visuals(epoch, sequence, hay, worth, combo, gap, payouts)
 
 
 @rpc("authority", "call_remote", "reliable")

@@ -1,5 +1,33 @@
 extends "res://scripts/build/build_manager.gd"
 
+func _mp_sale_stations() -> Node:
+	var session := get_node_or_null("/root/MPMod")
+	if not is_instance_valid(session) or not is_instance_valid(session.world_sync):
+		return null
+	var hoppers: Node = session.world_sync.get("hoppers_sync")
+	return hoppers.get("sale_stations") if is_instance_valid(hoppers) else null
+
+func snap_stand_port(point: Vector3) -> Vector3:
+	var service := _mp_sale_stations()
+	if is_instance_valid(service):
+		var station: Node3D = service.port_at(point, Cfg.STAND_SNAP_RADIUS)
+		if is_instance_valid(station):
+			return station.belt_entry_point()
+	return super.snap_stand_port(point)
+
+func port_bearing_at(point: Vector3) -> Vector3:
+	var service := _mp_sale_stations()
+	if is_instance_valid(service):
+		var station: Node3D = service.port_at(point)
+		if is_instance_valid(station):
+			return station.intake_forward()
+	return super.port_bearing_at(point)
+
+func intake_at(point: Vector3) -> bool:
+	var service := _mp_sale_stations()
+	return (is_instance_valid(service) and is_instance_valid(service.port_at(point))) or super.intake_at(point)
+
+const WallPalette = preload("res://mods/multiplayer/mp_wall_palette.gd")
 const RouterCatalog = preload("res://mods/multiplayer/mp_router_catalog.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const ScannerDemolition = preload("res://mods/multiplayer/mp_scanner_demolition.gd")
@@ -291,6 +319,15 @@ func from_array(data: Array) -> void:
 		else:
 			native_rows.append(row)
 	await super.from_array(native_rows)
+	for row in native_rows:
+		if not (row is Dictionary) or row.get("type") != "wall":
+			continue
+		var color: Variant = row.get("mp_wall_color", 0)
+		color = clampi(color, 0, 4) if color is int else 0
+		for wall in walls:
+			if wall.a == row.get("a") and wall.b == row.get("b"):
+				WallPalette.apply(wall, color)
+				break
 	for row in receiver_rows:
 		var count := RouterCatalog.count_for(row.type)
 		var distributor := RouterCatalog.is_distributor(row.type)
@@ -304,3 +341,16 @@ func from_array(data: Array) -> void:
 		var side := int(row.get("next_side", 0))
 		var sides: Array = receiver.output_sides() if distributor else receiver.inlet_sides()
 		receiver.next_side = side if side in sides else sides[0]
+
+func add_wall(from: Vector3, to: Vector3, kind: YardWall.Bay) -> YardWall:
+	var wall := super.add_wall(from, to, kind)
+	var color: int = int(get_meta("mp_wall_color")) if has_meta("mp_wall_color") else 0
+	return WallPalette.apply(wall, color)
+
+func id_of(building: Node3D) -> String:
+	var id := super.id_of(building)
+	if building is YardWall and "mp_wall_color" in building:
+		var color: int = building.get("mp_wall_color")
+		if color > 0 and color < WallPalette.KEYS.size() and id in WallPalette.BASE_IDS:
+			return "mp_%s_%s" % [id, WallPalette.KEYS[color]]
+	return id
