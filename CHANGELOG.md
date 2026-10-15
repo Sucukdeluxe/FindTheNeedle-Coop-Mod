@@ -170,7 +170,7 @@ Restore valid pulper water connections and distinguish splitter operation from b
 - Commit a pending pulper tap only when a built water-pipe endpoint reaches it. Recover missing taps on the native drum connection surface when loading a host world or rebuilding water connections. No pipe relocation, extra purchase or save-format change is required.
 - Compare all available splitter routes in the building topology digest instead of its transient active outlet. Missing routes, invalid destinations and broken fixed connections remain detectable.
 
-Validation: 61 native water-connection checks and 397 checks with a local host plus two guests passed. The tests cover six saved splitters, alternating routes, real missing connections, water-tap recovery, unconnected previews and packet delay/loss. All 50 production scripts compile in V62. No new Steam/WAN test was performed.
+Validation: 61 native water-connection checks and 393 checks with a local host plus two guests passed. The tests cover six saved splitters, alternating routes, real missing connections, water-tap recovery, unconnected previews and packet delay/loss. All 50 production scripts compile in V62. No new Steam/WAN test was performed.
 
 ## 0.19.6-xRangerDE.39
 
