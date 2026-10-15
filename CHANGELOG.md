@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.65
+
+Restore saving after the game update and repair loading-hopper controls and conveyor connections.
+
+- Forward the game's new background-save parameter. Manual saving and autosaving no longer fail at the mod's outdated save hook.
+- Adapt the hay press and its transport hold callback to the updated game.
+- Keep the hopper's running state, stored hay and output portion unchanged when purchasing capacity.
+- Use transparent backgrounds for all eight custom catalog icons.
+- Align the hopper's side inputs with the conveyor axes and use full-width native belt surfaces and rails on every input and the output. Existing angled connections remain accepted.
+- Snap new conveyors to the hopper's front output and expose all four connections to the native building tools.
+- Insert a hopper into a straight, level conveyor. Raw hay at the insertion point moves into storage, including its needle; the remaining conveyor cargo stays on the rebuilt belt sections.
+- Dismantle filled hoppers into ground hay bundles while retaining exact quantities and embedded needles. Only the host performs the transfer in multiplayer.
+
+Targeted tests use the updated game, isolated save copies and local host/client sessions. Headless profiling of the supplied save did not reproduce the reported sustained overhead-camera slowdown; no claim of a complete graphics-performance fix is made.
+
 ## 0.19.6-xRangerDE.64
 
 Repair construction controls and make custom machinery easier to use.

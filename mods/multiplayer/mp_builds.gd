@@ -10,7 +10,7 @@ func _mp_sale_stations() -> Node:
 func snap_stand_port(point: Vector3) -> Vector3:
 	var hopper := _mp_hoppers()
 	if is_instance_valid(hopper):
-		var port: Dictionary = hopper.input_at(point, Cfg.STAND_SNAP_RADIUS)
+		var port: Dictionary = hopper.port_at(point, Cfg.STAND_SNAP_RADIUS)
 		if not port.is_empty():return port.point
 	var service := _mp_sale_stations()
 	if is_instance_valid(service):
@@ -22,7 +22,7 @@ func snap_stand_port(point: Vector3) -> Vector3:
 func port_bearing_at(point: Vector3) -> Vector3:
 	var hopper := _mp_hoppers()
 	if is_instance_valid(hopper):
-		var port: Dictionary = hopper.input_at(point)
+		var port: Dictionary = hopper.port_at(point)
 		if not port.is_empty():return port.bearing
 	var service := _mp_sale_stations()
 	if is_instance_valid(service):
@@ -36,6 +36,25 @@ func intake_at(point: Vector3) -> bool:
 	if is_instance_valid(hopper) and not hopper.input_at(point).is_empty():return true
 	var service := _mp_sale_stations()
 	return (is_instance_valid(service) and is_instance_valid(service.port_at(point))) or super.intake_at(point)
+
+func outfeed_owner_at(point: Vector3) -> Node3D:
+	var hopper := _mp_hoppers()
+	if is_instance_valid(hopper):
+		var port: Dictionary = hopper.port_at(point)
+		if not port.is_empty() and not port.input:
+			return hopper._models.get(port.id) as Node3D
+	return super.outfeed_owner_at(point)
+
+func free_line_joints(point: Vector3, radius: float) -> Array[Dictionary]:
+	var result := super.free_line_joints(point, radius)
+	var hopper := _mp_hoppers()
+	if not is_instance_valid(hopper):return result
+	for row in hopper._state.rows:
+		for side in range(-1, 3):
+			var at: Vector3 = row.position + Basis(Vector3.UP, row.yaw) * hopper.Model.OUTLET if side < 0 else hopper.Ports.point(row, side)
+			if at.distance_to(point) >= radius or feed_run_into(at) != null or run_out_of(at) != null:continue
+			result.append({"point": at, "forward": Basis(Vector3.UP, row.yaw).z if side < 0 else hopper.Ports.bearing(row, side), "start": side >= 0, "wye": false, "pitch": 0.0})
+	return result
 
 func _mp_hoppers() -> Node:
 	var session := get_node_or_null("/root/MPMod")

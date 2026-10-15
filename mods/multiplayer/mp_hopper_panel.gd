@@ -124,7 +124,7 @@ func _apply() -> void:
 
 func _buy_upgrade() -> void:
 	if service._pending.is_empty():
-		service.request_configuration(_id, not _enabled.button_pressed, int(_portion.value), true)
+		service.request_capacity_upgrade(_id)
 
 func _input(event: InputEvent) -> void:
 	if visible and event.is_action_pressed("free_mouse"):

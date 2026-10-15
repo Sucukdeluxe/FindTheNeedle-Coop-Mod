@@ -237,12 +237,24 @@ func _insert(count: int, path: Node, row: Dictionary) -> bool:
 	return true
 
 func input_at(at: Vector3, distance: float = 0.05) -> Dictionary:
+	return port_at(at, distance, true)
+
+func port_at(at: Vector3, distance: float = 0.05, input_only: bool = false) -> Dictionary:
+	var best := {}
+	var nearest := distance
 	for row in _state.get("rows", []):
 		for side in Ports.INPUTS.size():
 			var point := Ports.point(row, side)
-			if point.distance_to(at) <= distance:
-				return {"id": row.id, "point": point, "bearing": Ports.bearing(row, side)}
-	return {}
+			if point.distance_to(at) <= nearest:
+				nearest = point.distance_to(at)
+				best = {"id": row.id, "side": side, "point": point, "bearing": Ports.bearing(row, side), "input": true}
+		if not input_only:
+			var basis := Basis(Vector3.UP, float(row.yaw))
+			var point: Vector3 = row.position + basis * Model.OUTLET
+			if point.distance_to(at) <= nearest:
+				nearest = point.distance_to(at)
+				best = {"id": row.id, "side": -1, "point": point, "bearing": basis.z, "input": false}
+	return best
 
 func _release_inlets() -> void:
 	for path in _inlets:
@@ -260,7 +272,7 @@ func _refresh_inlets() -> void:
 		var line: PackedVector3Array = path.centre_line()
 		if line.size() < 2:continue
 		var port := input_at(line[-1], CONNECTION_TOLERANCE)
-		if port.is_empty() or (line[-1] - line[-2]).normalized().dot(port.bearing) < 0.995:continue
+		if port.is_empty() or not Ports.accepts(_row(int(port.id)), int(port.side), (line[-1] - line[-2]).normalized()):continue
 		var link: Dictionary = _inlets.get(path, {"id": port.id})
 		if _mode in ["host", "offline"] and not link.has("held"):
 			link.held = path._records_held
@@ -322,6 +334,18 @@ func candidate(camera: Transform3D, reach: float, free_yaw: float = NAN) -> Dict
 	var best := {}
 	var best_score := INF
 	var direction := -camera.basis.z.normalized()
+	var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin + direction * reach, Cfg.L_WORLD | Cfg.L_BUILD)
+	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		var splice: Dictionary = world_sync.builds.splice_spot(hit.position, 1.1, Model.OUTLET.z, 0.25)
+		if splice.has("centre"):
+			var yaw: float = atan2(splice.travel.x, splice.travel.z)
+			var row := {"position": splice.centre, "yaw": yaw, "splice": splice, "path": splice.run}
+			var plan := _splice_plan(row)
+			var why := _placement_reason(splice.run, row.position, yaw, splice.get("chain", []))
+			row["ok"] = why == "" and plan.ok
+			row["reason"] = why if why != "" else plan.get("reason", "")
+			return row
 	for path in _paths:
 		if not is_instance_valid(path) or path.is_queued_for_deletion():
 			continue
@@ -344,8 +368,6 @@ func candidate(camera: Transform3D, reach: float, free_yaw: float = NAN) -> Dict
 		best = {"position": at, "yaw": yaw, "path": path}
 		best_score = score
 	if best.is_empty():
-		var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin + direction * reach, Cfg.L_WORLD | Cfg.L_BUILD)
-		var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
 		if hit.is_empty() or hit.normal.y < 0.75:
 			return {"ok": false, "reason": _tr("Auf eine Baufläche oder einen freien Bandanfang zielen", "Aim at a building surface or free belt input")}
 		var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)
@@ -369,14 +391,14 @@ func set_build_yaw(value: float) -> void:
 func step_build_rotation() -> void:
 	set_build_yaw(build_yaw() + PI * 0.5)
 
-func _placement_reason(path: Node, at: Vector3, yaw: float) -> String:
+func _placement_reason(path: Node, at: Vector3, yaw: float, ignored: Array = []) -> String:
 	if _state.rows.size() >= Store.LIMIT:
 		return _tr("Maximal 32 Trichter", "Maximum 32 hoppers")
 	for row in _state.rows:
 		if row.position.distance_to(at) < 1.5:
 			return _tr("Hier steht bereits ein Trichter", "A hopper is already placed here")
 	for other in BeltPath._live:
-		if is_instance_valid(path) and is_instance_valid(other) and other != path and (other.downstream == path or other.end_deck == path):
+		if ignored.is_empty() and is_instance_valid(path) and is_instance_valid(other) and other != path and (other.downstream == path or other.end_deck == path):
 			return _tr("Dieser Bandanfang ist bereits verbunden", "This belt input is already connected")
 	var exclude: Array[RID] = []
 	if is_instance_valid(path):
@@ -384,6 +406,8 @@ func _placement_reason(path: Node, at: Vector3, yaw: float) -> String:
 			exclude.append(body.get_rid())
 	if path is CollisionObject3D:
 		exclude.append(path.get_rid())
+	for belt in ignored:
+		for body in belt.find_children("*", "CollisionObject3D", true, false):exclude.append(body.get_rid())
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(1.68, 1.2, 1.31)
 	var pose := Transform3D(Basis(Vector3.UP, yaw), at)
@@ -547,8 +571,8 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	if action == "hopper_remove":
 		if args.has("build_view") and _target_from_ray(_host_build_ray(peer, args)) != id:
 			return _failure(_tr("Trichter nicht im Blick", "Hopper is not under the cursor"))
-		if row.stored > 0 or not row.needles.is_empty():
-			return _failure(_tr("Trichter vor dem Abbau vollständig leeren", "Empty the hopper before dismantling it"))
+		if not _spill_contents(row):
+			return _failure(_tr("Inhalt konnte nicht abgelegt werden", "Could not release stored contents"))
 		_state.rows.erase(row)
 		GameState.add_money(Store.COST * 0.5)
 		_changed()
@@ -579,6 +603,26 @@ func accept_reserved(peer: int, args: Dictionary, amount: int) -> int:
 		_changed()
 	return moved
 
+func _spill_contents(row: Dictionary) -> bool:
+	var props: Node = world_sync.world.props
+	var left: int = row.stored
+	var needles: Array = row.needles.duplicate()
+	var made: Array[Node3D] = []
+	while left > 0:
+		var count := mini(2000, left - maxi(0, needles.size() - 1))
+		var needle: int = needles.pop_front() if not needles.is_empty() else -1
+		var angle := float(made.size()) * 2.399963
+		var radius := 0.45 + 0.04 * sqrt(float(made.size()))
+		var at: Vector3 = row.position + Vector3(cos(angle) * radius, 0.2 + 0.03 * float(made.size() / 12), sin(angle) * radius)
+		var item: Node3D = props.spawn("hay_wad", Transform3D(Basis(Vector3.UP, angle), at), {"strands": count, "needle": needle})
+		if not is_instance_valid(item) or int(item.call("hay_strands")) != count:
+			if is_instance_valid(item):props.remove(item)
+			for previous in made:props.remove(previous)
+			return false
+		made.append(item)
+		left -= count
+	return true
+
 func _place(peer: int, args: Dictionary) -> Dictionary:
 	var at: Variant = args.get("position")
 	var yaw: Variant = args.get("yaw")
@@ -598,10 +642,50 @@ func _place(peer: int, args: Dictionary) -> Dictionary:
 	if not GameState.spend_money(Store.COST):
 		return _failure(_tr("Zu wenig Geld", "Not enough money"))
 	var id: int = _state.next_id
-	_state.next_id += 1
-	_state.rows.append(Store.create(id, row.position, float(row.yaw)))
-	_changed()
+	var stored := Store.create(id, row.position, float(row.yaw))
+	if row.has("splice"):
+		var plan := _splice_plan(row)
+		if not plan.ok:
+			GameState.add_money(Store.COST)
+			return _failure(plan.get("reason", ""))
+		for taken in plan.records:
+			for index in range(taken.indices.size() - 1, -1, -1):taken.path.take_record_at(taken.indices[index])
+		stored.stored = plan.strands
+		stored.needles = plan.needles
+		var make := func() -> Node3D:
+			_state.next_id += 1
+			_state.rows.append(stored)
+			_changed()
+			return _models[id]
+		var through := func(_model: Node3D) -> Array[BeltPath]:return []
+		var axis := Basis(Vector3.UP, row.yaw).z
+		world_sync.builds.splice_built(row.path, row.position - axis * 1.1, row.position + axis * Model.OUTLET.z, make, through)
+	else:
+		_state.next_id += 1
+		_state.rows.append(stored)
+		_changed()
 	return {"ok": true, "hopper": id}
+
+func _splice_plan(row: Dictionary) -> Dictionary:
+	var plan := {"ok": true, "records": [], "strands": 0, "needles": []}
+	var axis := Basis(Vector3.UP, float(row.yaw)).z
+	var builds: Node = world_sync.builds
+	var taken: Array = builds._splice_taken(row.path, row.position - axis * 1.1, row.position + axis * Model.OUTLET.z)
+	for path in taken:
+		var indices := []
+		for index in range(path.run.first(), path.run.first() + path.run.count()):
+			var record: Dictionary = path.run.record(index)
+			var distance: float = (path._point_at(record.s) - row.position).dot(axis)
+			if distance < -1.1 or distance > Model.OUTLET.z:continue
+			if int(record.kind) not in [BeltRun.Kind.WAD, BeltRun.Kind.TUFT]:
+				return {"ok": false, "reason": _tr("Einbaustelle enthält verarbeitetes Material", "Insertion point contains processed material")}
+			indices.append(index)
+			plan.strands += int(record.strands)
+			if int(record.needle) >= 0:plan.needles.append(int(record.needle))
+		plan.records.append({"path": path, "indices": indices})
+	if plan.strands > Store.capacity(Store.create(1, Vector3.ZERO, 0.0)):
+		return {"ok": false, "reason": _tr("Zu viel Heu an der Einbaustelle", "Too much hay at the insertion point")}
+	return plan
 
 func _near(peer: int, args: Dictionary, at: Vector3, reach: float, allow_build_view := false) -> bool:
 	if args.has("build_view"):
@@ -772,13 +856,18 @@ func request_configuration(id: int, paused: bool, portion: int, upgrade: bool = 
 		args["build_view"] = ray.view
 	return _request("hopper_configure", args)
 
+func request_capacity_upgrade(id: int) -> int:
+	var row := _row(id)
+	if row.is_empty():return 0
+	return request_configuration(id, row.paused, row.portion, true)
+
 func _configure(row: Dictionary, args: Dictionary) -> Dictionary:
 	if not (args.get("paused") is bool) or not (args.get("portion") is int) or not (args.get("upgrade") is bool):
 		return _failure(_tr("Ungültige Einstellung", "Invalid setting"))
 	if args.get("revision") != row.revision or args.get("level") != row.level:
 		return _failure(_tr("Einstellung wurde bereits geändert", "Settings have already changed"))
 	var portion: int = args.portion
-	if portion < 100 or portion > 1000 or portion % 100 != 0 or portion > int(Tech.call("belt_portion")):
+	if not args.upgrade and (portion < 100 or portion > 1000 or portion % 100 != 0 or portion > int(Tech.call("belt_portion"))):
 		return _failure(_tr("Größere Bandportion zuerst freischalten", "Unlock the larger belt portion first"))
 	if args.upgrade:
 		if row.level >= 9:
@@ -786,8 +875,9 @@ func _configure(row: Dictionary, args: Dictionary) -> Dictionary:
 		if not GameState.spend_money(Store.UPGRADE_COSTS[row.level]):
 			return _failure(_tr("Zu wenig Geld", "Not enough money"))
 		row.level += 1
-	row.paused = args.paused
-	row.portion = portion
+	if not args.upgrade:
+		row.paused = args.paused
+		row.portion = portion
 	row.revision += 1
 	_changed()
 	return {"ok": true}

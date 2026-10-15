@@ -2,7 +2,7 @@ extends "res://autoload/save_manager.gd"
 
 var _mp_retry: Dictionary = {}
 
-func save_game(field_heights: PackedFloat32Array, player_xform: Transform3D, buildings: Array = [], props: Array = [], loose_strands: float = 0.0, belts: Dictionary = {}, dome: PackedFloat32Array = PackedFloat32Array(), dome_seed: int = 0) -> bool:
+func save_game(field_heights: PackedFloat32Array, player_xform: Transform3D, buildings: Array = [], props: Array = [], loose_strands: float = 0.0, belts: Dictionary = {}, dome: PackedFloat32Array = PackedFloat32Array(), dome_seed: int = 0, background: bool = false) -> bool:
 	var session := get_node_or_null("/root/MPMod")
 	var checkpoint: Variant = session.get("vacuum_checkpoint") if is_instance_valid(session) else null
 	if is_instance_valid(checkpoint) and checkpoint.has_pending():
@@ -15,7 +15,7 @@ func save_game(field_heights: PackedFloat32Array, player_xform: Transform3D, bui
 			sweep.finished.connect(_mp_cleanup_finished)
 		return false
 	_mp_retry.clear()
-	return super.save_game(field_heights, player_xform, buildings, props, loose_strands, belts, dome, dome_seed)
+	return super.save_game(field_heights, player_xform, buildings, props, loose_strands, belts, dome, dome_seed, background)
 
 func _mp_cleanup_finished(_token: String, result: Dictionary) -> void:
 	if bool(result.get("pending", false)):

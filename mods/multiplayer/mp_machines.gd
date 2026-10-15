@@ -1518,7 +1518,7 @@ func _refresh_processor_belt(node: Node) -> void:
 		belt.hold_records(parks)
 	if node is HayCompressor:
 		belt._sync_run_links()
-		var holds := Callable(node, "_held_in_mouth")
+		var holds := Callable(node, "_held_on_deck")
 		if belt.get("_hold_for") != holds:
 			belt.set_hold_filter(holds)
 

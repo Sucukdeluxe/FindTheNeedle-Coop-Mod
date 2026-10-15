@@ -12,11 +12,11 @@ func _eats(kind: int, strands: int) -> bool:
 func _parks(kind: int, strands: int) -> bool:
 	return super._parks(kind, strands) or (_mp_active() and kind == BeltRun.Kind.TUFT)
 
-func _held_in_mouth(body: Object) -> bool:
+func _held_on_deck(body: Object) -> bool:
 	if _mp_active() and is_instance_valid(body):
 		if body is HayWad or (body is RigidBody3D and body.get_parent() is LiveStrandManager and not body.has_meta("needle_index")):
 			return true
-	return super._held_in_mouth(body)
+	return super._held_on_deck(body)
 
 func _release_bale() -> void:
 	if not _mp_active():

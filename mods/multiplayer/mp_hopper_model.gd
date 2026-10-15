@@ -28,6 +28,7 @@ func _ready() -> void:
 	_add_native_part("Silo_Cabinet", Vector3(0.7, 0.82, 0.49), 0.16, -PI * 0.5)
 	_add_cabinet_bracket()
 	_add_inlet_trays()
+	_add_tray("Outlet", Vector3(0.0, 0.0, 0.12), OUTLET)
 	var badge := Label3D.new()
 	badge.text = "HOPPER"
 	badge.font_size = 28
@@ -67,20 +68,24 @@ func _add_inlet_trays() -> void:
 	var ports := preload("res://mods/multiplayer/mp_hopper_ports.gd")
 	for side in ports.INPUTS.size():
 		var tip: Vector3 = ports.INPUTS[side]
-		var inward := Vector3(-tip.x, 0.0, -tip.z).normalized()
+		var inward: Vector3 = ports.local_bearing(side)
 		var end := tip + inward * 0.5
-		var across := Vector3(inward.z, 0.0, -inward.x)
-		var pose := Transform3D(Basis(across, Vector3.UP, inward).scaled_local(Vector3(0.72, 1.0, 0.5)), (tip + end) * 0.5)
-		var tray := MeshInstance3D.new()
-		tray.name = "Inlet%d" % side
-		tray.mesh = ConveyorKit.segment_mesh()
-		tray.transform = pose
-		add_child(tray)
-		for hand in [-1, 1]:
-			var rail := MeshInstance3D.new()
-			rail.mesh = ConveyorKit.rail_mesh(hand)
-			rail.transform = pose
-			add_child(rail)
+		_add_tray("Inlet%d" % side, tip, end)
+
+func _add_tray(title: String, from: Vector3, to: Vector3) -> void:
+	var direction := (to - from).normalized()
+	var across := Vector3(direction.z, 0.0, -direction.x)
+	var pose := Transform3D(Basis(across, Vector3.UP, direction).scaled_local(Vector3(1.0, 1.0, from.distance_to(to))), (from + to) * 0.5)
+	var tray := MeshInstance3D.new()
+	tray.name = title
+	tray.mesh = ConveyorKit.segment_mesh()
+	tray.transform = pose
+	add_child(tray)
+	for hand in [-1, 1]:
+		var rail := MeshInstance3D.new()
+		rail.mesh = ConveyorKit.rail_mesh(hand)
+		rail.transform = pose
+		add_child(rail)
 
 func _add_native_part(part_name: String, at: Vector3, size: float, yaw: float = 0.0) -> void:
 	if not _native_meshes.has(part_name):
@@ -283,10 +288,6 @@ static func _make_mesh() -> ArrayMesh:
 			for i in 4:
 				_quad(st, top[i], top[(i+1)%4], bottom[(i+1)%4], bottom[i])
 			_box(st, Vector3(0.0,0.38,-0.12), Vector3(0.55,0.16,0.62))
-			_box(st, Vector3(0.0,0.2,0.41), Vector3(0.6,0.12,0.68))
-			_box(st, Vector3(0.0,0.1,0.73), Vector3(0.55,0.22,0.06))
-			for x in [-0.32,0.32]:
-				_box(st, Vector3(x,0.31,0.42), Vector3(0.045,0.18,0.7))
 		elif layer == 1:
 			for i in 4:
 				var j := (i + 1) % 4
@@ -326,7 +327,6 @@ static func _make_mesh() -> ArrayMesh:
 				_box(st, Vector3(0.0,0.15,z), Vector3(1.46,0.08,0.08))
 			for i in 4:
 				_beam(st, top[i].lerp(bottom[i],0.06), top[i].lerp(bottom[i],0.95),0.045,0.035)
-			_box(st,Vector3(0.0,0.27,0.74),Vector3(0.54,0.017,0.11))
 			_box(st,Vector3(0.0,0.448,-0.13),Vector3(0.43,0.02,0.44))
 		st.generate_tangents()
 		st.commit(mesh)
