@@ -1,8 +1,14 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.52`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.53`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
+
+## Balanced prices and legacy credit
+
+Sale price now has 20 ranks, each adding five percentage points to the base price (up to ×2). The original first five ranks and all purchased upgrade levels are preserved. Seventeen upgrade ladders use fixed total budgets and no additional native late-rank surcharge.
+
+When loading an older save, recorded overpayments for the repriced ranks are credited once to the shared balance. Only the host or single-player performs this calculation. The credit marker and balance are stored in the same save snapshot; guest joins and repeat loads cannot pay it again. Gifted ranks and purchases without a recorded paid amount are not assigned an estimated refund. Existing saves are not modified by copying the mod files; the credit applies on the next load and is retained when the game is saved.
 
 ## Install
 
@@ -18,13 +24,13 @@ The base ZIP does not replace `override.cfg`. See [German instructions](mods/mul
 - **F7 building camera:** select a building first, then toggle the overhead view. WASD or arrows pan, Shift pans faster, the wheel zooms, left click places and right click cancels the current step. F7 or Escape restores the previous view. Building remains subject to host validation and a 24 m area around the actual player. F7 takes priority over the native debug-report binding. Ctrl+F7 still opens the report; other customized F7 actions are respected. Use PageUp/PageDown to change building height while arrow keys pan.
 - **Loading Hopper:** a new 2,500-cost structure in the conveyor/build catalog. Place it at a free, level conveyor input. Aim at it with the yard vacuum and press **M** to transfer up to its 50,000-strand capacity. It feeds only when the belt accepts cargo. Empty it before dismantling. Hopper operation works in single-player and multiplayer.
 - **Larger Belt Portions:** 100 → 200 → 300 → 500 → 1,000 strands per portion for direct M output and hoppers. Four upgrades cost 25,000 in total. A blocked belt retains the hay in the vacuum or hopper.
-- **Arm speed:** 20 total ranks; ranks 15–20 cost 100,000 combined. Already purchased ranks are preserved.
+- **Arm speed:** 20 total ranks; all 20 ranks cost 80,000 combined. Already purchased ranks are preserved.
 - **Lift / stairs speed:** ten ranks up to four times their base transport speed, in addition to the belt motor. Existing ranks are preserved.
-- **Splitter / merger speed:** ten ranks up to 250% internal speed, 100,000 combined. Applies to normal, compact, U, smart and T variants. Filters and blocked exits still apply.
+- **Splitter / merger speed:** ten ranks up to 250% internal speed, 40,000 combined. Applies to normal, compact, U, smart and T variants. Filters and blocked exits still apply.
 - **Double Jump:** one shared 2,500 purchase in Fitness after Spring Heels. Release jump after taking off, then press again for one extra airborne jump. Landing restores it. An equipped jetpack retains its own control behavior.
 - **Next Load details:** remaining buried needles and the number of represented types are shown on the delivery board and in its detail window.
 
-Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with prices reduced by 20% and each upgrade costing at most 80,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
+Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with the complete capacity ladder costing 75,000 and the complete suction ladder costing 50,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
 
 The hopper has an industrial steel model and a matching image in the building catalog and hotbar. Its stock and controls appear in a readable HUD card. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
 

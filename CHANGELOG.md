@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.6-xRangerDE.53
+
+Rebalance expensive late upgrades, extend sale-price progression and credit recorded overpayments without resetting purchased ranks.
+
+- Use fixed total budgets for 17 upgrade ladders, including 75,000 for vacuum capacity, 50,000 for suction, 120,000 for grinding, 80,000 for arm speed and 40,000 for splitter/merger speed. Remove the extra native late-rank surcharge from those ladders. Existing-rank prices never increase.
+- Extend sale-price progression to 20 ranks, each adding five percentage points to the base price, up to twice the base value. Preserve the original first five ranks and their prices.
+- On loading an older save, credit the recorded excess paid for affected ranks once. Only the host or single-player applies the credit; repeat loads and guest joins cannot duplicate it. Gifted ranks and purchases without a recorded paid amount are not assigned an estimated refund.
+- Save the credit marker together with the balance and retain all purchased ranks and world progress. No separate migration of live save files is required during installation.
+
+Validated with targeted native Demo V62 headless tests for prices, receipts, save/reload and simultaneous multiplayer purchases. Existing .52 fixes remain included. Steam/WAN reliability and rendered GPU performance are not newly validated by this release.
+
 ## 0.19.6-xRangerDE.52
 
 Preserve loose hay when automatic cleanup is disabled and stabilize personal-tool pickup.

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.52
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.53
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -113,3 +113,6 @@ Host/single-player saves include vacuum fill and its pending M-transfer reservat
 with the world. Shared cleanup defers saving until completion. Pause-menu exit
 requires a successful host/local save. Complete guest-process-crash recovery is
 still incomplete; this release does not promise lossless recovery of unsaved progress.
+
+BALANCING .53
+Sale price has 20 ranks at five percentage points each, reaching twice the base price. Existing ranks are preserved. Recorded overpayments for repriced upgrades are credited once when the host or single-player loads the save; gifted ranks and purchases without a recorded price are not estimated. The credit is saved together with the balance. Vacuum capacity costs 75,000 total, suction 50,000, arm speed 80,000 and distributor speed 40,000.

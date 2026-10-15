@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.52
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.53
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -27,10 +27,10 @@ NEU IN DIESER FASSUNG
   Der Trichter funktioniert im Einzelspieler und Multiplayer.
 - Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
   zusammen 25.000. Gilt für direkte M-Bandausgabe und Trichter.
-- Armtempo: 20 Stufen; die sechs zusätzlichen Stufen kosten zusammen 100.000.
+- Armtempo: 20 Stufen; alle 20 Stufen kosten zusammen 80.000.
 - Heulift-/Heutreppentempo: je zehn Stufen bis 400 %, zusätzlich zum Bandmotor.
   Bereits gekaufte Stufen bleiben erhalten.
-- Verteiler/Sammler: zehn Stufen bis 250 % internes Tempo, zusammen 100.000.
+- Verteiler/Sammler: zehn Stufen bis 250 % internes Tempo, zusammen 40.000.
   Filter, gesperrte Ausgänge und Rückstau bleiben wirksam.
 - Doppelsprung: einmalig 2.500 im Bereich Fitness nach der Sprunghöhen-Technik.
   Nach dem Absprung die Sprungtaste loslassen und in der Luft erneut drücken.
@@ -70,8 +70,8 @@ SAUGER-UPGRADES
   14 zusätzliche Stufen mit jeweils 2.500 Halmen hinzu.
 - Saugkraft: 20 Stufen bis 1.000 Halme pro Sekunde.
 - Die drei nativen Basispreise bleiben erhalten. Bereits vorhandene erste sechs
-  Basispreise werden übernommen. Alle Saugerpreise sind 20 % günstiger. Weitere Preise steigen bis höchstens 80.000
-  pro Stufe, einschließlich der nativen Preisberechnung. Gekaufte Stufen bleiben.
+  Alle 41 Kapazitätsstufen kosten zusammen 75.000, alle 20 Saugkraftstufen 50.000.
+  Gekaufte Stufen bleiben erhalten.
 - Behebt die in .42/.43 fehlenden Stufen bei einem nativen Katalog mit drei Stufen.
 - Käufe werden weiterhin vom Host geprüft und gemeinsam synchronisiert.
 
@@ -299,3 +299,11 @@ Gebäude und Verkaufsgüter werden abgerechnet. Werkzeuge, Freischaltungen und
 gekaufte Upgrades bleiben erhalten; im neuen Durchlauf wieder sechs Arten sammeln.
 Scanner lassen sich mit Nadeln abbauen; nicht bereits beanspruchte Nadeln
 fallen auf den Boden. Beide Spieler brauchen dieselbe Mod-Version.
+
+BALANCING .53
+- Verkaufspreis: 20 Stufen mit je fünf Prozentpunkten, bis zum doppelten Basispreis.
+- Die bisherigen fünf Verkaufspreisstufen bleiben unverändert.
+- Zu teuer gekaufte Stufen werden beim ersten Laden anhand des gespeicherten Kaufprotokolls einmalig erstattet.
+- Nur der Host bzw. Einzelspieler schreibt die Gutschrift gut. Sie wird mit Guthaben und Spielstand gespeichert.
+- Geschenk-Stufen und unbelegte Käufe erhalten keine geschätzte Erstattung.
+- Alle Teilnehmer müssen dieselbe Mod-Version verwenden.

@@ -2,14 +2,14 @@ extends RefCounted
 
 const MARKER := "xranger_progression_v46"
 const ADDON_MARKER := "ftn_production_speed_v1"
-const ARM_COSTS := [30.0, 60.0, 100.0, 160.0, 250.0, 380.0, 550.0, 800.0, 1320.0, 2180.0, 3600.0, 4800.0, 6000.0, 7000.0, 8000.0, 11000.0, 14000.0, 18000.0, 22000.0, 27000.0]
+const ARM_COSTS := [30,60,100,160,250,380,550,800,1320,2180,2918,3482,4159,4971,5945,7114,8517,10200,12220,14644]
 const PORTIONS := [100, 200, 300, 500, 1000]
 const PORTION_COSTS := [1500.0, 3500.0, 7000.0, 13000.0]
 const TRANSPORT_SCALES := [1.0, 1.2, 1.4, 1.65, 2.0, 2.25, 2.5, 2.8, 3.1, 3.5, 4.0]
-const LIFT_COSTS := [1500.0, 3500.0, 7000.0, 13000.0, 15000.0, 17000.0, 19000.0, 21000.0, 23000.0, 25000.0]
-const STAIRS_COSTS := [750.0, 1750.0, 3500.0, 6500.0, 7500.0, 8500.0, 9500.0, 10500.0, 11500.0, 12500.0]
+const LIFT_COSTS := [1348,1617,1941,2330,2796,3355,4026,4832,5798,6957]
+const STAIRS_COSTS := [750,925,1110,1332,1599,1919,2304,2764,3317,3980]
 const DISTRIBUTOR_SCALES := [1.0, 1.15, 1.3, 1.45, 1.6, 1.75, 1.9, 2.05, 2.2, 2.35, 2.5]
-const DISTRIBUTOR_COSTS := [1000.0, 2000.0, 3500.0, 5500.0, 8000.0, 10000.0, 13000.0, 16000.0, 19000.0, 22000.0]
+const DISTRIBUTOR_COSTS := [1000,2000,3500,4196,4336,4503,4705,4945,5234,5581]
 const DISTRIBUTOR_BUILDS := ["splitter", "compact_splitter", "smart_splitter", "u_splitter", "t_splitter", "joiner", "u_joiner", "compact_joiner"]
 const NEW_CARDS := {"belt_portion": "belt", "hay_lift_speed": "haylift", "hay_stairs_speed": "haystairs"}
 
@@ -70,7 +70,7 @@ func _ensure_distributor(nodes: Dictionary, locale: String, german: bool) -> voi
 			"costs": DISTRIBUTOR_COSTS.duplicate(), "flat": true, MARKER: locale,
 			"name": "Schnellere Verteiler und Sammler" if german else "Faster Splitters and Mergers",
 			"branch": "lines", "icon": "splitter+speed", "base": "100%", "values": values,
-			"blurb": "Beschleunigt die internen Förderwege aller Verteiler und Sammler zusätzlich zum Bandmotor. Filter und blockierte Ausgänge bleiben wirksam. Alle zehn Stufen kosten zusammen 100.000." if german else "Speeds up internal transport in all splitters and mergers in addition to the belt motor. Filters and blocked outputs remain effective. All ten ranks cost 100,000 in total."}
+			"blurb": "Beschleunigt die internen Förderwege aller Verteiler und Sammler zusätzlich zum Bandmotor. Filter und blockierte Ausgänge bleiben wirksam. Alle zehn Stufen kosten zusammen 40.000." if german else "Speeds up internal transport in all splitters and mergers in addition to the belt motor. Filters and blocked outputs remain effective. All ten ranks cost 40,000 in total."}
 	_ensure_order("distributor_speed")
 	var catalog: Dictionary = BuildCatalog.entries()
 	for id in DISTRIBUTOR_BUILDS:
@@ -105,7 +105,7 @@ func _ensure_arm(nodes: Dictionary, locale: String, german: bool) -> void:
 	card["values"] = values
 	card["base"] = "+0%"
 	card["suffix"] = " mehr Heu" if german else " more hay"
-	card["blurb"] = "Erhöht das Arbeitstempo aller Roboterarme. Die Werte gelten für einen Standardarm. Die sechs zusätzlichen Stufen kosten zusammen 100.000." if german else "Increases the working speed of every robot arm. Values are for a Standard Arm. The six additional ranks cost 100,000 in total."
+	card["blurb"] = "Erhöht das Arbeitstempo aller Roboterarme. Die Werte gelten für einen Standardarm. Alle 20 Stufen kosten zusammen 80.000." if german else "Increases the working speed of every robot arm. Values are for a Standard Arm. All 20 ranks cost 80,000 in total."
 	card["flat"] = true
 	card[MARKER] = locale
 	card[ADDON_MARKER] = {"managed_by": MARKER, "original_max": 8, "extra": 12}

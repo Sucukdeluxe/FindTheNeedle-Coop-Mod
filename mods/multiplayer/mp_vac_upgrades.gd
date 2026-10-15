@@ -8,7 +8,7 @@ const SUCTION_MAX_RANK := 20
 const SUCTION_RATES := [300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0, 650.0, 700.0, 760.0, 820.0, 880.0, 940.0, 1000.0]
 const PRICE_LIMIT := 100000.0
 const PRICE_SCALE := 0.8
-const PRICE_SCHEMA := "xranger_vacuum_price_v48"
+const PRICE_SCHEMA := "xranger_vacuum_price_v53"
 const SOURCE_COSTS := "xranger_vacuum_source_costs"
 const NATIVE_RANKS := 6
 const CARDS := {"vac_bin": CAPACITY_MAX_RANK, "vac_suction": SUCTION_MAX_RANK}
@@ -24,12 +24,10 @@ static func suction(rank: int, native_value: float) -> float:
 		return native_value
 	return SUCTION_RATES[clampi(rank - SUCTION_LEGACY_RANK - 1, 0, SUCTION_RATES.size() - 1)]
 
-static func price(rank: int, native_costs: Array, maximum: int) -> float:
-	if rank <= NATIVE_RANKS:
-		return clampf(float(native_costs[rank - 1]), 0.0, PRICE_LIMIT) * PRICE_SCALE
-	var anchor := clampf(float(native_costs[NATIVE_RANKS - 1]), 1.0, PRICE_LIMIT)
-	var progress := float(rank - NATIVE_RANKS) / float(maximum - NATIVE_RANKS)
-	return minf(PRICE_LIMIT, snappedf(anchor * pow(PRICE_LIMIT / anchor, progress), 100.0)) * PRICE_SCALE
+static func price(rank: int, _native_costs: Array, maximum: int) -> float:
+	var id := "vac_bin" if maximum == CAPACITY_MAX_RANK else "vac_suction"
+	var costs: Array = preload("res://mods/multiplayer/mp_balance.gd").PRICES[id]
+	return float(costs[clampi(rank - 1, 0, costs.size() - 1)])
 
 func ensure_cards() -> void:
 	var nodes: Dictionary = TechTree.nodes()
@@ -59,7 +57,7 @@ func ensure_cards() -> void:
 		var costs: Array = []
 		var values: Array = []
 		for rank in range(1, int(CARDS[id]) + 1):
-			costs.append(price(rank, native_costs, CARDS[id]))
+			costs.append(preload("res://mods/multiplayer/mp_balance.gd").PRICES[id][rank - 1])
 			var amount := capacity(rank, 1500 + rank * 500) if id == "vac_bin" else roundi(suction(rank, 100.0 + rank * 25.0))
 			values.append(_number(amount))
 		card["costs"] = costs

@@ -20,3 +20,8 @@ func hay_stairs_speed_scale() -> float:
 
 func distributor_speed_scale() -> float:
 	return Progression.distributor_scale(rank_of("distributor_speed"))
+
+func from_dict(data: Dictionary, refund_v5_truncation: bool = false) -> void:
+	preload("res://mods/multiplayer/mp_balance.gd").ensure_cards()
+	super.from_dict(data, refund_v5_truncation)
+	preload("res://mods/multiplayer/mp_balance.gd").apply_credit()

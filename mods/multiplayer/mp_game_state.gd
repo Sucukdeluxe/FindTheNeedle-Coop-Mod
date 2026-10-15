@@ -1,5 +1,6 @@
 extends "res://autoload/game_state.gd"
 
+var mp_balance: Dictionary = {}
 var mp_personal_tools: Dictionary = {}
 var mp_prestige: Dictionary = {}
 var mp_income_rate := -1.0
@@ -17,6 +18,7 @@ func income_per_minute() -> float:
 
 func to_dict() -> Dictionary:
 	var data := super.to_dict()
+	data["mp_balance"] = mp_balance.duplicate(true)
 	data["mp_prestige"] = mp_prestige.duplicate(true)
 	data["mp_needle_committed"] = mp_needle_committed.duplicate()
 	data["mp_hoppers"] = mp_hoppers.duplicate(true)
@@ -35,6 +37,8 @@ func to_dict() -> Dictionary:
 	return data
 
 func from_dict(data: Dictionary) -> void:
+	var balance: Variant = data.get("mp_balance", {})
+	mp_balance = balance.duplicate(true) if balance is Dictionary else {"invalid": true}
 	_mp_vacuum_read_id += 1
 	mp_income_rate = -1.0
 	super.from_dict(data)
@@ -64,6 +68,7 @@ func from_dict(data: Dictionary) -> void:
 func reset(seed_value: int, total_strands: float) -> void:
 	_mp_vacuum_read_id += 1
 	mp_income_rate = -1.0
+	mp_balance = preload("res://mods/multiplayer/mp_balance.gd").fresh_state()
 	super.reset(seed_value, total_strands)
 	mp_needle_committed.clear()
 	mp_prestige.clear()

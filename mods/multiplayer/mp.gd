@@ -6,9 +6,10 @@ extends Node
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const Progression = preload("res://mods/multiplayer/mp_progression.gd")
+const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.52"
+const VERSION := "0.19.6-xRangerDE.53"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -73,6 +74,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_vac_upgrades.ensure_cards()
 	_progression.ensure_cards()
+	Balance.ensure_cards()
 	base_dir = get_script().resource_path.get_base_dir()
 	load(base_dir + "/mp_hoppers.gd").ensure_catalog()
 	_install_game_state()
@@ -116,6 +118,7 @@ func _ready() -> void:
 			test.mp = self
 			add_child(test)
 	for f in [
+		"mp_balance.gd",
 		"mp_arm_state.gd",
 		"mp_arm_visual.gd",
 		"mp_avatar.gd",
@@ -292,6 +295,7 @@ func t(key: String) -> String:
 func _process(_delta: float) -> void:
 	_vac_upgrades.ensure_cards()
 	_progression.ensure_cards()
+	Balance.ensure_cards()
 	if _belt_visuals != null:
 		_belt_visuals.install_current(_belt_visuals)
 	var cs := get_tree().current_scene
