@@ -1,0 +1,144 @@
+extends RefCounted
+
+static func core_radius(count: int, half_width: float = 0.49) -> float:
+	return half_width / sin(PI / float(count))
+
+static func polygon(count: int, half_width: float) -> PackedVector3Array:
+	var points := PackedVector3Array()
+	for side in count:
+		var angle := TAU * (float(side) + 0.5) / float(count)
+		points.append(Vector3(sin(angle), 0.0, cos(angle)) * core_radius(count, half_width))
+	return points
+
+static func build(receiver: Node3D) -> Array:
+	var count: int = receiver.port_count
+	var frame := SurfaceTool.new()
+	frame.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_prism(frame, polygon(count, 0.49), -0.018, -0.18)
+	var steel := ConveyorKit.frame_material()
+	frame.set_material(steel)
+	frame.generate_tangents()
+	var body := MeshInstance3D.new()
+	body.name = "Frame"
+	body.mesh = frame.commit()
+	receiver.add_child(body)
+	var skin := SurfaceTool.new()
+	skin.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_face(skin, polygon(count, 0.421), 0.002)
+	skin.set_material(ConveyorKit.belt_material_held())
+	skin.generate_tangents()
+	var infill := MeshInstance3D.new()
+	infill.name = "CentralDeck"
+	infill.mesh = skin.commit()
+	receiver.add_child(infill)
+	var hardware := SurfaceTool.new()
+	hardware.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var shared_corner := core_radius(count) * 0.96
+	for side in count:
+		var end: Vector3 = receiver.port_local(side)
+		var direction := end.normalized()
+		var across := Vector3(direction.z, 0.0, -direction.x)
+		var start := direction * (core_radius(count, 0.421) * cos(PI / count) - 0.012)
+		var length := start.distance_to(end)
+		var branch := MeshInstance3D.new()
+		branch.name = "Branch%d" % side
+		branch.mesh = ConveyorKit.segment_mesh()
+		branch.transform = Transform3D(Basis(across, Vector3.UP, direction).scaled_local(Vector3(1.0, 1.0, length)), (start + end) * 0.5)
+		var running := {}
+		for surface in branch.mesh.get_surface_count():
+			var material := branch.mesh.surface_get_material(surface)
+			if material == ConveyorKit.belt_material():
+				material = ConveyorKit.belt_material_fast() if side == receiver.output_port else ConveyorKit.belt_material_fast_reversed()
+				running[surface] = material
+			elif material == ConveyorKit.drum_material():
+				material = ConveyorKit.drum_material_fast() if side == receiver.output_port else ConveyorKit.drum_material_fast_reversed()
+				running[surface] = material
+			branch.set_surface_override_material(surface, material)
+		branch.set_meta("receiver_running", running)
+		body.add_child(branch)
+		for hand in [-1, 1]:
+			var rail := MeshInstance3D.new()
+			rail.name = "Rail%d_%d" % [side, hand]
+			rail.mesh = ConveyorKit.rail_mesh(hand)
+			rail.transform = branch.transform
+			body.add_child(rail)
+		var plate_at := end * 0.85 + across * 0.62 + Vector3.UP * 0.13
+		var plate_basis := Basis(across, Vector3.UP, direction)
+		_box(hardware, Transform3D(plate_basis, plate_at), Vector3(0.27, 0.025, 0.30))
+		var corner_angle := TAU * (float(side) + 0.5) / float(count)
+		_cylinder(hardware, Vector3(sin(corner_angle), -0.009, cos(corner_angle)) * Vector3(shared_corner, 1.0, shared_corner), Vector3.UP, 0.014, 0.018, 6)
+		var label := Label3D.new()
+		label.name = "PortLabel%d" % side
+		label.text = "%d\n%s" % [side + 1, "OUT" if side == receiver.output_port else "IN"]
+		label.font_size = 40
+		label.pixel_size = 0.0029
+		label.outline_size = 7
+		label.outline_modulate = Color(0.02, 0.025, 0.025)
+		label.transform = Transform3D(Basis(across, -direction, Vector3.UP), plate_at + Vector3.UP * 0.015)
+		label.modulate = Color(1.0, 0.79, 0.32) if side == receiver.output_port else Color(0.9, 0.95, 0.94)
+		body.add_child(label)
+	hardware.set_material(steel)
+	hardware.generate_tangents()
+	var details := MeshInstance3D.new()
+	details.name = "PortPlatesAndBolts"
+	details.mesh = hardware.commit()
+	body.add_child(details)
+	return [body, infill]
+
+static func set_held(body: MeshInstance3D, held: bool) -> void:
+	for child in body.get_children():
+		if not (child is MeshInstance3D) or not child.has_meta("receiver_running"):
+			continue
+		var running: Dictionary = child.get_meta("receiver_running")
+		for surface in running:
+			var material: Material = running[surface]
+			if held:
+				material = ConveyorKit.belt_material_held() if material in [ConveyorKit.belt_material_fast(), ConveyorKit.belt_material_fast_reversed()] else ConveyorKit.roller_material()
+			child.set_surface_override_material(surface, material)
+
+static func _vertex(st: SurfaceTool, point: Vector3, normal: Vector3) -> void:
+	st.set_normal(normal)
+	if absf(normal.y) > 0.5:
+		st.set_uv(Vector2(point.x, point.z))
+	elif absf(normal.x) > 0.5:
+		st.set_uv(Vector2(point.z, point.y))
+	else:
+		st.set_uv(Vector2(point.x, point.y))
+	st.add_vertex(point)
+
+static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	var normal := (b - a).cross(c - a).normalized()
+	for point in [a, c, b, a, d, c]:
+		_vertex(st, point, normal)
+
+static func _face(st: SurfaceTool, points: PackedVector3Array, y: float) -> void:
+	for i in points.size():
+		for point in [Vector3(0, y, 0), points[(i + 1) % points.size()] + Vector3.UP * y, points[i] + Vector3.UP * y]:
+			_vertex(st, point, Vector3.UP)
+
+static func _prism(st: SurfaceTool, points: PackedVector3Array, top: float, bottom: float) -> void:
+	_face(st, points, top)
+	for i in points.size():
+		var a := points[i]
+		var b := points[(i + 1) % points.size()]
+		_quad(st, a + Vector3.UP * bottom, b + Vector3.UP * bottom, b + Vector3.UP * top, a + Vector3.UP * top)
+
+static func _box(st: SurfaceTool, transform: Transform3D, size: Vector3) -> void:
+	var x := size.x * 0.5
+	var y := size.y * 0.5
+	var z := size.z * 0.5
+	var p := []
+	for value in [Vector3(-x,-y,-z),Vector3(x,-y,-z),Vector3(x,y,-z),Vector3(-x,y,-z),Vector3(-x,-y,z),Vector3(x,-y,z),Vector3(x,y,z),Vector3(-x,y,z)]:
+		p.append(transform * value)
+	for face in [[4,5,6,7],[1,0,3,2],[0,4,7,3],[5,1,2,6],[7,6,2,3],[0,1,5,4]]:
+		_quad(st,p[face[0]],p[face[1]],p[face[2]],p[face[3]])
+
+static func _cylinder(st: SurfaceTool, center: Vector3, axis: Vector3, radius: float, length: float, sides: int) -> void:
+	var across := axis.cross(Vector3.FORWARD).normalized()
+	var up := axis.cross(across).normalized()
+	for i in sides:
+		var a := (across * cos(TAU * i / sides) + up * sin(TAU * i / sides)) * radius
+		var b := (across * cos(TAU * (i + 1) / sides) + up * sin(TAU * (i + 1) / sides)) * radius
+		_quad(st,center+a-axis*length*0.5,center+b-axis*length*0.5,center+b+axis*length*0.5,center+a+axis*length*0.5)
+		for point in [center+axis*length*0.5,center+b+axis*length*0.5,center+a+axis*length*0.5]:
+			_vertex(st,point,axis)

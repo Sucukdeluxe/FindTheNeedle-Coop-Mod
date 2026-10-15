@@ -1,6 +1,6 @@
 extends ConveyorJoiner
 
-const Shapes = preload("res://mods/multiplayer/mp_hopper_model.gd")
+const Model = preload("res://mods/multiplayer/mp_receiver_model.gd")
 var port_count := 4
 var output_port := 0
 
@@ -66,44 +66,37 @@ func empty() -> bool:
 	return true
 
 func _build_model() -> void:
-	Shapes._make_materials()
-	var mesh := ArrayMesh.new()
-	for material in 3:
-		var surface := SurfaceTool.new()
-		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-		if material == 0:
-			Shapes._box(surface, Vector3(0, -0.11, 0), Vector3(radius() * 1.24, 0.22, radius() * 1.24))
-			for side in port_count:
-				var direction := port_local(side).normalized()
-				Shapes._beam(surface, Vector3(0,-0.08,0), direction * radius() + Vector3(0,-0.08,0), 0.16, Cfg.BELT_WIDTH)
-		elif material == 1:
-			for side in port_count:
-				var end := port_local(side)
-				var along := end.normalized()
-				var across := Vector3(along.z, 0, -along.x)
-				Shapes._cylinder(surface, end * 0.85 + Vector3(0,-0.22,0), across, 0.10, Cfg.BELT_WIDTH + 0.10)
-				for sign in [-1.0, 1.0]:
-					var offset: Vector3 = across * sign * Cfg.BELT_WIDTH * 0.51 + Vector3.UP * 0.10
-					Shapes._beam(surface, end * 0.6 + offset, end + offset, 0.04, 0.20)
-		else:
-			Shapes._box(surface, Vector3(0,-0.30,0), Vector3(radius(), 0.12, radius()))
-		surface.set_material(Shapes._materials[material])
-		surface.commit(mesh)
-	_body = MeshInstance3D.new()
-	_body.name = "Body"
-	_body.mesh = mesh
-	add_child(_body)
-	_infill = _make_infill()
-	add_child(_infill)
-	for side in port_count:
-		var label := Label3D.new()
-		label.text = str(side + 1) + "\n" + ("OUT" if side == output_port else "IN")
-		label.font_size = 30
-		label.pixel_size = 0.005
-		label.position = port_local(side) * 0.76 + Vector3.UP * 0.05
-		label.rotation = Vector3(-PI * 0.5, 0, -TAU * side / port_count)
-		label.modulate = Color(1.0, 0.77, 0.28) if side == output_port else Color(0.9,0.95,0.95)
-		add_child(label)
+	var meshes := Model.build(self)
+	_body = meshes[0]
+	_infill = meshes[1]
+
+func _show_held() -> void:
+	if is_instance_valid(_body):
+		Model.set_held(_body, _drawn_held)
+
+func footprint() -> Array[Vector4]:
+	return [Vector4(global_position.x, global_position.y, global_position.z, radius() + 0.12)]
+
+func _make_infill_body() -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = Cfg.L_BUILD
+	body.collision_mask = 0
+	var points := PackedVector3Array()
+	for point in Model.polygon(port_count, 0.421):
+		points.append(point + Vector3.DOWN * 0.04)
+		points.append(point)
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = points
+	var collision := CollisionShape3D.new()
+	collision.shape = shape
+	body.add_child(collision)
+	return body
+
+func set_preview_valid(valid: bool) -> void:
+	if not placement_preview:
+		return
+	for mesh in find_children("*", "MeshInstance3D", true, false):
+		mesh.material_overlay = ConveyorKit.ghost_material(valid)
 
 func _serve() -> void:
 	for path in _arms.values():

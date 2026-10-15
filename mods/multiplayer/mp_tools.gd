@@ -280,6 +280,9 @@ func _input(event: InputEvent) -> void:
 		return
 	if not is_instance_valid(player) or player.menu_is_up() or not player.is_mouse_captured():
 		return
+	var build_camera: Variant = player.get("mp_build_camera") if "mp_build_camera" in player else null
+	if is_instance_valid(build_camera) and build_camera.active:
+		return
 	if not _vacuum.get("_active") or not _vacuum.is_loaded():
 		return
 	if bool(_vacuum.get_meta("mp_vacuum_escrow", false)):

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.6-xRangerDE.58
+
+Rebuild the four- and eight-port merger models and allow direct insertion into existing conveyors.
+
+- Use the installed game’s original conveyor segments, rails, rollers and material maps. Remove upright geometry from the transport lane and place numbered input/output labels on separate side plates. Keep the custom body when backpressure changes.
+- Insert mergers into straight, level belts with automatic flow alignment, proportional belt-material credit and host validation. Preserve record and physical cargo; reject crowded, stale or duplicate placement before changing the original belt. Free placement remains available.
+- Open the overhead build camera with F7 before choosing a part; B opens the catalogue. Pause held-tool actions in this view and restore them on exit, preventing accidental vacuum dumps.
+
+Targeted checks passed: 359 camera/input assertions (including 11 native V62 lifecycle checks), 86 native host/guest insertion assertions, 22 additional physical-load/crowding checks, and 188 native model/label/backpressure checks. Local networking used simulated packet loss and duplication. No visible game was launched. This is not a new two-PC Steam/Internet or rendered-FPS guarantee. Existing saves are retained. Both players need this version.
+
 ## 0.19.6-xRangerDE.57
 
 Expand the loading hopper and add four- and eight-port mergers.

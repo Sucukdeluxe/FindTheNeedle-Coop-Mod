@@ -175,6 +175,95 @@ func add_receiver(at: Vector3, yaw: float, count: int, output: int = 0) -> Conve
 	changed.emit()
 	return receiver
 
+func receiver_splice_fits(belt: Conveyor, at: Vector3, yaw: float, count: int) -> bool:
+	if count not in [4, 8] or not conveyors.has(belt) or not is_instance_valid(belt) or belt.is_queued_for_deletion():
+		return false
+	var direction := Basis(Vector3.UP, yaw).z
+	var radius := 1.25 if count == 4 else 2.05
+	var incoming := at - direction * radius
+	var outgoing := at + direction * radius
+	var taken: Array[Conveyor] = _splice_taken(belt, incoming, outgoing)
+	if taken.is_empty():
+		return false
+	var points: Array[Vector3] = [taken[0].a, incoming, at, outgoing, taken[-1].b]
+	var plans: Array[Dictionary] = []
+	for i in range(points.size() - 1):
+		if points[i].distance_to(points[i + 1]) < 0.01:
+			return false
+		var run := BeltRun.new()
+		run.set_line(PackedVector3Array([points[i], points[i + 1]]))
+		run.catching = true
+		plans.append({"a": points[i], "b": points[i + 1], "run": run})
+	for k in range(taken.size() - 1, -1, -1):
+		var source := taken[k]
+		for i in range(source.run.first(), source.run.first() + source.run.count()):
+			var record: Dictionary = source.run.record(i)
+			var position: Vector3 = source._point_at(clampf(float(record.s), 0.0, source.path_length()))
+			var nearest := plans.duplicate()
+			nearest.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _receiver_plan_point(a, position).distance_squared_to(position) < _receiver_plan_point(b, position).distance_squared_to(position))
+			var accepted := false
+			for plan in nearest:
+				var run: BeltRun = plan.run
+				var want: float = plan.a.distance_to(_receiver_plan_point(plan, position))
+				var spot := want
+				if run.count() > 0:
+					var rear := run.first() + run.count() - 1
+					if want <= run.s_of(rear):
+						var reach := float(record.reach)
+						var spacing := maxf(run.spacing, maxf(reach * 2.0, reach + run.reach_of(rear)))
+						spot = minf(want, run.s_of(rear) - spacing - 0.0001)
+						if spot < 0.0 or want - spot > BeltPath.SPLICE_GIVE:
+							continue
+				if run.board_record(record, spot, float(record.speed), false):
+					accepted = true
+					break
+			if not accepted:
+				return false
+	var slots: Array[Dictionary] = []
+	for plan in plans:
+		var run: BeltRun = plan.run
+		for i in range(run.first(), run.first() + run.count()):
+			slots.append({"position": _receiver_plan_at(plan, run.s_of(i), run.side_of(i)), "reach": run.reach_of(i)})
+	var across := Vector3(direction.z, 0.0, -direction.x)
+	for source in taken:
+		for rider in source._riders:
+			if not is_instance_valid(rider.body):
+				continue
+			var point: Vector3 = source._point_at(rider.s)
+			var nearest := plans.duplicate()
+			nearest.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _receiver_plan_point(a, point).distance_squared_to(point) < _receiver_plan_point(b, point).distance_squared_to(point))
+			var plan: Dictionary = nearest[0]
+			var position := _receiver_plan_at(plan, plan.a.distance_to(_receiver_plan_point(plan, point)), rider.side)
+			for slot in slots:
+				var offset: Vector3 = position - slot.position
+				var reach := float(rider.reach) + float(slot.reach)
+				if absf(offset.dot(direction)) <= maxf(reach, Cfg.STRAND_THICK * 2.0) and absf(offset.dot(across)) <= maxf(reach, Cfg.STRAND_THICK * 6.0):
+					return false
+			slots.append({"position": position, "reach": rider.reach})
+	return true
+
+static func _receiver_plan_point(plan: Dictionary, point: Vector3) -> Vector3:
+	var axis: Vector3 = plan.b - plan.a
+	return plan.a + axis * clampf((point - plan.a).dot(axis) / axis.length_squared(), 0.0, 1.0)
+
+static func _receiver_plan_at(plan: Dictionary, s: float, side: float) -> Vector3:
+	return plan.a + (plan.b - plan.a).normalized() * s + BeltPath.run_basis(plan.a, plan.b).x * side
+
+func splice_receiver(belt: Conveyor, at: Vector3, yaw: float, count: int) -> ConveyorJoiner:
+	if not receiver_splice_fits(belt, at, yaw, count):
+		return null
+	var direction := Basis(Vector3.UP, yaw).z
+	var radius := 1.25 if count == 4 else 2.05
+	var build := func() -> Node3D: return add_receiver(at, yaw, count)
+	return splice_built(belt, at - direction * radius, at + direction * radius, build, _receiver_through) as ConveyorJoiner
+
+static func _receiver_through(receiver: Node3D) -> Array[BeltPath]:
+	var paths: Array[BeltPath] = []
+	if is_instance_valid(receiver):
+		paths.append(receiver.arm(receiver.port_count / 2))
+		paths.append(receiver.out_path())
+	return paths
+
 func from_array(data: Array) -> void:
 	var native_rows := []
 	var receiver_rows := []

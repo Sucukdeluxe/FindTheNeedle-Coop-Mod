@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.57
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.58
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -42,12 +42,15 @@ run that used it, so it no longer counts for the leaderboards.
 
 NEW BUILDING AND MOVEMENT OPTIONS
 ---------------------------------
-F7 while a build part is selected opens the overhead camera. WASD/arrows pan,
+F7 opens the overhead camera directly. Press B to select a part. WASD/arrows pan,
 wheel zooms, F7/Escape returns. Host validation and a 24 m build area apply.
 Loading Hopper: 2,500 to place freely or at a belt input. M unloads the vacuum;
 throw loose hay into the opening or use a robotic arm. E configures output and
 capacity. New hoppers start at 10,000 and upgrade to 100,000. Existing hoppers
-retain 50,000. Four/eight-port mergers unlock with Smart Splitter.
+retain 50,000. Four/eight-port mergers unlock with Smart Splitter. Insert them
+into a straight, level conveyor or place them freely. Connected cargo and paid
+belt material are preserved. Native rail/roller meshes and materials replace
+the old model; port labels sit outside the transport lane.
 Band portions upgrade from 100 to 1,000 (25,000 total). Arm speed has 20 ranks;
 lifts/stairs and distributors have separate speed cards.
 Double Jump costs 2,500 in Fitness after Spring Heels. Release and press jump

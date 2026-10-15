@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.57`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.58`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -24,9 +24,9 @@ The base ZIP does not replace `override.cfg`. See [German instructions](mods/mul
 
 ## New controls and upgrades
 
-- **F7 building camera:** select a building first, then toggle the overhead view. WASD or arrows pan, Shift pans faster, the wheel zooms, left click places and right click cancels the current step. F7 or Escape restores the previous view. Building remains subject to host validation and a 24 m area around the actual player. F7 takes priority over the native debug-report binding. Ctrl+F7 still opens the report; other customized F7 actions are respected. Use PageUp/PageDown to change building height while arrow keys pan.
+- **F7 building camera:** toggle the overhead view directly, then use B to select a building. WASD or arrows pan, Shift pans faster, the wheel zooms, left click places and right click cancels the current step. F7 or Escape restores the previous view. Building remains subject to host validation and a 24 m area around the actual player. F7 takes priority over the native debug-report binding. Ctrl+F7 still opens the report; other customized F7 actions are respected. Use PageUp/PageDown to change building height while arrow keys pan.
 - **Loading Hopper:** a 2,500-cost structure. Place it freely or at a belt input. Press **M** while aiming at it to transfer vacuum contents, throw loose hay into the opening, or use a robotic arm. **E** controls output and portions from 100 to 1,000 (limited by belt upgrades), and purchases per-hopper capacity from 10,000 to 100,000. Existing hoppers keep their 50,000 capacity and contents. Full hoppers retain the unaccepted remainder.
-- **Four/eight-port mergers:** unlock with Smart Splitter; three or seven inputs feed one output, with fair turn-taking and distributor speed upgrades. They cost 2,000/5,000. **E** changes the numbered output only when empty.
+- **Four/eight-port mergers:** unlock with Smart Splitter; three or seven inputs feed one output, with fair turn-taking and distributor speed upgrades. They cost 2,000/5,000. Insert them directly into a straight, level conveyor or place them freely. Existing belt material is credited and cargo is retained; a blocked insertion leaves the original belt unchanged. Their frames, rails and rollers reuse installed native meshes and materials; port labels stay outside the transport lane. **E** changes the numbered output only when empty.
 - **Larger Belt Portions:** 100 → 200 → 300 → 500 → 1,000 strands per portion for direct M output and hoppers. Four upgrades cost 25,000 in total. A blocked belt retains the hay in the vacuum or hopper.
 - **Arm speed:** 20 total ranks; all 20 ranks cost 80,000 combined. Already purchased ranks are preserved.
 - **Lift / stairs speed:** ten ranks up to four times their base transport speed, in addition to the belt motor. Existing ranks are preserved.

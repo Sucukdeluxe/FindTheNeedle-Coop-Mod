@@ -17,7 +17,7 @@ static func ensure_catalog() -> void:
 			"short": _tr("SAMMLER %d", "MERGER %d") % count, "unlock": "smart_splitter",
 			"category": "haulage", "mode": BuildTool.Mode.CONVEYOR,
 			"cost": "$2.000" if count == 4 else "$5.000",
-			"place": _tr("Sammler platzieren · R drehen", "Place merger · R to rotate"),
+			"place": _tr("Auf Band einsetzen oder frei platzieren · R drehen", "Insert into belt or place freely · R to rotate"),
 			"blurb": _tr("%d Eingänge, ein Ausgang. E wählt den Ausgang bei leerem Sammler. Übernimmt Verteiler-Upgrades.", "%d inputs, one output. E selects the output when empty. Uses distributor upgrades.") % (count - 1),
 			"note": _tr("Schließt Bänder und Maschinen zusammen", "Joins belts and machines")}
 
@@ -65,25 +65,52 @@ func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	return candidate(ray, 4 if hoppers.world_sync.player.build_id == "mp_receiver4" else 8, _turn * PI / 4.0)
 
-func candidate(ray: Dictionary, count: int, yaw: float) -> Dictionary:
-	if ray.is_empty():
+func candidate(ray: Dictionary, count: int, yaw: float, check_cargo: bool = false) -> Dictionary:
+	if ray.is_empty() or count not in [4, 8]:
 		return {"ok": false, "reason": _tr("Keine Baufläche", "No build surface")}
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * ray.length, Cfg.L_WORLD | Cfg.L_BUILD)
 	var hit: Dictionary = hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
-	if hit.is_empty() or hit.normal.y < 0.75:
+	if hit.is_empty():
 		return {"ok": false, "reason": _tr("Auf eine ebene Baufläche zielen", "Aim at a level building surface")}
 	var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)
-	at.x = snappedf(at.x, 0.25)
-	at.z = snappedf(at.z, 0.25)
 	var radius := 1.25 if count == 4 else 2.05
+	var builds: Node = hoppers.world_sync.builds
+	var splice: Dictionary = builds.splice_spot(at, radius, radius, 0.25)
+	if splice.has("reason"):
+		return {"ok": false, "reason": _splice_reason(splice.reason)}
+	if splice.has("centre"):
+		at = splice.centre
+		yaw = atan2(splice.travel.x, splice.travel.z)
+	else:
+		if hit.normal.y < 0.75:
+			return {"ok": false, "reason": _tr("Auf eine ebene Baufläche zielen", "Aim at a level building surface")}
+		at.x = snappedf(at.x, 0.25)
+		at.z = snappedf(at.z, 0.25)
+	var excluded: Array[RID] = []
+	if splice.has("chain"):
+		for belt in splice.chain:
+			for body in belt.find_children("*", "CollisionObject3D", true, false):
+				excluded.append(body.get_rid())
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(radius * 1.3, 0.6, radius * 1.3)
+	shape.size = Vector3(radius * 2.0, 0.6, radius * 2.0)
 	var probe := PhysicsShapeQueryParameters3D.new()
 	probe.shape = shape
 	probe.transform = Transform3D(Basis(Vector3.UP, yaw), at + Vector3.UP * 0.22)
 	probe.collision_mask = Cfg.L_BUILD | Cfg.L_PILE
+	probe.exclude = excluded
 	var blocked: bool = not hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_shape(probe, 1).is_empty()
-	return {"ok": not blocked, "reason": _tr("Baufläche belegt", "Build surface blocked") if blocked else "", "position": at, "yaw": yaw, "count": count}
+	var reason := _tr("Baufläche belegt", "Build surface blocked") if blocked else ""
+	if check_cargo and not blocked and splice.has("run") and not builds.receiver_splice_fits(splice.run, at, yaw, count):
+		blocked = true
+		reason = _tr("Band an der Einbaustelle zuerst leerlaufen lassen", "Let this belt section empty before inserting")
+	return {"ok": not blocked, "reason": reason, "position": at, "yaw": yaw, "count": count, "splice": splice}
+
+func _splice_reason(reason: String) -> String:
+	match reason:
+		"level": return _tr("Nur in ein gerades, waagerechtes Band einsetzen", "Insert into a straight, level belt")
+		"short": return _tr("Band für diesen Sammler zu kurz", "Belt is too short for this merger")
+		"gate": return _tr("Bandschalter an der Einbaustelle", "Belt gate at insertion point")
+	return _tr("Sammler passt hier nicht ins Band", "Merger cannot be inserted here")
 
 func preview(camera: Transform3D, reach: float, show: bool) -> Dictionary:
 	if not show:
@@ -113,6 +140,8 @@ func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
 		hoppers.world_sync.toast(row.get("reason", ""))
 		return 0
 	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw, "count": row.count}
+	if row.splice.has("run"):
+		args.splice = {"a": row.splice.run.a, "b": row.splice.run.b}
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	if ray.has("view"):
 		args.build_view = ray.view
@@ -142,13 +171,25 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	if args.get("count") not in [4, 8] or not (args.get("yaw") is float) or not is_finite(args.yaw) or absf(args.yaw) > TAU or not BuildCatalog.is_unlocked("mp_receiver%d" % args.count):
 		return {"ok": false}
 	var ray: Dictionary = hoppers._host_build_ray(peer, args) if args.has("build_view") else {"origin": args.camera.origin, "direction": -args.camera.basis.z, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
-	var row := candidate(ray, args.count, args.yaw)
-	if not row.get("ok", false) or row.position.distance_to(at) > 0.05:
+	var row := candidate(ray, args.count, args.yaw, true)
+	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or absf(angle_difference(row.yaw, args.yaw)) > 0.01:
 		return {"ok": false, "message": row.get("reason", "")}
+	var splice: Dictionary = row.splice
+	if splice.has("run") != args.has("splice"):
+		return {"ok": false}
+	if splice.has("run") and (not (args.splice is Dictionary) or args.splice.get("a") != splice.run.a or args.splice.get("b") != splice.run.b):
+		return {"ok": false}
 	var price := 2000.0 if args.count == 4 else 5000.0
+	if splice.has("run"):
+		price = maxf(0.0, price - hoppers.world_sync.builds.t_splice_refund(splice.run, row.position, splice.travel, 1.25 if args.count == 4 else 2.05))
 	if not GameState.spend_money(price):
 		return {"ok": false, "message": _tr("Zu wenig Geld", "Not enough money")}
-	hoppers.world_sync.builds.add_receiver(row.position, row.yaw, args.count)
+	if splice.has("run"):
+		if hoppers.world_sync.builds.splice_receiver(splice.run, row.position, row.yaw, args.count) == null:
+			GameState.add_money(price)
+			return {"ok": false}
+	else:
+		hoppers.world_sync.builds.add_receiver(row.position, row.yaw, args.count)
 	return {"ok": true}
 
 func _open(target: Node3D) -> void:

@@ -14,6 +14,7 @@ const NEAR := 0.05
 const CAMERA_BASIS := Basis(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 0.0, -1.0), Vector3(0.0, 1.0, 0.0))
 const CAMERA_FIELDS := ["projection", "size", "fov", "near", "far", "h_offset", "v_offset", "frustum_offset", "keep_aspect", "cull_mask", "environment", "attributes"]
 const PROCESS_FLAGS := {"process": "is_processing", "physics_process": "is_physics_processing", "process_input": "is_processing_input", "process_unhandled_input": "is_processing_unhandled_input", "process_unhandled_key_input": "is_processing_unhandled_key_input"}
+const HAND_TOOLS := ["hand", "shovel", "pitchfork", "broom", "detector", "yard_vac", "lighter", "carry"]
 
 var player: Node3D
 var active := false
@@ -41,11 +42,22 @@ func enter() -> bool:
 		return false
 	var source: Variant = player.get("camera")
 	var tool: Variant = player.get("build")
-	if not (source is Camera3D) or not is_instance_valid(source) or not is_instance_valid(tool) or not bool(tool.call("is_active")):
-		notice.emit(_tr("Drücke B und wähle zuerst ein Bauteil im Baukatalog aus.", "Press B and select a part in the building catalog first."))
+	if not (source is Camera3D) or not is_instance_valid(source) or not is_instance_valid(tool):
 		return false
 	_source_camera = source
-	_saved = {"camera_transform": _source_camera.transform, "current_camera": player.get_viewport().get_camera_3d(), "mouse_mode": Input.mouse_mode, "flags": {}, "camera": {}}
+	_saved = {"camera_transform": _source_camera.transform, "current_camera": player.get_viewport().get_camera_3d(), "mouse_mode": Input.mouse_mode, "flags": {}, "camera": {}, "tools": {}}
+	for key in HAND_TOOLS:
+		if not key in player:
+			continue
+		var hand_tool: Variant = player.get(key)
+		if not is_instance_valid(hand_tool) or not (hand_tool is Node) or hand_tool == tool or _saved.tools.has(hand_tool):
+			continue
+		if key == "yard_vac":
+			for action in ["set_sucking", "set_pouring"]:
+				if hand_tool.has_method(action):
+					hand_tool.call(action, false)
+		_saved.tools[hand_tool] = hand_tool.process_mode
+		hand_tool.process_mode = Node.PROCESS_MODE_DISABLED
 	for key in CAMERA_FIELDS:
 		_saved.camera[key] = _source_camera.get(key)
 	for flag in PROCESS_FLAGS:
@@ -87,6 +99,9 @@ func leave() -> void:
 			_source_camera.transform = _saved.camera_transform
 			for key in _saved.camera:
 				_source_camera.set(key, _saved.camera[key])
+		for hand_tool in _saved.tools:
+			if is_instance_valid(hand_tool):
+				hand_tool.process_mode = _saved.tools[hand_tool]
 		for flag in _saved.flags:
 			player.call("set_" + flag, _saved.flags[flag])
 		if _saved.has("mouse_captured"):
@@ -197,15 +212,20 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not active or _menu_up():
 		return
+	var tool: Variant = player.get("build")
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			if not is_instance_valid(tool) or not bool(tool.call("is_active")):
+				get_viewport().set_input_as_handled()
+				return
 			if current_ray().is_empty():
 				notice.emit(_tr("Außerhalb des Baubereichs von 24 m.", "Outside the 24 m building area."))
 			else:
-				player.get("build").call("primary")
+				tool.call("primary")
 			get_viewport().set_input_as_handled()
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			player.get("build").call("back_out")
+			if is_instance_valid(tool) and bool(tool.call("is_active")):
+				tool.call("back_out")
 			get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("build_catalog"):
 		var catalog: Variant = player.get("catalog")
@@ -214,8 +234,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 	elif InputMap.has_action("interact") and event.is_action_pressed("interact"):
-		var tool: Variant = player.get("build")
-		if not current_ray().is_empty() and is_instance_valid(tool) and tool.has_method("begin_reverse"):
+		if not current_ray().is_empty() and is_instance_valid(tool) and bool(tool.call("is_active")) and tool.has_method("begin_reverse"):
 			tool.call("begin_reverse")
 		get_viewport().set_input_as_handled()
 
