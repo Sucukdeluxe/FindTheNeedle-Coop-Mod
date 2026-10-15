@@ -93,6 +93,7 @@ func _ready() -> void:
 	_build_chat()
 	_build_wait()
 	_build_panel()
+	get_window().focus_entered.connect(_window_focus_entered)
 	refresh()
 
 
@@ -603,6 +604,9 @@ func _input(event: InputEvent) -> void:
 		_open_chat()
 		get_viewport().set_input_as_handled()
 	elif k == KEY_F6 and mp.in_world():
+		var player := _world_player()
+		if is_instance_valid(player) and is_instance_valid(player.build) and player.build.can_toggle_flow():
+			return
 		_toggle_debug_menu()
 		get_viewport().set_input_as_handled()
 	elif k == KEY_F8 and mp.active():
@@ -726,7 +730,7 @@ func _try_restore_mouse() -> void:
 		return
 	if _mouse_overlay_open() or Loading.is_active() or get_tree().paused or not get_window().has_focus():
 		return
-	if bool(p.get("scripted")) or (p.has_method("cursor_is_held") and p.cursor_is_held()):
+	if bool(p.get("scripted")) or (p.has_method("menu_is_up") and p.menu_is_up()) or (p.has_method("cursor_is_held") and p.cursor_is_held()):
 		return
 	p.capture_mouse(true)
 	if p.has_method("is_mouse_captured") and not p.is_mouse_captured():
@@ -755,6 +759,13 @@ func restore_world_input(p: Node) -> void:
 	if _mouse_overlay_open():
 		p.capture_mouse(false)
 	_try_restore_mouse()
+
+func _window_focus_entered() -> void:
+	var player := _world_player()
+	if not is_instance_valid(player) or _mouse_overlay_open():
+		return
+	if _mouse_was_captured or player.is_mouse_captured():
+		restore_world_input(player)
 
 
 func open_panel() -> void:

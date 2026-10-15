@@ -120,6 +120,7 @@ func _rebuild_models() -> void:
 			station = Scale.new()
 			station.name = "MPSaleScale%d" % row.id
 			station.mp_station_id = row.id
+			station.feed_belt = bool(row.get("feed_belt", true))
 			station.live = world_sync.world.live
 			station.props = world_sync.world.props
 			station.transform = Transform3D(Basis(Vector3.UP, float(row.yaw)), row.position)
@@ -128,6 +129,8 @@ func _rebuild_models() -> void:
 		else:
 			station.mp_station_id = row.id
 			station.mp_move_to(Transform3D(Basis(Vector3.UP, float(row.yaw)), row.position))
+			if row.id != 1:
+				station.set_feed_belt(bool(row.get("feed_belt", true)))
 		for body in station.find_children("*", "CollisionObject3D", true, false):
 			body.set_meta("mp_sale_station", row.id)
 	for id in _models.keys():
@@ -351,6 +354,13 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		var station := model(id)
 		if not is_instance_valid(station) or not station.mp_can_move():
 			return _failure(_tr("Verkaufsstelle zuerst vollständig leeren", "Empty the sale station first"))
+	if action == "sale_configure":
+		if id == 1 or not args.get("feed_belt") is bool:
+			return _failure(_tr("Ungültige Einstellung", "Invalid setting"))
+		old.feed_belt = args.feed_belt
+		old.revision += 1
+		_changed()
+		return {"ok": true}
 	if action == "sale_remove":
 		if id == 1:
 			return _failure(_tr("Der vorhandene Verkaufsstand kann nur versetzt werden", "The existing selling stand can only be moved"))
@@ -411,6 +421,14 @@ func request_remove(id: int) -> int:
 	if ray.has("view"):
 		args.build_view = ray.view
 	return _request("sale_remove", args)
+
+func request_feed_belt(id: int, enabled: bool) -> int:
+	var row := _row(id)
+	if row.is_empty() or id == 1:return 0
+	var args := {"id": id, "revision": row.revision, "feed_belt": enabled, "body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform}
+	var ray: Dictionary = hoppers._local_build_ray(args.camera, 6.0)
+	if ray.has("view"):args.build_view = ray.view
+	return _request("sale_configure", args)
 
 func _process(delta: float) -> void:
 	if not _usable():

@@ -29,7 +29,9 @@ var _mp_rotate_dragged := false
 var _mp_rotate_pending := 0.0
 var _mp_flow_manual := false
 var _mp_parallel := false
+var _mp_preview_flow: MultiMeshInstance3D
 const FLOW_TOGGLE_KEY := KEY_F6
+const PARALLEL_TOGGLE_KEY := KEY_F9
 const ROTATE_RADIANS_PER_PIXEL := 0.008
 const ROTATE_DRAG_THRESHOLD := 3.0
 
@@ -75,6 +77,8 @@ func _send_cancel() -> void:
 		cancel_requested = false
 
 func primary() -> void:
+	if _mp_rotate_held:
+		return
 	if not is_instance_valid(mp_economy) or not mp_economy.mp.active():
 		execute_native("place", null, {})
 		return
@@ -225,7 +229,7 @@ func dismantle_reach() -> float:
 	return float(ray.length) if not ray.is_empty() else super.dismantle_reach()
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed and not event.alt_pressed and event.physical_keycode == KEY_G and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
+	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not event.meta_pressed and (event.physical_keycode == PARALLEL_TOGGLE_KEY or event.keycode == PARALLEL_TOGGLE_KEY) and BuildCamera.key_available(PARALLEL_TOGGLE_KEY) and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
 		_mp_parallel = not _mp_parallel
 		_pick += 1
 		input_revision += 1
@@ -242,6 +246,9 @@ func _input(event: InputEvent) -> void:
 	if not _rotation_available():
 		_end_rotation(false)
 		return
+	if _mp_rotate_held and (event.is_action("primary") or event.is_action("secondary")):
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("build_rotate") and not event.is_echo():
 		_mp_rotate_held = true
 		_mp_rotate_dragged = false
@@ -251,7 +258,7 @@ func _input(event: InputEvent) -> void:
 			controller.begin_rotation()
 		get_viewport().set_input_as_handled()
 	elif _mp_rotate_held and event is InputEventMouseMotion:
-		var movement: float = event.relative.x
+		var movement: float = event.screen_relative.x if event.screen_relative != Vector2.ZERO else event.relative.x
 		if is_finite(movement):
 			_mp_rotate_pending += clampf(movement, -1000.0, 1000.0)
 			if _mp_rotate_dragged or absf(_mp_rotate_pending) >= ROTATE_DRAG_THRESHOLD:
@@ -400,12 +407,29 @@ func _guided(anchor: Vector3, point: Vector3) -> Vector3:
 			return aligned
 	return super._guided(anchor, point)
 
+func _port_knees(from: Vector3, to: Vector3) -> PackedVector3Array:
+	var points := super._port_knees(from, to)
+	var service: Node = builds.call("_mp_sale_stations") if is_instance_valid(builds) and builds.has_method("_mp_sale_stations") else null
+	if not is_instance_valid(service) or points.size() != 4:
+		return points
+	var stub := minf(Cfg.BELT_PORT_STUB, from.distance_to(to) * 0.5)
+	if stub < Cfg.BELT_MIN_LENGTH * 0.5:
+		return points
+	var station: Node3D = service.port_at(to)
+	if is_instance_valid(station) and station.mp_station_id > 1 and points[2].is_equal_approx(to):
+		points[2] = to - station.intake_forward() * stub
+	station = service.port_at(from)
+	if is_instance_valid(station) and station.mp_station_id > 1 and points[1].is_equal_approx(from):
+		points[1] = from + station.intake_forward() * stub
+	return points
+
 func control_hint() -> String:
 	var hints := PackedStringArray()
 	var german := TranslationServer.get_locale().begins_with("de")
 	if _is_conveyor_mode():
 		hints.append(flow_hint())
-		hints.append(("Strg+G · Parallel-Modus: " if german else "Ctrl+G · Parallel mode: ") + (("Ein" if german else "On") if _mp_parallel else ("Aus" if german else "Off")))
+		if BuildCamera.key_available(PARALLEL_TOGGLE_KEY):
+			hints.append(("F9 · Parallel-Modus: " if german else "F9 · Parallel mode: ") + (("Ein" if german else "On") if _mp_parallel else ("Aus" if german else "Off")))
 	if can_turn() or _mode == Mode.ROBOTIC_ARM or (has_method("_is_hopper") and call("_is_hopper")):
 		hints.append("R halten + Maus · Frei drehen" if german else "Hold R + mouse · Rotate freely")
 	return "  ·  ".join(hints)
@@ -457,3 +481,43 @@ func _wall_primary() -> void:
 		builds.set_meta("mp_wall_color", previous)
 	else:
 		builds.remove_meta("mp_wall_color")
+
+func _draw_custom_preview_flow(chains: Array, delta: float) -> void:
+	if chains.is_empty():
+		if is_instance_valid(_mp_preview_flow):
+			_mp_preview_flow.hide()
+		return
+	if not is_instance_valid(_mp_preview_flow):
+		_mp_preview_flow = MultiMeshInstance3D.new()
+		_mp_preview_flow.name = "CustomPreviewFlow"
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = ConveyorKit.flow_arrow_mesh()
+		mm.instance_count = 256
+		_mp_preview_flow.multimesh = mm
+		_mp_preview_flow.material_override = ConveyorKit.flow_material()
+		_mp_preview_flow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_mp_preview_flow)
+		_mp_preview_flow.top_level = true
+		_mp_preview_flow.global_transform = Transform3D.IDENTITY
+	_flow_phase = fmod(_flow_phase + maxf(0.0, delta) * ARROW_SPEED, 1024.0)
+	_fill_flow(_mp_preview_flow.multimesh, chains, WYE_ARROW_PITCH, ARROW_LIFT, Color.WHITE)
+	_mp_preview_flow.show()
+
+func _draw_wye_hint() -> void:
+	if is_instance_valid(_hint_wye) and _hint_wye.has_method("port_is_output"):
+		var chains := _custom_router_chains(_hint_wye)
+		_hint_flow.show()
+		_fill_flow(_hint_flow.multimesh, chains, WYE_ARROW_PITCH, ARROW_LIFT, Color(1.0, 1.0, 1.0, _hint_level))
+		return
+	super._draw_wye_hint()
+
+func _custom_router_chains(node: Node3D) -> Array:
+	var chains := []
+	for side in int(node.port_count):
+		var tip: Vector3 = node.port(side)
+		var outward := (tip - node.global_position).normalized()
+		tip += outward * WYE_FLOW_REACH
+		chains.append(PackedVector3Array([node.global_position, tip] if node.port_is_output(side) else [tip, node.global_position]))
+	return chains

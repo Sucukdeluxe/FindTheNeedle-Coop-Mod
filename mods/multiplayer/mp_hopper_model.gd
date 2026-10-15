@@ -27,6 +27,7 @@ func _ready() -> void:
 	_add_native_part("Silo_Feeder", Vector3(-0.108, 0.17, -0.16), 0.4)
 	_add_native_part("Silo_Cabinet", Vector3(0.7, 0.82, 0.49), 0.16, -PI * 0.5)
 	_add_cabinet_bracket()
+	_add_inlet_trays()
 	var badge := Label3D.new()
 	badge.text = "HOPPER"
 	badge.font_size = 28
@@ -61,6 +62,25 @@ func _ready() -> void:
 	mouth.shape = mouth_shape
 	mouth.position = Vector3(0.0, 1.72, -0.18)
 	intake.add_child(mouth)
+
+func _add_inlet_trays() -> void:
+	var ports := preload("res://mods/multiplayer/mp_hopper_ports.gd")
+	for side in ports.INPUTS.size():
+		var tip: Vector3 = ports.INPUTS[side]
+		var inward := Vector3(-tip.x, 0.0, -tip.z).normalized()
+		var end := tip + inward * 0.5
+		var across := Vector3(inward.z, 0.0, -inward.x)
+		var pose := Transform3D(Basis(across, Vector3.UP, inward).scaled_local(Vector3(0.72, 1.0, 0.5)), (tip + end) * 0.5)
+		var tray := MeshInstance3D.new()
+		tray.name = "Inlet%d" % side
+		tray.mesh = ConveyorKit.segment_mesh()
+		tray.transform = pose
+		add_child(tray)
+		for hand in [-1, 1]:
+			var rail := MeshInstance3D.new()
+			rail.mesh = ConveyorKit.rail_mesh(hand)
+			rail.transform = pose
+			add_child(rail)
 
 func _add_native_part(part_name: String, at: Vector3, size: float, yaw: float = 0.0) -> void:
 	if not _native_meshes.has(part_name):

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.63
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.64
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -6,7 +6,7 @@ Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
 NEUE BEDIENUNG .62
 - R halten und Maus links/rechts: frei drehen. R antippen: feste Drehschritte.
 - F6: Laufrichtung des gerade gezeichneten Förderbands umkehren.
-- Strg+G: Parallel-Modus für benachbarte, gerade Förderbänder umschalten.
+- F9: Parallel-Modus für benachbarte, gerade Förderbänder umschalten.
 - Vogelperspektive: Maschine mit Maus anvisieren und E für Einstellungen drücken.
 - Trichter: Rechtsklick mit getragenem Heu, Schaufel, Heugabel oder Hofsauger.
   Nur der aufnehmbare Anteil wird übertragen. M für den Sauger bleibt erhalten.

@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.63"
+const VERSION := "0.19.6-xRangerDE.64"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -433,6 +433,8 @@ func _start_world_sync(world: Node) -> void:
 	world_sync.mp = self
 	world_sync.world = world
 	add_child(world_sync)
+	if not active() or is_host:
+		ui.restore_world_input(world_sync.player)
 	if not active():
 		return
 	if is_host:

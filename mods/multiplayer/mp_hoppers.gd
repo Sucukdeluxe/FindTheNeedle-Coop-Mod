@@ -3,6 +3,7 @@ extends Node
 const Store = preload("res://mods/multiplayer/mp_hopper_state.gd")
 const Model = preload("res://mods/multiplayer/mp_hopper_model.gd")
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
+const Ports = preload("res://mods/multiplayer/mp_hopper_ports.gd")
 const BUILD_BOUNDS := AABB(Vector3(-0.9, -0.4, -0.9), Vector3(1.8, 2.0, 1.71))
 const BUILD_ID := "mp_hopper"
 const OUTPUT_INTERVAL := 0.1
@@ -37,6 +38,7 @@ var _intake_clock := 0.0
 var _tracked := {}
 var _build_yaw := 0.0
 var _build_yaw_set := false
+var _inlets := {}
 
 func start(session: Node, sync: Node) -> void:
 	mp = session
@@ -96,6 +98,7 @@ func session_started() -> void:
 	_rebuild_models()
 
 func session_ended() -> void:
+	_release_inlets()
 	if is_instance_valid(tool_input):
 		tool_input.session_ended()
 	if is_instance_valid(sale_stations):
@@ -115,6 +118,7 @@ func _usable() -> bool:
 	return _storage_valid and _mode != "" and _role() == _mode
 
 func shutdown() -> void:
+	_release_inlets()
 	if is_instance_valid(tool_input):
 		tool_input.shutdown()
 	if is_instance_valid(sale_stations):
@@ -182,6 +186,7 @@ func _process(delta: float) -> void:
 			if is_instance_valid(path) and path is Conveyor and path.is_inside_tree() and not path.is_queued_for_deletion():
 				_paths.append(path)
 		_connections.clear()
+		_refresh_inlets()
 	_update_focus()
 	if _mode not in ["host", "offline"] or world_sync._frozen:
 		return
@@ -189,6 +194,7 @@ func _process(delta: float) -> void:
 	if _intake_clock >= 0.05:
 		_intake_clock = 0.0
 		_intake()
+		_drain_inlets()
 	_tick += delta
 	if _tick >= OUTPUT_INTERVAL:
 		_tick = fmod(_tick, OUTPUT_INTERVAL)
@@ -229,6 +235,62 @@ func _insert(count: int, path: Node, row: Dictionary) -> bool:
 	if needle >= 0:
 		row.needles.pop_front()
 	return true
+
+func input_at(at: Vector3, distance: float = 0.05) -> Dictionary:
+	for row in _state.get("rows", []):
+		for side in Ports.INPUTS.size():
+			var point := Ports.point(row, side)
+			if point.distance_to(at) <= distance:
+				return {"id": row.id, "point": point, "bearing": Ports.bearing(row, side)}
+	return {}
+
+func _release_inlets() -> void:
+	for path in _inlets:
+		if is_instance_valid(path) and _inlets[path].has("held"):
+			path._records_held = _inlets[path].held
+			path._eats = _inlets[path].eats
+			path.run.hold_for = path._eats_kind if path._records_held else Callable()
+			path._sync_run_links()
+	_inlets.clear()
+
+func _refresh_inlets() -> void:
+	var desired := {}
+	for path in _paths:
+		if not is_instance_valid(path) or path.is_queued_for_deletion():continue
+		var line: PackedVector3Array = path.centre_line()
+		if line.size() < 2:continue
+		var port := input_at(line[-1], CONNECTION_TOLERANCE)
+		if port.is_empty() or (line[-1] - line[-2]).normalized().dot(port.bearing) < 0.995:continue
+		var link: Dictionary = _inlets.get(path, {"id": port.id})
+		if _mode in ["host", "offline"] and not link.has("held"):
+			link.held = path._records_held
+			link.eats = path._eats
+			path.hold_records(Callable())
+		desired[path] = link
+	for path in _inlets.keys():
+		if not desired.has(path):
+			var saved: Dictionary = _inlets[path]
+			if is_instance_valid(path) and saved.has("held"):
+				path._records_held = saved.held
+				path._eats = saved.eats
+				path.run.hold_for = path._eats_kind if path._records_held else Callable()
+				path._sync_run_links()
+	_inlets = desired
+
+func _drain_inlets() -> void:
+	for path in _inlets:
+		if not is_instance_valid(path) or path.is_queued_for_deletion():continue
+		var row := _row(int(_inlets[path].id))
+		var record: Dictionary = path.peek_record()
+		if row.is_empty() or record.is_empty() or int(record.get("kind", -1)) not in [BeltRun.Kind.WAD, BeltRun.Kind.TUFT]:continue
+		var count := int(record.get("strands", 0))
+		var needle := int(record.get("needle", -1))
+		if count <= 0 or count > Store.capacity(row) - int(row.stored) or (needle >= 0 and row.needles.has(needle)):continue
+		var taken: Dictionary = path.take_record()
+		if taken.is_empty():continue
+		Store.transfer(row, int(taken.strands))
+		if int(taken.needle) >= 0:row.needles.append(int(taken.needle))
+		_dirty = true
 
 func _row(id: int) -> Dictionary:
 	for row in _state.rows:

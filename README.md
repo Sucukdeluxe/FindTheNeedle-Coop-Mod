@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.63`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.64`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -24,7 +24,7 @@ The base ZIP does not replace `override.cfg`. See [German instructions](mods/mul
 
 ## New controls and upgrades
 
-- **Building controls:** hold R and move the mouse horizontally for free rotation; tap R for the original steps. F6 reverses the belt being drawn. Ctrl+G toggles parallel placement beside a straight, level conveyor. Connection and collision checks still apply. In F7 view, hover a machine and press E for its existing settings.
+- **Building controls:** hold R and move the mouse horizontally for free rotation; tap R for the original steps. F6 reverses the belt being drawn. F9 toggles parallel placement beside a straight, level conveyor. Connection and collision checks still apply. In F7 view, hover a machine and press E for its existing settings.
 - **House building:** walls snap to exposed platform edges in native wall modules. Roofs align with wall tops and eaves. Optional charcoal, cream, red and green wall/window/door variants retain the native materials and save their color.
 - **Sale stations:** press E at a sale station to move an empty station. Four upgrade ranks unlock up to five total sale stations; extra compact scales cost 500 each and use the same prices and shared account. Moving a loaded or unsettled station is blocked. The original stand remains available in old saves.
 - **Direct arm connections:** arms can deliver directly into merger/splitter paths and take cargo from their paths. Manual links survive saves and resynchronization. The native merger scheduler preserves continuous center movement and scales with transport upgrades.

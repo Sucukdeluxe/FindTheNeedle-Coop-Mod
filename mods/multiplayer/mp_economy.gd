@@ -7,7 +7,7 @@ signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
-const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "hopper_configure", "hopper_link", "receiver_place", "receiver_configure", "sale_place", "sale_move", "sale_remove", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
+const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "hopper_configure", "hopper_link", "receiver_place", "receiver_configure", "sale_place", "sale_move", "sale_remove", "sale_configure", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
 const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
@@ -31,6 +31,7 @@ func start(session: Node, sync: Node) -> void:
 	world_sync = sync
 	session_started()
 	_hook(sync.player.build, "mp_hopper_build_tool.gd")
+	sync.player.build.set_process_input(true)
 	_hook(sync.player.arm_links, "mp_arm_link_mode.gd")
 	_hook(sync.world.shop_menu, "mp_shop.gd")
 	_hook(sync.world.t_panel, "mp_t_panel.gd")

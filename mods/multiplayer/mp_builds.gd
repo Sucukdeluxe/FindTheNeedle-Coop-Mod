@@ -8,6 +8,10 @@ func _mp_sale_stations() -> Node:
 	return hoppers.get("sale_stations") if is_instance_valid(hoppers) else null
 
 func snap_stand_port(point: Vector3) -> Vector3:
+	var hopper := _mp_hoppers()
+	if is_instance_valid(hopper):
+		var port: Dictionary = hopper.input_at(point, Cfg.STAND_SNAP_RADIUS)
+		if not port.is_empty():return port.point
 	var service := _mp_sale_stations()
 	if is_instance_valid(service):
 		var station: Node3D = service.port_at(point, Cfg.STAND_SNAP_RADIUS)
@@ -16,6 +20,10 @@ func snap_stand_port(point: Vector3) -> Vector3:
 	return super.snap_stand_port(point)
 
 func port_bearing_at(point: Vector3) -> Vector3:
+	var hopper := _mp_hoppers()
+	if is_instance_valid(hopper):
+		var port: Dictionary = hopper.input_at(point)
+		if not port.is_empty():return port.bearing
 	var service := _mp_sale_stations()
 	if is_instance_valid(service):
 		var station: Node3D = service.port_at(point)
@@ -24,8 +32,14 @@ func port_bearing_at(point: Vector3) -> Vector3:
 	return super.port_bearing_at(point)
 
 func intake_at(point: Vector3) -> bool:
+	var hopper := _mp_hoppers()
+	if is_instance_valid(hopper) and not hopper.input_at(point).is_empty():return true
 	var service := _mp_sale_stations()
 	return (is_instance_valid(service) and is_instance_valid(service.port_at(point))) or super.intake_at(point)
+
+func _mp_hoppers() -> Node:
+	var session := get_node_or_null("/root/MPMod")
+	return session.world_sync.hoppers_sync if is_instance_valid(session) and is_instance_valid(session.world_sync) else null
 
 const WallPalette = preload("res://mods/multiplayer/mp_wall_palette.gd")
 const RouterCatalog = preload("res://mods/multiplayer/mp_router_catalog.gd")

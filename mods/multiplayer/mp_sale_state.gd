@@ -22,5 +22,7 @@ static func valid(value: Variant) -> bool:
 			return false
 		if not row.get("revision") is int or row.revision < 0:
 			return false
+		if row.has("feed_belt") and not row.feed_belt is bool:
+			return false
 		seen[row.id] = true
 	return seen.has(1)

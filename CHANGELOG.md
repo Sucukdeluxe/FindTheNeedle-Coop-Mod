@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6-xRangerDE.64
+
+Repair construction controls and make custom machinery easier to use.
+
+- Enable free rotation input on the patched build tool: hold R and move the mouse, then release R before placing. Tapping R retains stepped rotation.
+- Use F9 for parallel conveyors and F6 for belt direction in first-person and overhead view, without opening the debug menu or changing the grid.
+- Restore mouse capture after world loading and focus recovery, while keeping open menus usable.
+- Show animated flow arrows on every custom merger/splitter port in placement previews and hover hints. Add graphical port-selection panels using the game's native panel framework.
+- Render catalog icons from the installed machinery and compose missing upgrade icons from native item/badge images.
+- Add left, rear and right raw-hay inputs to loading hoppers. Full storage holds the input; processed goods are not converted. Use the native hopper settings panel.
+- Hide the internal sale-station move tool from the catalog. Keep relocation under E, support normal X dismantling for extra scales, and allow the feed belt to be hidden on empty scales.
+
+Existing save files and purchased ranks are retained. Targeted native headless and local host/two-guest checks cover these changes. UI captures used a separate, inactive Windows desktop; no visible game window was opened. Two-PC Steam/WAN behavior is not newly verified.
+
+
 ## 0.19.6-xRangerDE.63
 
 Keep custom routing devices when loading a saved game.

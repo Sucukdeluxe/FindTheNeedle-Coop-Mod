@@ -13,6 +13,7 @@ var _build_yaw_set := false
 var _menu: CanvasLayer
 var _menu_target: Node3D
 var _status: Label
+var _menu_card: PanelContainer
 
 static func ensure_catalog() -> void:
 	var entries: Dictionary = BuildCatalog.entries()
@@ -225,37 +226,45 @@ func _open(target: Node3D) -> void:
 	_menu = CanvasLayer.new()
 	_menu.layer = 20
 	add_child(_menu)
-	var card := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04,0.05,0.06,0.98)
-	style.border_color = Color(0.65,0.55,0.3)
-	style.set_border_width_all(1)
-	for edge in ["left", "right", "top", "bottom"]:
-		style.set("content_margin_" + edge, 16.0)
-	card.add_theme_stylebox_override("panel", style)
+	var card := PlateKit.card(620.0)
+	_menu_card = card
 	_menu.add_child(card)
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 8)
-	card.add_child(rows)
-	_status = Label.new()
-	_status.text = _tr("Verteiler: Eingang wählen (nur leer)", "Splitter: select input (when empty)") if target.get_script() == Distributor else _tr("Sammler: Ausgang wählen (nur leer)", "Merger: select output (when empty)")
-	_status.add_theme_font_size_override("font_size", 18)
-	rows.add_child(_status)
-	for side in target.port_count:
-		var button := Button.new()
-		button.text = _tr("Anschluss %d%s", "Port %d%s") % [side + 1, (_tr(" · Eingang", " · input") if target.get_script() == Distributor else _tr(" · Ausgang", " · output")) if (side == target.input_port if target.get_script() == Distributor else side == target.output_port) else ""]
-		button.custom_minimum_size.y = 34
-		button.pressed.connect(_set_output.bind(side))
-		rows.add_child(button)
-	var done := Button.new()
-	done.text = _tr("Schließen", "Close")
-	done.custom_minimum_size.y = 34
-	done.pressed.connect(_close)
+	var whole := VBoxContainer.new()
+	whole.add_theme_constant_override("separation", 0)
+	card.add_child(whole)
+	var splitter: bool = target.get_script() == Distributor
+	var title: String = ("%d-ANSCHLUSS-" % target.port_count) + ("VERTEILER" if splitter else "SAMMLER") if TranslationServer.get_locale().begins_with("de") else ("%d-PORT " % target.port_count) + ("SPLITTER" if splitter else "MERGER")
+	var top := PlateKit.top(whole, title, "*", _close, null)
+	var photo: Control = top.photo
+	(photo.get_child(0) as TextureRect).texture = preload("res://mods/multiplayer/mp_receiver_icon.gd").texture(target.port_count, splitter)
+	photo.show()
+	top.chip.hide()
+	ArmPanel.write_state(top.word, top.sign, 0)
+	top.word.text = _tr("FLUSSRICHTUNG", "FLOW DIRECTION")
+	top.line.text = _tr("Eingang wählen", "Select input") if splitter else _tr("Ausgang wählen", "Select output")
+	var rows := PlateKit.body(whole, 620.0)
+	var diagram := preload("res://mods/multiplayer/mp_port_diagram.gd").new()
+	diagram.target = target
+	diagram.port_selected.connect(_set_output)
+	rows.add_child(diagram)
+	var legend := Label.new()
+	legend.text = _tr("Blau: Eingang   ·   Gold: Ausgang\nAnschluss wählen · Gerät muss leer sein", "Blue: input   ·   Gold: output\nSelect a port · device must be empty")
+	UiFont.style(legend, 14, ArmPanel.COL_INK_SOFT, 0, false)
+	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rows.add_child(legend)
+	var done := PlateKit.button(_tr("Schließen", "Close"), "", _close)
 	rows.add_child(done)
-	card.size = Vector2(380, 100 + target.port_count * 42)
-	card.position = (get_viewport().get_visible_rect().size - card.size) * 0.5
+	if not get_viewport().size_changed.is_connected(_fit_menu):
+		get_viewport().size_changed.connect(_fit_menu)
+	_fit_menu.call_deferred()
 	hoppers.world_sync.player.set_meta("mp_build_menu", _menu)
 	hoppers.world_sync.player.capture_mouse(false)
+
+func _fit_menu() -> void:
+	if not is_instance_valid(_menu_card):return
+	var view := get_viewport().get_visible_rect().size
+	_menu_card.size = Vector2(minf(620.0, view.x - 24.0), 0.0)
+	_menu_card.position = (view - _menu_card.size) * 0.5
 
 func _set_output(side: int) -> void:
 	if not is_instance_valid(_menu_target):

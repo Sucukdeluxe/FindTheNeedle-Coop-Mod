@@ -99,4 +99,7 @@ func set_preview_valid(valid: bool) -> void:
 	if not placement_preview:
 		return
 	for mesh in find_children("*", "MeshInstance3D", true, false):
+		if str(mesh.name).begins_with("IntakeArrow"):
+			mesh.hide()
+			continue
 		mesh.material_overlay = ConveyorKit.ghost_material(valid)

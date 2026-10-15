@@ -5,6 +5,7 @@ const HOPPER_ID := "mp_hopper"
 const SALE_IDS := ["mp_sale_scale", "mp_sale_move"]
 var _hopper_wreck := 0
 var _hopper_wreck_time := 0.0
+var _sale_wreck := 0
 
 func _hoppers() -> Node:
 	if is_instance_valid(mp_economy) and is_instance_valid(mp_economy.world_sync):
@@ -40,13 +41,32 @@ func _sync_ghosts() -> void:
 func _process(delta: float) -> void:
 	if not _is_hopper() or not _active:
 		super._process(delta)
+		var base := _hoppers()
+		var row: Dictionary = base._row(base.target_id(true)) if is_instance_valid(base) else {}
+		_draw_custom_preview_flow(_hopper_chains(Transform3D(Basis(Vector3.UP, float(row.yaw)), row.position)) if not row.is_empty() else [], 0.0)
 		return
 	_tick_dismantle(delta)
 	var hoppers := _service()
+	var chains := []
 	if is_instance_valid(hoppers):
 		hoppers.preview(player.camera.global_transform, _reach, player.is_mouse_captured() and not player.menu_is_up())
+		var ghost: Node3D = hoppers.get("_ghost")
+		if is_instance_valid(ghost) and ghost.visible:
+			if ghost.has_method("port_is_output"):
+				chains = _custom_router_chains(ghost)
+			elif player.build_id == HOPPER_ID:
+				chains = _hopper_chains(ghost.global_transform)
+	_draw_custom_preview_flow(chains, delta)
+
+func _hopper_chains(pose: Transform3D) -> Array:
+	var chains := [PackedVector3Array([pose * Vector3(0.0, 0.0, 0.12), pose * Vector3(0.0, 0.0, 1.1)])]
+	for tip in preload("res://mods/multiplayer/mp_hopper_ports.gd").INPUTS:
+		chains.append(PackedVector3Array([pose * tip, pose * Vector3(0.0, 0.0, -0.16)]))
+	return chains
 
 func primary() -> void:
+	if _mp_rotate_held:
+		return
 	if not _is_hopper():
 		super.primary()
 		return
@@ -67,6 +87,16 @@ func status() -> Dictionary:
 
 func _begin_dismantle(loud := true) -> void:
 	var hoppers := _hoppers()
+	_sale_wreck = 0
+	if is_instance_valid(hoppers) and is_instance_valid(hoppers.sale_stations) and _hold_whole:
+		_sale_wreck = hoppers.sale_stations.target_id(true)
+		if _sale_wreck > 1:
+			_hopper_wreck = 0
+			_hopper_wreck_time = 0.0
+			_wreck = null
+			_wreck_chain = false
+			return
+	_sale_wreck = 0
 	var target := 0
 	if is_instance_valid(hoppers):
 		target = hoppers.target_id(true)
@@ -80,6 +110,18 @@ func _begin_dismantle(loud := true) -> void:
 	_wreck_chain = false
 
 func _tick_dismantle(delta: float) -> void:
+	if _sale_wreck > 1:
+		var service := _hoppers().sale_stations as Node
+		if not Input.is_action_pressed(_hold_action) or service.target_id(true) != _sale_wreck:
+			_sale_wreck = 0
+			_hopper_wreck_time = 0.0
+			return
+		_hopper_wreck_time += delta
+		if _hopper_wreck_time >= DISMANTLE_HOLD:
+			service.request_remove(_sale_wreck)
+			_sale_wreck = 0
+			_hopper_wreck_time = 0.0
+		return
 	if _hopper_wreck == 0:
 		super._tick_dismantle(delta)
 		return
@@ -95,11 +137,13 @@ func _tick_dismantle(delta: float) -> void:
 		_hopper_wreck_time = 0.0
 
 func dismantle_progress() -> float:
-	if _hopper_wreck != 0:
+	if _hopper_wreck != 0 or _sale_wreck > 1:
 		return clampf(_hopper_wreck_time / DISMANTLE_HOLD, 0.0, 1.0)
 	return super.dismantle_progress()
 
 func dismantle_name() -> String:
+	if _sale_wreck > 1:
+		return "Verkaufswaage" if TranslationServer.get_locale().begins_with("de") else "Sale Scale"
 	if _hopper_wreck != 0:
 		return "Einfülltrichter" if TranslationServer.get_locale().begins_with("de") else "Loading Hopper"
 	return super.dismantle_name()

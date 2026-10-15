@@ -2,6 +2,16 @@ extends "res://mods/multiplayer/mp_selling_stand.gd"
 
 const OFFSET := Vector3(1.66, 0.0, 3.05)
 const BASE_BOUNDS := AABB(Vector3(1.05, -0.02, 2.10), Vector3(1.22, 1.75, 1.55))
+var feed_belt := true
+
+func set_feed_belt(on: bool) -> void:
+	if feed_belt == on:return
+	feed_belt = on
+	if is_instance_valid(_belt):
+		_belt.clear_path()
+		remove_child(_belt)
+		_belt.queue_free()
+		_build_belt()
 
 func _build_model() -> void:
 	var packed: PackedScene = load(MODEL)
@@ -47,7 +57,7 @@ static func _base_mesh(source: Mesh) -> ArrayMesh:
 	return result
 
 func _build_belt() -> void:
-	_belt_tail = Vector3(-0.8, 0.66, 0.0)
+	_belt_tail = Vector3(-0.8 if feed_belt else -0.18, 0.66, 0.0)
 	_belt_head = Vector3(0.0, 0.66, 0.0)
 	_scale_plate = Vector3(0.0, 0.61, 0.0)
 	_belt = BeltPath.new()
@@ -57,6 +67,7 @@ func _build_belt() -> void:
 	_belt.lay_deck = false
 	add_child(_belt)
 	_belt.build_path(PackedVector3Array([to_global(_belt_tail), to_global(_belt_head)]))
+	_belt.set_belt_drawn(feed_belt)
 	_belt.records_props = true
 	_belt.hold_records(_eats_kind)
 	_belt_mid = to_global((_belt_tail + _belt_head) * 0.5)
