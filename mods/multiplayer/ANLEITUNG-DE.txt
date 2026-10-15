@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.58
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.61
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -34,6 +34,15 @@ WEITERE FUNKTIONEN
   Frei oder am waagerechten Bandanfang platzieren. M füllt ein, E öffnet Einstellungen.
   Volle Bänder stoppen die Ausgabe; vor dem Abbau muss der Trichter leer sein.
   Der Trichter funktioniert im Einzelspieler und Multiplayer.
+  Originalheu zeigt den tatsächlichen Inhalt an. Die kurze Einfüllanimation
+  startet nur bei Zuwachs; sie erzeugt kein zusätzliches aufhebbares Heu.
+- Sammler und Verteiler: jeweils 4 → 6 → 8 Anschlüsse als getrennte Kaufreihen
+  nach dem intelligenten Verteiler. Freischaltung: 1.500 / 4.000 / 8.000.
+  Baukosten je Gerät: 2.000 / 3.500 / 5.000. Der Sammler hat 3/5/7 Eingänge
+  und einen Ausgang; der Verteiler einen Eingang und 3/5/7 Ausgänge.
+  Auf ein gerades, waagerechtes Band einsetzen oder frei platzieren. E wählt
+  beim leeren Gerät den Ausgang bzw. Eingang. Vorhandene Sammler bleiben
+  nutzbar; neue Bauten benötigen die jeweilige Freischaltung.
 - Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
   zusammen 25.000. Gilt für direkte M-Bandausgabe und Trichter.
 - Armtempo: 20 Stufen; alle 20 Stufen kosten zusammen 80.000.
@@ -55,12 +64,14 @@ WEITERE FUNKTIONEN
   für den Netzwerkabgleich zwischengespeichert, Änderungen lösen einen Neuaufbau aus.
 
 PRÜFGRENZEN DIESER FASSUNG
-Gezielte Tests mit der nativen V62-Laufzeit ohne sichtbares Fenster: Sammler-
-Einbau mit Host und Gast, gemischte und physische Ladung, Rückstau, doppelte
-Bauanfragen, Modellzustände und F7-Eingaben. Einzelne Eingabetests verwenden
-isolierte Ersatzabhängigkeiten. Kein neuer Zwei-PC-Steam-/Internettest und
-kein Nachweis der gerenderten GPU-Leistung. Vorhandene Spielstände behalten
-ihr Format; diese Fassung fügt keine neue Spielstandmigration hinzu.
+Gezielte Tests mit der nativen V62-Laufzeit ohne sichtbares Fenster: alle
+sechs Gerätetypen, Kaufreihen und getrennte Baukosten, doppelte Bauanfragen,
+Ändern der Anschlüsse, Speichern/Laden, beladener Bandeinbau, gleichzeitige
+Sammlerzuflüsse und Rückstau mit Wiederanlauf. Einzelne Umgebungsteile der
+Kaufprüfung verwenden Ersatzabhängigkeiten. Kein neuer Zwei-PC-Steam-/
+Internettest und kein Nachweis der gerenderten GPU-Leistung. Die erweiterte
+Geräteauswahl erfordert dieselbe Version bei allen Spielern. Vorhandene
+Gebäude und Kaufstufen bleiben erhalten.
 
 ROBOTERSTATUS
 - Strom-, Warte- und Störungsmeldungen sowie die Armtafel kommen vom Host.

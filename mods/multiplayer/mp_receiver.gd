@@ -5,11 +5,14 @@ var port_count := 4
 var output_port := 0
 
 func radius() -> float:
-	return 1.25 if port_count == 4 else 2.05
+	return preload("res://mods/multiplayer/mp_router_catalog.gd").radius(port_count)
 
 func port_local(side: int) -> Vector3:
 	var angle := TAU * float(side) / float(port_count)
 	return Vector3(sin(angle), 0.0, cos(angle)) * radius()
+
+func port_is_output(side: int) -> bool:
+	return side == output_port
 
 func inlet_sides() -> Array:
 	var result := []
@@ -53,7 +56,7 @@ func _lanes() -> Array:
 	return result
 
 func build_cost() -> float:
-	return 2000.0 if port_count == 4 else 5000.0
+	return preload("res://mods/multiplayer/mp_router_catalog.gd").build_cost(port_count)
 
 func to_dict() -> Dictionary:
 	return {"type": "mp_receiver%d" % port_count, "position": global_position,
@@ -72,7 +75,7 @@ func _build_model() -> void:
 
 func _show_held() -> void:
 	if is_instance_valid(_body):
-		Model.set_held(_body, _drawn_held)
+		Model.set_held(_body, _drawn_held, _infill)
 
 func footprint() -> Array[Vector4]:
 	return [Vector4(global_position.x, global_position.y, global_position.z, radius() + 0.12)]

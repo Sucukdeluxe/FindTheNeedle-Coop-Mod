@@ -1,15 +1,17 @@
 extends Node3D
 
+const Contents = preload("res://mods/multiplayer/mp_hopper_contents.gd")
+
 const OUTLET := Vector3(0.0, 0.0, 0.7)
+static var _native_meshes := {}
 static var _shared_mesh: ArrayMesh
-static var _materials: Array[StandardMaterial3D] = []
+static var _materials: Array[Material] = []
 var hopper_id := 0
 var intake: Area3D
 var preview := false
 var collision_bits := 0
 var _mesh: MeshInstance3D
-var _fill: MeshInstance3D
-var _shown_fill := -1
+var _fill: Node3D
 var _status_layer: CanvasLayer
 var _status_panel: PanelContainer
 var _status_lines: Array[Label] = []
@@ -22,14 +24,18 @@ func _ready() -> void:
 	_mesh = MeshInstance3D.new()
 	_mesh.mesh = _shared_mesh
 	add_child(_mesh)
-	_fill = MeshInstance3D.new()
-	var fill_mesh := BoxMesh.new()
-	fill_mesh.size = Vector3(1.32, 0.04, 1.0)
-	_fill.mesh = fill_mesh
-	_fill.material_override = _materials[3]
-	_fill.position = Vector3(0.0, 1.31, -0.18)
-	_fill.hide()
-	add_child(_fill)
+	_add_native_part("Silo_Feeder", Vector3(0.30, 0.38, -0.06), 0.4)
+	_add_native_part("Silo_Cabinet", Vector3(0.75, 0.8, 0.24), 0.16, -PI * 0.5)
+	var badge := Label3D.new()
+	badge.text = "HOPPER"
+	badge.font_size = 28
+	badge.pixel_size = 0.0013
+	badge.position = Vector3(-0.43, 0.98, 0.342)
+	badge.modulate = Color(0.86, 0.9, 0.88)
+	add_child(badge)
+	if not preview:
+		_fill = Contents.new()
+		add_child(_fill)
 	if preview:
 		_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		return
@@ -55,6 +61,35 @@ func _ready() -> void:
 	mouth.position = Vector3(0.0, 1.72, -0.18)
 	intake.add_child(mouth)
 
+func _add_native_part(part_name: String, at: Vector3, size: float, yaw: float = 0.0) -> void:
+	if not _native_meshes.has(part_name):
+		var scene := load("res://assets/models/hay_silo.glb") as PackedScene
+		if scene == null:return
+		var instance := scene.instantiate()
+		var original := instance.find_child(part_name, true, false) as MeshInstance3D
+		if original == null:
+			instance.free()
+			return
+		var materials := []
+		for surface in original.mesh.get_surface_count():
+			var material := original.get_active_material(surface)
+			if material != null and not material.get_meta("immutable_palette", false):
+				var key := material.resource_name
+				var made := HayCompressor.make_material(key, HaySilo.spec_table(), load(HaySilo.SHADER))
+				if made != null:material = made
+			materials.append(material)
+		_native_meshes[part_name] = {"mesh": original.mesh, "materials": materials}
+		instance.free()
+	var stored: Dictionary = _native_meshes[part_name]
+	var part := MeshInstance3D.new()
+	part.name = part_name
+	part.mesh = stored.mesh
+	for surface in stored.materials.size():
+		part.set_surface_override_material(surface, stored.materials[surface])
+	var basis := Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size)
+	part.transform = Transform3D(basis, at - basis * part.mesh.get_aabb().get_center())
+	add_child(part)
+
 func set_preview_valid(ok: bool) -> void:
 	if not is_instance_valid(_mesh):
 		return
@@ -63,7 +98,8 @@ func set_preview_valid(ok: bool) -> void:
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_mesh.material_override = mat
+	for mesh in find_children("*", "MeshInstance3D", true, false):
+		mesh.material_override = mat
 
 func show_status(text: String, focused: bool) -> void:
 	if not focused or preview:
@@ -129,29 +165,23 @@ func _position_status() -> void:
 	_status_panel.position = Vector2((viewport_size.x - panel_size.x) * 0.5, 12.0)
 
 func set_fill(amount: int, capacity: int = 50000) -> void:
-	var bucket := clampi(int(ceil(float(amount) * 10.0 / maxf(1.0, float(capacity)))), 0, 10)
-	if bucket == _shown_fill or not is_instance_valid(_fill):
-		return
-	_shown_fill = bucket
-	_fill.visible = bucket > 0
-	_fill.position.y = lerpf(0.58, 1.41, float(bucket) / 10.0)
-	_fill.scale = Vector3(lerpf(0.38, 1.0, float(bucket) / 10.0), 1.0, lerpf(0.4, 1.0, float(bucket) / 10.0))
+	if is_instance_valid(_fill):
+		_fill.call("set_amount", amount, capacity)
 
 static func _make_materials() -> void:
-	if not _materials.is_empty():
-		return
-	for color in [Color(0.22, 0.32, 0.33), Color(0.5, 0.54, 0.55), Color(0.12, 0.145, 0.15), Color(0.54, 0.34, 0.11)]:
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = color
-		mat.metallic = [0.35, 0.82, 0.62, 0.0][_materials.size()]
-		mat.roughness = [0.66, 0.43, 0.61, 1.0][_materials.size()]
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		_materials.append(mat)
+	if not _materials.is_empty():return
+	var shell := ConveyorKit.frame_material()
+	var lining := shell.duplicate() as ShaderMaterial
+	lining.set_shader_parameter("tint", Vector3(1.35, 1.4, 1.34))
+	var frame := shell.duplicate() as ShaderMaterial
+	frame.set_shader_parameter("tint", Vector3(0.72, 0.77, 0.75))
+	_materials.assign([shell, lining, frame])
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	var normal := (b - a).cross(c - a).normalized()
-	for point in [a, b, c, a, c, d]:
+	for point in [a, c, b, a, d, c]:
 		st.set_normal(normal)
+		st.set_uv(Vector2(point.x, point.z) if absf(normal.y) > 0.5 else (Vector2(point.z, point.y) if absf(normal.x) > 0.5 else Vector2(point.x, point.y)))
 		st.add_vertex(point)
 
 static func _box(st: SurfaceTool, at: Vector3, size: Vector3) -> void:
@@ -193,11 +223,13 @@ static func _cylinder(st: SurfaceTool, center: Vector3, axis: Vector3, radius: f
 		var offset := (side * cos(angle) + up * sin(angle)) * radius
 		var offset_next := (side * cos(next) + up * sin(next)) * radius
 		_quad(st, a + offset, a + offset_next, b + offset_next, b + offset)
-		for point in [a, a + offset_next, a + offset]:
+		for point in [a, a + offset, a + offset_next]:
 			st.set_normal(-direction)
+			st.set_uv(Vector2(point.x, point.z) if absf(direction.y) > 0.5 else (Vector2(point.z, point.y) if absf(direction.x) > 0.5 else Vector2(point.x, point.y)))
 			st.add_vertex(point)
-		for point in [b, b + offset, b + offset_next]:
+		for point in [b, b + offset_next, b + offset]:
 			st.set_normal(direction)
+			st.set_uv(Vector2(point.x, point.z))
 			st.add_vertex(point)
 
 static func _make_mesh() -> ArrayMesh:
@@ -214,7 +246,6 @@ static func _make_mesh() -> ArrayMesh:
 			_box(st, Vector3(0.0,0.38,-0.12), Vector3(0.55,0.16,0.62))
 			_box(st, Vector3(0.0,0.2,0.41), Vector3(0.6,0.12,0.68))
 			_box(st, Vector3(0.0,0.1,0.73), Vector3(0.55,0.22,0.06))
-			_box(st, Vector3(0.63,0.44,-0.12), Vector3(0.26,0.27,0.31))
 			for x in [-0.32,0.32]:
 				_box(st, Vector3(x,0.31,0.42), Vector3(0.045,0.18,0.7))
 		elif layer == 1:
@@ -225,7 +256,7 @@ static func _make_mesh() -> ArrayMesh:
 				var low_a: Vector3 = bottom[i] + (Vector3(0.0,0.43,-0.13) - bottom[i]).normalized() * 0.025
 				var low_b: Vector3 = bottom[j] + (Vector3(0.0,0.43,-0.13) - bottom[j]).normalized() * 0.025
 				_quad(st, inner_b, inner_a, low_a, low_b)
-				_beam(st, top[i], top[j], 0.045, 0.045)
+				_cylinder(st, (top[i] + top[j]) * 0.5, (top[j] - top[i]).normalized(), 0.027, top[i].distance_to(top[j]), 16)
 			for z in [-0.86,0.5]:
 				for x in [-0.75,-0.38,0.0,0.38,0.75]:
 					_cylinder(st, Vector3(x,1.523,z), Vector3.UP,0.012,0.056,6)
@@ -255,11 +286,9 @@ static func _make_mesh() -> ArrayMesh:
 			for z in [-0.69,0.31]:
 				_box(st, Vector3(0.0,0.15,z), Vector3(1.46,0.08,0.08))
 			for i in 4:
-				_beam(st, top[i].lerp(bottom[i],0.06), top[i].lerp(bottom[i],0.95),0.025,0.025)
-			_cylinder(st,Vector3(0.42,0.39,-0.12),Vector3.RIGHT,0.115,0.24)
-			for x in [0.33,0.37,0.41,0.45,0.49]:
-				_cylinder(st,Vector3(x,0.39,-0.12),Vector3.RIGHT,0.126,0.014)
+				_beam(st, top[i].lerp(bottom[i],0.06), top[i].lerp(bottom[i],0.95),0.045,0.035)
 			_box(st,Vector3(0.0,0.27,0.74),Vector3(0.54,0.017,0.11))
 			_box(st,Vector3(0.0,0.448,-0.13),Vector3(0.43,0.02,0.44))
+		st.generate_tangents()
 		st.commit(mesh)
 	return mesh

@@ -1,5 +1,6 @@
 extends "res://mods/multiplayer/mp_build_tool.gd"
 
+const RouterCatalog = preload("res://mods/multiplayer/mp_router_catalog.gd")
 const HOPPER_ID := "mp_hopper"
 var _hopper_wreck := 0
 var _hopper_wreck_time := 0.0
@@ -10,11 +11,11 @@ func _hoppers() -> Node:
 	return null
 
 func _is_hopper() -> bool:
-	return is_instance_valid(player) and player.build_id in [HOPPER_ID, "mp_receiver4", "mp_receiver8"]
+	return is_instance_valid(player) and (player.build_id == HOPPER_ID or player.build_id in RouterCatalog.ids())
 
 func _service() -> Node:
 	var hoppers := _hoppers()
-	return hoppers.receivers if is_instance_valid(hoppers) and player.build_id in ["mp_receiver4", "mp_receiver8"] else hoppers
+	return hoppers.receivers if is_instance_valid(hoppers) and player.build_id in RouterCatalog.ids() else hoppers
 
 func _sync_ghosts() -> void:
 	var active := _active
@@ -58,7 +59,7 @@ func status() -> Dictionary:
 	if is_instance_valid(hoppers):
 		evaluated = hoppers.build_candidate(player.camera.global_transform, _reach)
 	return {"kind": "mp_hopper", "placing": false, "ok": evaluated.get("ok", false),
-		"reason": evaluated.get("reason", ""), "length": 0.0, "cost": (5000.0 if player.build_id == "mp_receiver8" else (2000.0 if player.build_id == "mp_receiver4" else 2500.0)), "reach": _reach}
+		"reason": evaluated.get("reason", ""), "length": 0.0, "cost": (RouterCatalog.build_cost(RouterCatalog.count_for(player.build_id)) if player.build_id in RouterCatalog.ids() else 2500.0), "reach": _reach}
 
 func _begin_dismantle(loud := true) -> void:
 	var hoppers := _hoppers()

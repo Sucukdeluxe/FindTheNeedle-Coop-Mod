@@ -1,5 +1,6 @@
 extends "res://scripts/build/build_manager.gd"
 
+const RouterCatalog = preload("res://mods/multiplayer/mp_router_catalog.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const ScannerDemolition = preload("res://mods/multiplayer/mp_scanner_demolition.gd")
 
@@ -175,11 +176,26 @@ func add_receiver(at: Vector3, yaw: float, count: int, output: int = 0) -> Conve
 	changed.emit()
 	return receiver
 
+func add_multi_splitter(at: Vector3, yaw: float, count: int, input: int = -1) -> ConveyorSplitter:
+	var splitter := preload("res://mods/multiplayer/mp_multi_splitter.gd").new()
+	splitter.name = _free_name("MultiSplitter", splitters.size())
+	splitter.port_count = count
+	splitter.input_port = count / 2 if input < 0 else input
+	splitter.next_side = 0 if splitter.input_port != 0 else 1
+	splitter.setup(at, yaw)
+	splitters.append(splitter)
+	add_child(splitter)
+	rebuild_junctions()
+	_refresh_wye_supports_at(splitter.ports())
+	refit_runs_at(splitter.ports())
+	changed.emit()
+	return splitter
+
 func receiver_splice_fits(belt: Conveyor, at: Vector3, yaw: float, count: int) -> bool:
-	if count not in [4, 8] or not conveyors.has(belt) or not is_instance_valid(belt) or belt.is_queued_for_deletion():
+	if count not in RouterCatalog.COUNTS or not conveyors.has(belt) or not is_instance_valid(belt) or belt.is_queued_for_deletion():
 		return false
 	var direction := Basis(Vector3.UP, yaw).z
-	var radius := 1.25 if count == 4 else 2.05
+	var radius := RouterCatalog.radius(count)
 	var incoming := at - direction * radius
 	var outgoing := at + direction * radius
 	var taken: Array[Conveyor] = _splice_taken(belt, incoming, outgoing)
@@ -249,17 +265,19 @@ static func _receiver_plan_point(plan: Dictionary, point: Vector3) -> Vector3:
 static func _receiver_plan_at(plan: Dictionary, s: float, side: float) -> Vector3:
 	return plan.a + (plan.b - plan.a).normalized() * s + BeltPath.run_basis(plan.a, plan.b).x * side
 
-func splice_receiver(belt: Conveyor, at: Vector3, yaw: float, count: int) -> ConveyorJoiner:
+func splice_receiver(belt: Conveyor, at: Vector3, yaw: float, count: int, distributor: bool = false) -> Node3D:
 	if not receiver_splice_fits(belt, at, yaw, count):
 		return null
 	var direction := Basis(Vector3.UP, yaw).z
-	var radius := 1.25 if count == 4 else 2.05
-	var build := func() -> Node3D: return add_receiver(at, yaw, count)
-	return splice_built(belt, at - direction * radius, at + direction * radius, build, _receiver_through) as ConveyorJoiner
+	var radius := RouterCatalog.radius(count)
+	var build := func() -> Node3D: return add_multi_splitter(at, yaw, count) if distributor else add_receiver(at, yaw, count)
+	return splice_built(belt, at - direction * radius, at + direction * radius, build, _receiver_through)
 
 static func _receiver_through(receiver: Node3D) -> Array[BeltPath]:
 	var paths: Array[BeltPath] = []
-	if is_instance_valid(receiver):
+	if is_instance_valid(receiver) and receiver is ConveyorSplitter:
+		paths.append(receiver.route(receiver.straight_side()))
+	elif is_instance_valid(receiver):
 		paths.append(receiver.arm(receiver.port_count / 2))
 		paths.append(receiver.out_path())
 	return paths
@@ -268,15 +286,21 @@ func from_array(data: Array) -> void:
 	var native_rows := []
 	var receiver_rows := []
 	for row in data:
-		if row is Dictionary and row.get("type") in ["mp_receiver4", "mp_receiver8"]:
+		if row is Dictionary and row.get("type") in RouterCatalog.ids():
 			receiver_rows.append(row)
 		else:
 			native_rows.append(row)
 	await super.from_array(native_rows)
 	for row in receiver_rows:
-		var count := 4 if row.type == "mp_receiver4" else 8
+		var count := RouterCatalog.count_for(row.type)
+		var distributor := RouterCatalog.is_distributor(row.type)
 		if not (row.get("position") is Vector3) or not row.position.is_finite():
 			continue
-		var receiver := add_receiver(row.position, float(row.get("yaw", 0.0)), count, clampi(int(row.get("receiver_output", 0)), 0, count - 1))
+		var receiver: Node3D
+		if distributor:
+			receiver = add_multi_splitter(row.position, float(row.get("yaw", 0.0)), count, clampi(int(row.get("splitter_input", count / 2)), 0, count - 1))
+		else:
+			receiver = add_receiver(row.position, float(row.get("yaw", 0.0)), count, clampi(int(row.get("receiver_output", 0)), 0, count - 1))
 		var side := int(row.get("next_side", 0))
-		receiver.next_side = side if side in receiver.inlet_sides() else receiver.inlet_sides()[0]
+		var sides: Array = receiver.output_sides() if distributor else receiver.inlet_sides()
+		receiver.next_side = side if side in sides else sides[0]

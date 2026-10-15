@@ -49,7 +49,7 @@ const BUILD_ARRAYS := ["conveyors", "corners", "water_mains", "water_splitters",
 	"pelletizers", "generators", "boreholes", "tube_launchers", "dump_hatches",
 	"hay_stairs", "hay_lifts", "splitters", "joiners", "cabinets", "needle_radars",
 	"paint_boards", "work_lamps", "hay_drones", "piston_rakes", "power_poles", "belt_gates", "switch_boxes"]
-const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried", "port_reach", "riser", "tier", "seat", "down", "head_turn", "tee", "up", "fwd", "receiver_output"]
+const BUILD_SHAPE_KEYS := ["span", "rise", "kind", "sections", "rows", "side", "port_r", "line", "buried", "port_reach", "riser", "tier", "seat", "down", "head_turn", "tee", "up", "fwd", "receiver_output", "splitter_input"]
 
 # Settings the game keeps in a save's meta and reads back when it loads one,
 # as { the name on Cfg: the name in the meta }. The guest builds its yard out

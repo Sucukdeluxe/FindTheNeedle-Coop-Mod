@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.58`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.61`, based on upstream 0.19.5. This build targets **Find The Needle Demo V62**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -26,7 +26,7 @@ The base ZIP does not replace `override.cfg`. See [German instructions](mods/mul
 
 - **F7 building camera:** toggle the overhead view directly, then use B to select a building. WASD or arrows pan, Shift pans faster, the wheel zooms, left click places and right click cancels the current step. F7 or Escape restores the previous view. Building remains subject to host validation and a 24 m area around the actual player. F7 takes priority over the native debug-report binding. Ctrl+F7 still opens the report; other customized F7 actions are respected. Use PageUp/PageDown to change building height while arrow keys pan.
 - **Loading Hopper:** a 2,500-cost structure. Place it freely or at a belt input. Press **M** while aiming at it to transfer vacuum contents, throw loose hay into the opening, or use a robotic arm. **E** controls output and portions from 100 to 1,000 (limited by belt upgrades), and purchases per-hopper capacity from 10,000 to 100,000. Existing hoppers keep their 50,000 capacity and contents. Full hoppers retain the unaccepted remainder.
-- **Four/eight-port mergers:** unlock with Smart Splitter; three or seven inputs feed one output, with fair turn-taking and distributor speed upgrades. They cost 2,000/5,000. Insert them directly into a straight, level conveyor or place them freely. Existing belt material is credited and cargo is retained; a blocked insertion leaves the original belt unchanged. Their frames, rails and rollers reuse installed native meshes and materials; port labels stay outside the transport lane. **E** changes the numbered output only when empty.
+- **Four/six/eight-port mergers and splitters:** two independent paid unlock chains, each 4 → 6 → 8 after Smart Splitter. Unlock prices are 1,500 / 4,000 / 8,000; each structure then costs 2,000 / 3,500 / 5,000 to build. A merger combines 3/5/7 inputs into one output; a splitter routes one input to 3/5/7 outputs, skipping blocked exits. Insert directly into a straight, level conveyor or place freely. Existing belt material is credited and cargo retained; a blocked insertion leaves the original belt unchanged. Existing mergers remain functional. New construction needs the new unlock. **E** selects the merger output or splitter input only when empty. Numbered side plates, native rollers and animated directional tread sectors identify the connections.
 - **Larger Belt Portions:** 100 → 200 → 300 → 500 → 1,000 strands per portion for direct M output and hoppers. Four upgrades cost 25,000 in total. A blocked belt retains the hay in the vacuum or hopper.
 - **Arm speed:** 20 total ranks; all 20 ranks cost 80,000 combined. Already purchased ranks are preserved.
 - **Lift / stairs speed:** ten ranks up to four times their base transport speed, in addition to the belt motor. Existing ranks are preserved.
@@ -36,7 +36,7 @@ The base ZIP does not replace `override.cfg`. See [German instructions](mods/mul
 
 Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with the complete capacity ladder costing 75,000 and the complete suction ladder costing 50,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
 
-The hopper has an industrial steel model and a matching image in the building catalog and hotbar. Its stock and controls appear in a readable HUD card. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
+The hopper has an industrial steel model and a matching image in the building catalog and hotbar. Its native hay surface follows the stored amount and stays inside the sloping walls. A brief intake effect runs only on a stock increase; restored contents and repeated snapshots do not replay it. The effect is visual only and creates no collectible hay. Its stock and controls appear in a readable HUD card. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
 
 ## Guest vacuum recovery
 
@@ -72,4 +72,4 @@ Only the host saves the shared world. Tools remain personal. Machines simulate o
 
 ## Credits and source
 
-Original multiplayer mod: [AleDev11](https://github.com/AleDev11/FindTheNeedle-Coop-Mod). Farmer model: Quaternius, CC0. GodotSteam: MIT. Steamworks SDK: Valve Corporation. The hopper mesh is original procedural geometry in this fork. Game binaries, decoded game sources, private saves and local test fixtures are not distributed in this repository.
+Original multiplayer mod: [AleDev11](https://github.com/AleDev11/FindTheNeedle-Coop-Mod). Farmer model: Quaternius, CC0. GodotSteam: MIT. Steamworks SDK: Valve Corporation. The hopper shell is original procedural geometry in this fork; its feeder and cabinet detail reference installed game resources at runtime. Game binaries, decoded game sources, private saves and local test fixtures are not distributed in this repository.

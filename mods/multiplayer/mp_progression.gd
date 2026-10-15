@@ -26,6 +26,7 @@ func ensure_cards() -> void:
 	var nodes: Dictionary = TechTree.nodes()
 	var locale := TranslationServer.get_locale()
 	var german := locale.replace("-", "_").get_slice("_", 0) == "de"
+	preload("res://mods/multiplayer/mp_router_catalog.gd").ensure_cards(nodes, locale)
 	_ensure_double_jump(nodes, locale, german)
 	_ensure_arm(nodes, locale, german)
 	_ensure_distributor(nodes, locale, german)

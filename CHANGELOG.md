@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.19.6-xRangerDE.61
+
+Complete the approved merger, splitter and loading-hopper update with native hay visuals driven by actual hopper contents.
+
+- Include the 4 → 6 → 8 paid unlock chains for both mergers and splitters, with host-checked construction, saved port selection, direct belt insertion and animated native conveyor materials.
+- Replace the hopper's flat fill indicator with the game's original hay mesh and materials. Clip the batched hay surface to the sloping hopper walls and move it smoothly with the stored amount.
+- Show a short, compact intake animation only when stock really increases. Loading an existing full hopper, repeated snapshots and capacity changes do not restart it. These visual objects cannot be picked up and never alter stock or money.
+- Retain existing devices, upgrades, saves and the previous multiplayer add-ons. All players must install the same version.
+
+Targeted native V62 headless checks passed for hopper visuals, host/guest state application, purchases, duplicate actions, all six device types, save/load, loaded insertion, simultaneous inputs, and blocked-output recovery. No visible game was launched. The restricted runtime reports its existing certificate-store initialization warning. No new rendered-FPS or two-PC Steam/Internet claim is made.
+
+## 0.19.6-xRangerDE.60
+
+Add paid 4-, 6- and 8-port mergers and splitters, and bring their models and the loading hopper closer to the game's industrial style.
+
+- Unlock mergers and splitters independently in the order 4 → 6 → 8 after Smart Splitter. Unlocks cost 1,500 / 4,000 / 8,000; construction costs 2,000 / 3,500 / 5,000 per building.
+- Keep existing mergers and purchased upgrades. New construction requires its unlock. Save and replicate all six device types and their selected input/output.
+- Insert either family directly into straight, level conveyors or place freely. Preserve cargo and proportional belt credit. Splitters use available exits and retain material during backpressure.
+- Animate directional centre sectors and add native rollers/drive details, clear side labels and matching icons. Rebuild the hopper's rolled rim, metal surfaces, support detail and native feeder/cabinet attachments.
+
+Targeted native Demo V62 headless checks passed for purchases, duplicate/stale actions, construction, save/reload, loaded insertion, mixed cargo, all output routes, simultaneous merger inputs and blocked-exit recovery. The restricted test environment reports a certificate-store initialization warning. No visible game was launched. This is not a new GPU-FPS or two-PC Steam/Internet validation. All players need the same version.
+
+## 0.19.6-xRangerDE.59
+
+Animate the merger centre and add native drive detail.
+
+- Replace the permanently stopped central surface with separate directional conveyor sectors using the installed game’s animated tread material. Inputs move toward the centre; the selected outlet moves outward.
+- Stop and resume the centre together with the branch belts when backpressure changes.
+- Add original conveyor drive drums and roller assemblies at each mouth, plus explicit directional arrows. Keep the transport collision surface and network protocol unchanged.
+
+448 targeted assertions passed in the native V62 headless runtime, covering all four/eight-port output selections, material direction, tread animation binding, backpressure stop/resume and body preservation. No visible game was launched. The restricted environment reports a certificate-store initialization warning; no gameplay or script assertion failed. No new GPU-FPS or Steam/Internet test is claimed. Existing save format is unchanged.
+
 ## 0.19.6-xRangerDE.58
 
 Rebuild the four- and eight-port merger models and allow direct insertion into existing conveyors.

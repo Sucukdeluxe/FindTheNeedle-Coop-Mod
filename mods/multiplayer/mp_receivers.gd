@@ -1,9 +1,12 @@
 extends Node
 
 const Receiver = preload("res://mods/multiplayer/mp_receiver.gd")
+const Distributor = preload("res://mods/multiplayer/mp_multi_splitter.gd")
+const Catalog = preload("res://mods/multiplayer/mp_router_catalog.gd")
 var hoppers: Node
 var _ghost: Node3D
 var _count := 4
+var _preview_id := ""
 var _turn := 0
 var _menu: CanvasLayer
 var _menu_target: Node3D
@@ -11,21 +14,22 @@ var _status: Label
 
 static func ensure_catalog() -> void:
 	var entries: Dictionary = BuildCatalog.entries()
-	for count in [4, 8]:
-		var id := "mp_receiver%d" % count
-		entries[id] = {"name": _tr("Sammler · %d Anschlüsse", "Merger · %d Ports") % count,
-			"short": _tr("SAMMLER %d", "MERGER %d") % count, "unlock": "smart_splitter",
-			"category": "haulage", "mode": BuildTool.Mode.CONVEYOR,
-			"cost": "$2.000" if count == 4 else "$5.000",
-			"place": _tr("Auf Band einsetzen oder frei platzieren · R drehen", "Insert into belt or place freely · R to rotate"),
-			"blurb": _tr("%d Eingänge, ein Ausgang. E wählt den Ausgang bei leerem Sammler. Übernimmt Verteiler-Upgrades.", "%d inputs, one output. E selects the output when empty. Uses distributor upgrades.") % (count - 1),
-			"note": _tr("Schließt Bänder und Maschinen zusammen", "Joins belts and machines")}
+	for distributor in [false, true]:
+		for count in Catalog.COUNTS:
+			var id := Catalog.id(count, distributor)
+			var title := _tr("Verteiler", "Splitter") if distributor else _tr("Sammler", "Merger")
+			entries[id] = {"name": "%s · %d %s" % [title, count, _tr("Anschlüsse", "Ports")],
+				"short": "%s %d" % [title.to_upper(), count], "unlock": id,
+				"category": "haulage", "mode": BuildTool.Mode.CONVEYOR, "cost": "$%s" % Hud.money_text(Catalog.build_cost(count)),
+				"place": _tr("Auf Band einsetzen oder frei platzieren · R drehen", "Insert into belt or place freely · R to rotate"),
+				"blurb": (_tr("Ein Eingang, %d Ausgänge. E wählt den Eingang bei leerem Verteiler.", "One input, %d outputs. E selects the input when empty.") if distributor else _tr("%d Eingänge, ein Ausgang. E wählt den Ausgang bei leerem Sammler.", "%d inputs, one output. E selects the output when empty.")) % (count - 1),
+				"upgrades": ["distributor_speed"], "note": _tr("Schließt Bänder und Maschinen zusammen", "Joins belts and machines")}
 
 static func _tr(de: String, en: String) -> String:
 	return de if TranslationServer.get_locale().begins_with("de") else en
 
 func selected() -> bool:
-	return is_instance_valid(hoppers.world_sync.player) and hoppers.world_sync.player.build_id in ["mp_receiver4", "mp_receiver8"]
+	return is_instance_valid(hoppers.world_sync.player) and hoppers.world_sync.player.build_id in Catalog.ids()
 
 func _input(event: InputEvent) -> void:
 	if not hoppers._usable() or event.is_echo():
@@ -39,7 +43,7 @@ func _input(event: InputEvent) -> void:
 	if not player.is_mouse_captured() or player.menu_is_up():
 		return
 	if selected() and player.build._active and event is InputEventKey and event.pressed and event.physical_keycode == KEY_R:
-		_turn = (_turn + 1) % 8
+		_turn = (_turn + 1) % maxi(1, Catalog.count_for(player.build_id))
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("interact"):
 		var target := target()
@@ -56,24 +60,26 @@ func target() -> Node3D:
 	for i in 8:
 		if not is_instance_valid(node):
 			break
-		if node.get_script() == Receiver:
+		if node.get_script() in [Receiver, Distributor]:
 			return node
 		node = node.get_parent()
 	return null
 
 func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
-	return candidate(ray, 4 if hoppers.world_sync.player.build_id == "mp_receiver4" else 8, _turn * PI / 4.0)
+	var id: String = hoppers.world_sync.player.build_id
+	var count := Catalog.count_for(id)
+	return candidate(ray, count, _turn * TAU / maxi(count, 1), false, Catalog.is_distributor(id))
 
-func candidate(ray: Dictionary, count: int, yaw: float, check_cargo: bool = false) -> Dictionary:
-	if ray.is_empty() or count not in [4, 8]:
+func candidate(ray: Dictionary, count: int, yaw: float, check_cargo: bool = false, distributor: bool = false) -> Dictionary:
+	if ray.is_empty() or count not in Catalog.COUNTS:
 		return {"ok": false, "reason": _tr("Keine Baufläche", "No build surface")}
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * ray.length, Cfg.L_WORLD | Cfg.L_BUILD)
 	var hit: Dictionary = hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
 	if hit.is_empty():
 		return {"ok": false, "reason": _tr("Auf eine ebene Baufläche zielen", "Aim at a level building surface")}
 	var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)
-	var radius := 1.25 if count == 4 else 2.05
+	var radius := Catalog.radius(count)
 	var builds: Node = hoppers.world_sync.builds
 	var splice: Dictionary = builds.splice_spot(at, radius, radius, 0.25)
 	if splice.has("reason"):
@@ -103,14 +109,14 @@ func candidate(ray: Dictionary, count: int, yaw: float, check_cargo: bool = fals
 	if check_cargo and not blocked and splice.has("run") and not builds.receiver_splice_fits(splice.run, at, yaw, count):
 		blocked = true
 		reason = _tr("Band an der Einbaustelle zuerst leerlaufen lassen", "Let this belt section empty before inserting")
-	return {"ok": not blocked, "reason": reason, "position": at, "yaw": yaw, "count": count, "splice": splice}
+	return {"ok": not blocked, "reason": reason, "position": at, "yaw": yaw, "count": count, "splice": splice, "distributor": distributor}
 
 func _splice_reason(reason: String) -> String:
 	match reason:
 		"level": return _tr("Nur in ein gerades, waagerechtes Band einsetzen", "Insert into a straight, level belt")
-		"short": return _tr("Band für diesen Sammler zu kurz", "Belt is too short for this merger")
+		"short": return _tr("Band für dieses Modul zu kurz", "Belt is too short for this module")
 		"gate": return _tr("Bandschalter an der Einbaustelle", "Belt gate at insertion point")
-	return _tr("Sammler passt hier nicht ins Band", "Merger cannot be inserted here")
+	return _tr("Modul passt hier nicht ins Band", "Module cannot be inserted here")
 
 func preview(camera: Transform3D, reach: float, show: bool) -> Dictionary:
 	if not show:
@@ -118,13 +124,16 @@ func preview(camera: Transform3D, reach: float, show: bool) -> Dictionary:
 			_ghost.hide()
 		return {}
 	var row := build_candidate(camera, reach)
-	var count := 4 if hoppers.world_sync.player.build_id == "mp_receiver4" else 8
-	if is_instance_valid(_ghost) and _count != count:
+	var id: String = hoppers.world_sync.player.build_id
+	var count := Catalog.count_for(id)
+	if is_instance_valid(_ghost) and _preview_id != id:
 		_ghost.queue_free()
 		_ghost = null
 	_count = count
+	_preview_id = id
 	if not is_instance_valid(_ghost):
-		_ghost = Receiver.new()
+		_ghost = Distributor.new() if Catalog.is_distributor(id) else Receiver.new()
+		if Catalog.is_distributor(id):_ghost.input_port = count / 2
 		_ghost.port_count = count
 		_ghost.placement_preview = true
 		hoppers.world_sync.world.add_child(_ghost)
@@ -139,7 +148,7 @@ func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
 	if not row.get("ok", false):
 		hoppers.world_sync.toast(row.get("reason", ""))
 		return 0
-	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw, "count": row.count}
+	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw, "count": row.count, "distributor": row.distributor}
 	if row.splice.has("run"):
 		args.splice = {"a": row.splice.run.a, "b": row.splice.run.b}
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
@@ -153,25 +162,27 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	var at: Variant = args.get("position")
 	if not (at is Vector3) or not at.is_finite() or not hoppers._near(peer, args, at, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 2.0, true):
 		return {"ok": false}
+	if not (args.get("distributor", false) is bool):return {"ok": false}
+	var distributor: bool = args.get("distributor", false)
 	if action == "receiver_configure":
-		for target in hoppers.world_sync.builds.joiners:
-			if target.get_script() != Receiver or target.global_position.distance_to(at) > 0.05:
+		for target in (hoppers.world_sync.builds.splitters if distributor else hoppers.world_sync.builds.joiners):
+			if target.get_script() != (Distributor if distributor else Receiver) or target.global_position.distance_to(at) > 0.05:
 				continue
-			if not (args.get("output") is int) or args.output < 0 or args.output >= target.port_count or target.output_port != args.get("previous") or not target.empty():
-				return {"ok": false, "message": _tr("Sammler zuerst leerlaufen lassen", "Let the merger empty first")}
+			if not (args.get("output") is int) or args.output < 0 or args.output >= target.port_count or (target.input_port if distributor else target.output_port) != args.get("previous") or not target.empty():
+				return {"ok": false, "message": _tr("Modul zuerst leerlaufen lassen", "Let the module empty first")}
 			var count: int = target.port_count
 			var yaw: float = target.global_rotation.y
 			var builds: Node = hoppers.world_sync.builds
-			builds.joiners.erase(target)
+			(builds.splitters if distributor else builds.joiners).erase(target)
 			builds.remove_child(target)
 			target.queue_free()
-			builds.add_receiver(at, yaw, count, args.output)
+			builds.add_multi_splitter(at, yaw, count, args.output) if distributor else builds.add_receiver(at, yaw, count, args.output)
 			return {"ok": true}
 		return {"ok": false}
-	if args.get("count") not in [4, 8] or not (args.get("yaw") is float) or not is_finite(args.yaw) or absf(args.yaw) > TAU or not BuildCatalog.is_unlocked("mp_receiver%d" % args.count):
+	if args.get("count") not in Catalog.COUNTS or not (args.get("yaw") is float) or not is_finite(args.yaw) or absf(args.yaw) > TAU or not BuildCatalog.is_unlocked(Catalog.id(args.count, distributor)):
 		return {"ok": false}
 	var ray: Dictionary = hoppers._host_build_ray(peer, args) if args.has("build_view") else {"origin": args.camera.origin, "direction": -args.camera.basis.z, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
-	var row := candidate(ray, args.count, args.yaw, true)
+	var row := candidate(ray, args.count, args.yaw, true, distributor)
 	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or absf(angle_difference(row.yaw, args.yaw)) > 0.01:
 		return {"ok": false, "message": row.get("reason", "")}
 	var splice: Dictionary = row.splice
@@ -179,17 +190,17 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return {"ok": false}
 	if splice.has("run") and (not (args.splice is Dictionary) or args.splice.get("a") != splice.run.a or args.splice.get("b") != splice.run.b):
 		return {"ok": false}
-	var price := 2000.0 if args.count == 4 else 5000.0
+	var price := Catalog.build_cost(args.count)
 	if splice.has("run"):
-		price = maxf(0.0, price - hoppers.world_sync.builds.t_splice_refund(splice.run, row.position, splice.travel, 1.25 if args.count == 4 else 2.05))
+		price = maxf(0.0, price - hoppers.world_sync.builds.t_splice_refund(splice.run, row.position, splice.travel, Catalog.radius(args.count)))
 	if not GameState.spend_money(price):
 		return {"ok": false, "message": _tr("Zu wenig Geld", "Not enough money")}
 	if splice.has("run"):
-		if hoppers.world_sync.builds.splice_receiver(splice.run, row.position, row.yaw, args.count) == null:
+		if hoppers.world_sync.builds.splice_receiver(splice.run, row.position, row.yaw, args.count, distributor) == null:
 			GameState.add_money(price)
 			return {"ok": false}
 	else:
-		hoppers.world_sync.builds.add_receiver(row.position, row.yaw, args.count)
+		hoppers.world_sync.builds.add_multi_splitter(row.position, row.yaw, args.count) if distributor else hoppers.world_sync.builds.add_receiver(row.position, row.yaw, args.count)
 	return {"ok": true}
 
 func _open(target: Node3D) -> void:
@@ -212,12 +223,12 @@ func _open(target: Node3D) -> void:
 	rows.add_theme_constant_override("separation", 8)
 	card.add_child(rows)
 	_status = Label.new()
-	_status.text = _tr("Sammler: Ausgang wählen (nur leer)", "Merger: select output (when empty)")
+	_status.text = _tr("Verteiler: Eingang wählen (nur leer)", "Splitter: select input (when empty)") if target.get_script() == Distributor else _tr("Sammler: Ausgang wählen (nur leer)", "Merger: select output (when empty)")
 	_status.add_theme_font_size_override("font_size", 18)
 	rows.add_child(_status)
 	for side in target.port_count:
 		var button := Button.new()
-		button.text = _tr("Anschluss %d%s", "Port %d%s") % [side + 1, _tr(" · Ausgang", " · output") if side == target.output_port else ""]
+		button.text = _tr("Anschluss %d%s", "Port %d%s") % [side + 1, (_tr(" · Eingang", " · input") if target.get_script() == Distributor else _tr(" · Ausgang", " · output")) if (side == target.input_port if target.get_script() == Distributor else side == target.output_port) else ""]
 		button.custom_minimum_size.y = 34
 		button.pressed.connect(_set_output.bind(side))
 		rows.add_child(button)
@@ -235,7 +246,7 @@ func _set_output(side: int) -> void:
 		_close()
 		return
 	var player: Node = hoppers.world_sync.player
-	hoppers._request("receiver_configure", {"position": _menu_target.global_position, "output": side, "previous": _menu_target.output_port, "body": player.global_transform, "camera": player.camera.global_transform})
+	hoppers._request("receiver_configure", {"position": _menu_target.global_position, "output": side, "previous": (_menu_target.input_port if _menu_target.get_script() == Distributor else _menu_target.output_port), "distributor": _menu_target.get_script() == Distributor, "body": player.global_transform, "camera": player.camera.global_transform})
 	_close()
 
 func _close() -> void:

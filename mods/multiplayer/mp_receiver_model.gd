@@ -22,14 +22,29 @@ static func build(receiver: Node3D) -> Array:
 	body.name = "Frame"
 	body.mesh = frame.commit()
 	receiver.add_child(body)
-	var skin := SurfaceTool.new()
-	skin.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_face(skin, polygon(count, 0.421), 0.002)
-	skin.set_material(ConveyorKit.belt_material_held())
-	skin.generate_tangents()
+	var deck := ArrayMesh.new()
+	var deck_running := {}
+	var edge_points := polygon(count, 0.421)
+	for side in count:
+		var surface := SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var direction: Vector3 = receiver.port_local(side).normalized()
+		var across := Vector3(direction.z, 0.0, -direction.x)
+		var left := edge_points[(side + count - 1) % count]
+		var right := edge_points[side]
+		for point in [Vector3.ZERO, right, left]:
+			surface.set_normal(Vector3.UP)
+			surface.set_uv(Vector2(point.dot(across), point.dot(direction)))
+			surface.add_vertex(point + Vector3.UP * 0.002)
+		var material := ConveyorKit.belt_material_fast() if receiver.port_is_output(side) else ConveyorKit.belt_material_fast_reversed()
+		surface.set_material(material)
+		surface.generate_tangents()
+		surface.commit(deck)
+		deck_running[side] = material
 	var infill := MeshInstance3D.new()
 	infill.name = "CentralDeck"
-	infill.mesh = skin.commit()
+	infill.mesh = deck
+	infill.set_meta("receiver_running", deck_running)
 	receiver.add_child(infill)
 	var hardware := SurfaceTool.new()
 	hardware.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -48,10 +63,10 @@ static func build(receiver: Node3D) -> Array:
 		for surface in branch.mesh.get_surface_count():
 			var material := branch.mesh.surface_get_material(surface)
 			if material == ConveyorKit.belt_material():
-				material = ConveyorKit.belt_material_fast() if side == receiver.output_port else ConveyorKit.belt_material_fast_reversed()
+				material = ConveyorKit.belt_material_fast() if receiver.port_is_output(side) else ConveyorKit.belt_material_fast_reversed()
 				running[surface] = material
 			elif material == ConveyorKit.drum_material():
-				material = ConveyorKit.drum_material_fast() if side == receiver.output_port else ConveyorKit.drum_material_fast_reversed()
+				material = ConveyorKit.drum_material_fast() if receiver.port_is_output(side) else ConveyorKit.drum_material_fast_reversed()
 				running[surface] = material
 			branch.set_surface_override_material(surface, material)
 		branch.set_meta("receiver_running", running)
@@ -62,6 +77,31 @@ static func build(receiver: Node3D) -> Array:
 			rail.mesh = ConveyorKit.rail_mesh(hand)
 			rail.transform = branch.transform
 			body.add_child(rail)
+		var nose := MeshInstance3D.new()
+		nose.name = "DriveDrum%d" % side
+		nose.mesh = ConveyorKit.nose_mesh(receiver.port_is_output(side))
+		nose.transform = Transform3D(Basis(across, Vector3.UP, direction), end)
+		var drum_running := {}
+		for surface in nose.mesh.get_surface_count():
+			var material := nose.mesh.surface_get_material(surface)
+			if material == ConveyorKit.belt_material():
+				material = ConveyorKit.belt_material_fast() if receiver.port_is_output(side) else ConveyorKit.belt_material_fast_reversed()
+				drum_running[surface] = material
+			elif material == ConveyorKit.drum_material():
+				material = ConveyorKit.drum_material_fast() if receiver.port_is_output(side) else ConveyorKit.drum_material_fast_reversed()
+				drum_running[surface] = material
+			nose.set_surface_override_material(surface, material)
+		nose.set_meta("receiver_running", drum_running)
+		body.add_child(nose)
+		var arrow := MeshInstance3D.new()
+		arrow.name = "IntakeArrow%d" % side
+		arrow.mesh = ConveyorKit.flow_arrow_mesh()
+		arrow.material_override = ConveyorKit.flow_material()
+		var travel := direction if receiver.port_is_output(side) else -direction
+		var arrow_basis := Basis(Vector3(travel.z, 0.0, -travel.x), Vector3.UP, travel)
+		var inner := core_radius(count, 0.421) * cos(PI / count)
+		arrow.transform = Transform3D(arrow_basis.scaled_local(Vector3.ONE * 0.42), direction * inner * 0.66 + Vector3.UP * 0.006)
+		body.add_child(arrow)
 		var plate_at := end * 0.85 + across * 0.62 + Vector3.UP * 0.13
 		var plate_basis := Basis(across, Vector3.UP, direction)
 		_box(hardware, Transform3D(plate_basis, plate_at), Vector3(0.27, 0.025, 0.30))
@@ -69,13 +109,13 @@ static func build(receiver: Node3D) -> Array:
 		_cylinder(hardware, Vector3(sin(corner_angle), -0.009, cos(corner_angle)) * Vector3(shared_corner, 1.0, shared_corner), Vector3.UP, 0.014, 0.018, 6)
 		var label := Label3D.new()
 		label.name = "PortLabel%d" % side
-		label.text = "%d\n%s" % [side + 1, "OUT" if side == receiver.output_port else "IN"]
+		label.text = "%d\n%s" % [side + 1, "OUT" if receiver.port_is_output(side) else "IN"]
 		label.font_size = 40
 		label.pixel_size = 0.0029
 		label.outline_size = 7
 		label.outline_modulate = Color(0.02, 0.025, 0.025)
 		label.transform = Transform3D(Basis(across, -direction, Vector3.UP), plate_at + Vector3.UP * 0.015)
-		label.modulate = Color(1.0, 0.79, 0.32) if side == receiver.output_port else Color(0.9, 0.95, 0.94)
+		label.modulate = Color(1.0, 0.79, 0.32) if receiver.port_is_output(side) else Color(0.9, 0.95, 0.94)
 		body.add_child(label)
 	hardware.set_material(steel)
 	hardware.generate_tangents()
@@ -85,8 +125,11 @@ static func build(receiver: Node3D) -> Array:
 	body.add_child(details)
 	return [body, infill]
 
-static func set_held(body: MeshInstance3D, held: bool) -> void:
-	for child in body.get_children():
+static func set_held(body: MeshInstance3D, held: bool, infill: MeshInstance3D = null) -> void:
+	var parts := body.get_children()
+	if is_instance_valid(infill):
+		parts.append(infill)
+	for child in parts:
 		if not (child is MeshInstance3D) or not child.has_meta("receiver_running"):
 			continue
 		var running: Dictionary = child.get_meta("receiver_running")
