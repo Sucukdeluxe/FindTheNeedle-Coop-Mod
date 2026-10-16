@@ -57,7 +57,7 @@ func target() -> Node3D:
 	if ray.is_empty():
 		return null
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
-	var hit: Dictionary = player.get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(player.get_world_3d().direct_space_state, query, ray.has("view"))
 	var node: Node = hit.get("collider")
 	for i in 8:
 		if not is_instance_valid(node):
@@ -91,7 +91,7 @@ func candidate(ray: Dictionary, count: int, yaw: float, check_cargo: bool = fals
 	if ray.is_empty() or count not in Catalog.COUNTS or not is_finite(yaw) or absf(yaw) > TAU:
 		return {"ok": false, "reason": _tr("Keine Baufläche", "No build surface")}
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * ray.length, Cfg.L_WORLD | Cfg.L_BUILD)
-	var hit: Dictionary = hoppers.world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(hoppers.world_sync.world.get_world_3d().direct_space_state, query, ray.has("view") or ray.has("anchor"))
 	if hit.is_empty():
 		return {"ok": false, "reason": _tr("Auf eine ebene Baufläche zielen", "Aim at a level building surface")}
 	var at: Vector3 = hit.position + Vector3.UP * (Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR)

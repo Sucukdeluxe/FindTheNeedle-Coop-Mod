@@ -48,7 +48,7 @@ func _console_under() -> Node3D:
 	if ray.is_empty():
 		return null
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * ray.length, Cfg.L_BUILD)
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var hit := preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(get_world_3d().direct_space_state, query, true)
 	if hit.is_empty() or not mp_build_camera.point_allowed(hit.position, global_position):
 		return null
 	var machine: Node3D = build.builds.owner_of(hit.get("collider") as Node)

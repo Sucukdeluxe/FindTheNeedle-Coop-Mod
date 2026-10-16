@@ -1,12 +1,14 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.66
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.67
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
 
-BEDIENUNG .66
+BEDIENUNG .67
 - R halten und Maus links/rechts: frei drehen. R antippen: feste Drehschritte.
 - F6: Laufrichtung des gerade gezeichneten Förderbands umkehren.
-- F9: Parallel-Modus für benachbarte, gerade Förderbänder umschalten.
+- F9: Parallel-Modus für benachbarte Förderbänder in freien Winkeln und Kurven.
+- Lange Förderbänder in einem Vorgang ziehen; verbundene native Abschnitte
+  erhalten den Meterpreis und die Prüfung von Hindernissen und Steigung.
 - Vogelperspektive: Maschine mit Maus anvisieren und E für Einstellungen drücken.
 - Trichter: Rechtsklick mit getragenem Heu, Schaufel, Heugabel oder Hofsauger.
   Nur der aufnehmbare Anteil wird übertragen. M für den Sauger bleibt erhalten.
@@ -15,7 +17,8 @@ BEDIENUNG .66
 - N an einer leeren Verkaufsstelle: direkt versetzen. Bei belegtem N zeigt die
   Tastenleiste eine freie Alternative. Rechtsklick bricht ab; E öffnet Einstellungen. Vier
   Freischaltstufen erlauben zusammen fünf Verkaufsstellen. Zusätzliche Waagen
-  stehen im Baukatalog und kosten je 500.
+  stehen im Baukatalog und kosten je 500. Nach bestätigter Aufnahme darf die
+  Station vom alten Standort weg getragen werden.
 - Wände rasten an äußeren Plattformkanten ein. Vier Farbvarianten für Wände,
   Türen und Fenster stehen im Baukatalog; Dächer passen sich an Wandkanten an.
 
@@ -43,6 +46,8 @@ WEITERE FUNKTIONEN
   Umschalt beschleunigt, Mausrad zoomt, Linksklick baut, Rechtsklick geht einen
   Bauschritt zurück. F7/Escape stellt die vorige Ansicht wieder her.
   Die Kamera erreicht die gesamte bebaubare Karte und lässt sich weiter herauszoomen.
+  Hallendächer und das Dach des Verkaufsstands werden nur hier ausgeblendet.
+  Das gilt auch für Hallenerweiterungen; darunter bleibt Bauen und Auswählen möglich.
   Der Host prüft weiterhin Baukosten, Anschlüsse, Kartengrenzen und Platzierung. F7 öffnet die Baukamera statt „Problem Debug“.
   Strg+F7 öffnet weiterhin den Debugbericht. Andere eigene F7-Belegungen bleiben.
   Mit Bild↑/Bild↓ die Bauhöhe ändern; Pfeiltasten verschieben nur die Kamera.

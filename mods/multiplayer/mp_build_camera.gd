@@ -22,6 +22,7 @@ var active := false
 var toggle_key: Key = KEY_F7
 var _camera: Camera3D
 var _source_camera: Camera3D
+var _cutaway: Node
 var _saved := {}
 var _anchor := Vector3.ZERO
 var _focus := Vector3.ZERO
@@ -95,6 +96,10 @@ func enter() -> bool:
 	_camera.make_current()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	active = true
+	if not is_instance_valid(_cutaway):
+		_cutaway = preload("res://mods/multiplayer/mp_build_cutaway.gd").new()
+		add_child(_cutaway)
+	_cutaway.begin(player.get_parent(), _camera)
 	mode_changed.emit(true)
 	return true
 
@@ -102,6 +107,8 @@ func leave() -> void:
 	if not active:
 		return
 	end_rotation()
+	if is_instance_valid(_cutaway):
+		_cutaway.finish()
 	active = false
 	if is_instance_valid(player):
 		if is_instance_valid(_source_camera):

@@ -330,12 +330,12 @@ func _connected_path(row: Dictionary) -> Node:
 		return path
 	return null
 
-func candidate(camera: Transform3D, reach: float, free_yaw: float = NAN) -> Dictionary:
+func candidate(camera: Transform3D, reach: float, free_yaw: float = NAN, overhead: bool = false) -> Dictionary:
 	var best := {}
 	var best_score := INF
 	var direction := -camera.basis.z.normalized()
 	var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin + direction * reach, Cfg.L_WORLD | Cfg.L_BUILD)
-	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(world_sync.world.get_world_3d().direct_space_state, query, overhead)
 	if not hit.is_empty():
 		var splice: Dictionary = world_sync.builds.splice_spot(hit.position, 1.1, Model.OUTLET.z, 0.25)
 		if splice.has("centre"):
@@ -463,7 +463,7 @@ func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	var ray := _local_build_ray(camera, reach)
 	if ray.is_empty():
 		return {"ok": false, "reason": _tr("Außerhalb des Baubereichs", "Outside the build area")}
-	var row := candidate(ray.transform, float(ray.length), build_yaw())
+	var row := candidate(ray.transform, float(ray.length), build_yaw(), ray.has("view"))
 	if row.has("position") and ray.has("view") and not _placement_in_area(row, world_sync.player.global_position):
 		row["ok"] = false
 		row["reason"] = _tr("Außerhalb des Baubereichs", "Outside the build area")
@@ -631,7 +631,7 @@ func _place(peer: int, args: Dictionary) -> Dictionary:
 	if not _near(peer, args, at, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 2.0, true):
 		return _failure(_tr("Position außer Reichweite", "Placement out of reach"))
 	var ray := _host_build_ray(peer, args) if args.has("build_view") else {"transform": args.camera, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
-	var row := candidate(ray.transform, float(ray.length), float(yaw))
+	var row := candidate(ray.transform, float(ray.length), float(yaw), ray.has("anchor"))
 	if args.has("build_view") and row.has("position") and not _placement_in_area(row, ray.anchor):
 		return _failure(_tr("Außerhalb des Baubereichs", "Outside the build area"))
 	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or absf(angle_difference(row.yaw, float(yaw))) > 0.01:
@@ -715,7 +715,7 @@ func _target_from_ray(ray: Dictionary) -> int:
 	if ray.is_empty():
 		return 0
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
-	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(world_sync.world.get_world_3d().direct_space_state, query, ray.has("view") or ray.has("anchor"))
 	var body: Variant = hit.get("collider")
 	if not is_instance_valid(body) or not body.has_meta("mp_hopper"):
 		return 0

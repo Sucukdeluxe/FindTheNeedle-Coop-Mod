@@ -22,6 +22,12 @@ func distributor_speed_scale() -> float:
 	return Progression.distributor_scale(rank_of("distributor_speed"))
 
 func from_dict(data: Dictionary, refund_v5_truncation: bool = false) -> void:
+	VacUpgrades.new().ensure_cards()
+	Progression.new().ensure_cards()
+	for name in ["FTNProductionSpeed", "FTNToolUpgrades"]:
+		var addon := get_node_or_null("/root/" + name)
+		if is_instance_valid(addon) and addon.has_method("ensure_extensions"):
+			addon.ensure_extensions()
 	preload("res://mods/multiplayer/mp_balance.gd").ensure_cards()
 	super.from_dict(data, refund_v5_truncation)
 	preload("res://mods/multiplayer/mp_balance.gd").apply_credit()

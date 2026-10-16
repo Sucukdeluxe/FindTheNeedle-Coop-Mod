@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.6-xRangerDE.67
+
+Fix parallel conveyor placement, long construction runs, overhead roof visibility and sale-station relocation.
+
+- Follow angled conveyors and connected bends with F9 parallel mode, including both sides and reversed drawing direction.
+- Draw conveyors beyond the native 24 m section limit in one operation. Longer runs become connected native sections with unchanged per-metre costs; collision, slope and map checks remain active.
+- Hide hall roofs, extended hall roofs and the selling-stand canopy only in overhead view. Select and build beneath them while keeping physical collisions and restoring the normal view on exit.
+- Confirm empty sale-station pickup with the host, then allow transport away from the old location. Preserve destination reach, empty-state, collision and revision checks.
+- Preserve purchased mod and optional add-on upgrades when loading immediately after switching language.
+
+All players need the same mod and game versions. Existing saves remain supported. Validation uses isolated native headless tests and local multiplayer sessions; GPU performance and two-PC Internet play remain unverified.
+
 ## 0.19.6-xRangerDE.66
 
 Allow overhead construction across the playable map and move sale stations directly from the contextual controls.

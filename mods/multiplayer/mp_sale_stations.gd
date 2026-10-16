@@ -17,6 +17,9 @@ var _links := {}
 var _mode := ""
 var _valid := true
 var _moving_id := 0
+var _moving_revision := -1
+var _move_ready := false
+var _move_origins := {}
 var _build_yaw := 0.0
 var _ghost: Node3D
 var _ghost_id := -1
@@ -77,6 +80,7 @@ func session_ended() -> void:
 	_mode = ""
 	cancel_preview()
 	_pending.clear()
+	_move_origins.clear()
 
 func shutdown() -> void:
 	session_ended()
@@ -193,9 +197,9 @@ func step_build_rotation() -> void:
 func _bounds(id: int) -> AABB:
 	return AABB(Vector3(-4.6, 0.06, -0.95), Vector3(9.25, 3.5, 4.65)) if id == 1 else AABB(Vector3(-0.65, 0.06, -1.0), Vector3(1.3, 1.8, 1.65))
 
-func candidate(camera: Transform3D, reach: float, yaw: float, moving: int) -> Dictionary:
+func candidate(camera: Transform3D, reach: float, yaw: float, moving: int, overhead := false) -> Dictionary:
 	var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin - camera.basis.z.normalized() * reach, Cfg.L_WORLD | Cfg.L_BUILD)
-	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(world_sync.world.get_world_3d().direct_space_state, query, overhead)
 	if hit.is_empty() or hit.normal.y < 0.75:
 		return {"ok": false, "reason": _tr("Auf eine freie Baufläche zielen", "Aim at a clear building surface")}
 	var at: Vector3 = hit.position
@@ -238,8 +242,8 @@ func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	if ray.is_empty():
 		return {"ok": false, "reason": _tr("Außerhalb der Karte", "Outside the map")}
-	var row := candidate(ray.transform, float(ray.length), _build_yaw, _moving_id)
-	if row.has("position") and ray.has("view") and not _in_area(row.position, float(row.yaw), _moving_id, world_sync.player.global_position):
+	var row := candidate(ray.transform, float(ray.length), _build_yaw, _moving_id, ray.has("view"))
+	if row.has("position") and not _in_area(row.position, float(row.yaw), _moving_id, world_sync.player.global_position):
 		row.ok = false
 		row.reason = _tr("Außerhalb des Baubereichs", "Outside the build area")
 	return row
@@ -303,6 +307,8 @@ func _ensure_ghost(id: int) -> void:
 
 func cancel_preview() -> void:
 	_moving_id = 0
+	_moving_revision = -1
+	_move_ready = false
 	if is_instance_valid(_ghost):
 		_ghost.hide()
 
@@ -319,17 +325,30 @@ func begin_move(id: int) -> void:
 	world_sync.player.equip_build(MOVE_ID)
 	if world_sync.player.build_id != MOVE_ID or not world_sync.player.build.is_active():
 		return
+	var old := _row(id)
+	var args := {"id": id, "revision": old.revision, "begin": true, "body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform}
+	var ray: Dictionary = hoppers._local_build_ray(args.camera, 6.0)
+	if ray.has("view"):
+		args.build_view = ray.view
+	var sequence := _request("sale_move", args)
+	if sequence == 0:
+		world_sync.player.put_away_build()
+		return
+	_pending[sequence] = "sale_move_begin"
 	_moving_id = id
-	set_build_yaw(float(_row(id).yaw))
+	_moving_revision = int(old.revision)
+	_move_ready = false
+	set_build_yaw(float(old.yaw))
 
 func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
+	if _moving_id > 0 and not _move_ready:
+		return 0
 	var row := build_candidate(camera, reach)
 	if not row.get("ok", false):
 		world_sync.toast(row.get("reason", ""))
 		return 0
-	var old := _row(_moving_id)
 	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw,
-		"id": _moving_id, "revision": old.get("revision", 0), "max_price": Store.COST}
+		"id": _moving_id, "revision": _moving_revision if _moving_id > 0 else 0, "max_price": Store.COST}
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	if ray.has("view"):
 		args.build_view = ray.view
@@ -348,6 +367,13 @@ func _completed(sequence: int, result: Dictionary) -> void:
 		return
 	var action: String = _pending[sequence]
 	_pending.erase(sequence)
+	if action == "sale_move_begin":
+		_move_ready = bool(result.get("ok", false)) and _moving_id > 0
+		if not result.get("ok", false):
+			cancel_preview()
+			if world_sync.player.build_id == MOVE_ID:
+				world_sync.player.put_away_build()
+		return
 	if result.get("ok", false) and action == "sale_move":
 		cancel_preview()
 		if world_sync.player.build_id == MOVE_ID:
@@ -361,11 +387,20 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return _failure(_tr("Ungültige Verkaufsstelle", "Invalid sale station"))
 	var old := _row(id)
 	if action != "sale_place":
-		if old.is_empty() or args.get("revision") != old.revision or not hoppers._near(peer, args, old.position, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 8.0, true):
+		if old.is_empty() or args.get("revision") != old.revision:
+			return _failure(_tr("Verkaufsstelle wurde geändert oder ist außer Reichweite", "Sale station changed or out of reach"))
+		var moving: Dictionary = _move_origins.get(peer, {})
+		if action == "sale_move" and args.get("begin", false) != true:
+			if moving.get("id", 0) != id or moving.get("revision", -1) != old.revision:
+				return _failure(_tr("Verkaufsstelle wurde geändert oder ist außer Reichweite", "Sale station changed or out of reach"))
+		elif not hoppers._near(peer, args, old.position, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 8.0, true):
 			return _failure(_tr("Verkaufsstelle wurde geändert oder ist außer Reichweite", "Sale station changed or out of reach"))
 		var station := model(id)
 		if not is_instance_valid(station) or not station.mp_can_move():
 			return _failure(_tr("Verkaufsstelle zuerst vollständig leeren", "Empty the sale station first"))
+	if action == "sale_move" and args.get("begin", false) == true:
+		_move_origins[peer] = {"id": id, "revision": old.revision}
+		return {"ok": true, "station": id}
 	if action == "sale_configure":
 		if id == 1 or not args.get("feed_belt") is bool:
 			return _failure(_tr("Ungültige Einstellung", "Invalid setting"))
@@ -391,8 +426,8 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	var ray: Dictionary = hoppers._host_build_ray(peer, args) if args.has("build_view") else {"transform": args.camera, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
 	if ray.is_empty():
 		return _failure(_tr("Ungültige Bauansicht", "Invalid build view"))
-	var row := candidate(ray.transform, float(ray.length), float(yaw), id)
-	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or (ray.has("anchor") and not _in_area(at, float(yaw), id, ray.anchor)):
+	var row := candidate(ray.transform, float(ray.length), float(yaw), id, ray.has("anchor"))
+	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or not _in_area(at, float(yaw), id, args.body.origin):
 		return _failure(row.get("reason", _tr("Position hat sich geändert", "Position changed")))
 	if action == "sale_place":
 		var limit: Variant = args.get("max_price")
@@ -405,6 +440,7 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		old.position = at
 		old.yaw = float(yaw)
 		old.revision += 1
+		_move_origins.erase(peer)
 	_changed()
 	return {"ok": true, "station": id}
 
@@ -422,7 +458,7 @@ func target_id(allow_build_camera := false) -> int:
 	if ray.is_empty():
 		return 0
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
-	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(world_sync.world.get_world_3d().direct_space_state, query, ray.has("view"))
 	var collider: Variant = hit.get("collider")
 	return int(collider.get_meta("mp_sale_station", 0)) if is_instance_valid(collider) else 0
 

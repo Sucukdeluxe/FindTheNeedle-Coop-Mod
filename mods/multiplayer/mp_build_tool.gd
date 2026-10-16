@@ -1,5 +1,6 @@
 extends "res://scripts/build/build_tool.gd"
 
+const Cutaway = preload("res://mods/multiplayer/mp_build_cutaway.gd")
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
 const BuildAlignment = preload("res://mods/multiplayer/mp_build_alignment.gd")
@@ -210,6 +211,32 @@ func _camera_ray() -> Dictionary:
 		return ray
 	return {}
 
+func _raw_surface_hit() -> Dictionary:
+	var ray := _camera_ray()
+	if ray.is_empty():
+		return super._raw_surface_hit()
+	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.BUILD_SURFACE_MASK)
+	query.collide_with_areas = false
+	var hit := Cutaway.intersect_ray(get_world_3d().direct_space_state, query, true)
+	var body := hit.get("collider") as Node
+	return {} if body != null and body.get_parent() is DeliveryTruck else hit
+
+func _column_hit(hit: Dictionary, on: Vector3) -> Dictionary:
+	var result := super._column_hit(hit, on)
+	if _camera_ray().is_empty() or not Cutaway.roof_collider(result.get("collider") as Node):
+		return result
+	var query := PhysicsRayQueryParameters3D.create(on + Vector3.UP * Cfg.BUILD_GRID_PROBE, on + Vector3.DOWN * Cfg.BUILD_GRID_PROBE, Cfg.BUILD_SURFACE_MASK)
+	query.collide_with_areas = false
+	var under := Cutaway.intersect_ray(get_world_3d().direct_space_state, query, true)
+	if not under.is_empty():
+		under.position = Vector3(on.x, under.position.y, on.z)
+		if under.get("collider") is Platform:
+			under.normal = Vector3.UP
+		return under
+	var fallback := hit.duplicate()
+	fallback.position = on
+	return fallback
+
 func _update_ghost(delta: float) -> void:
 	var ray := _camera_ray()
 	var saved_reach := _reach
@@ -374,6 +401,17 @@ func _wrong_side_reason(from: Vector3, to: Vector3) -> String:
 	return super._wrong_side_reason(from, to)
 
 func _update_run(from: Vector3, to: Vector3, delta: float) -> void:
+	if _mp_parallel and _is_conveyor_mode() and _state == State.RUNNING and _parallel_route(from, to):
+		if _aim_off_ground:
+			_eval.ok = false
+			_eval.reason = tr("aim at ground")
+		_shape_route_ghost()
+		_update_belt_arm_columns(_route)
+		return
+	if _mp_parallel and _is_conveyor_mode() and _state == State.AIMING:
+		var aligned := ParallelBelts.alignment(builds, from)
+		if not aligned.is_empty():
+			to = from + aligned.direction * STUB_LENGTH
 	super._update_run(from, to, delta)
 	if _state != State.RUNNING or not _is_conveyor_mode() or _mp_flow_manual or bool(_eval.get("ok", false)) or not is_instance_valid(builds):
 		return
@@ -393,19 +431,86 @@ func _aim_point() -> Vector3:
 	if not _mp_parallel or not _is_conveyor_mode():
 		return native
 	var raw := _heighted(_raw_surface_point(Cfg.BELT_FRAME_DEPTH + Cfg.BELT_STAND_CLEAR))
-	var aligned := ParallelBelts.snap(builds, raw, _anchor if _state == State.RUNNING else Vector3.INF)
-	if not aligned.is_equal_approx(raw):
+	var aligned := ParallelBelts.alignment(builds, raw, _anchor if _state == State.RUNNING else Vector3.INF)
+	if not aligned.is_empty():
 		_joined = false
-		return aligned
+		return aligned.point
 	return native
 
 func _guided(anchor: Vector3, point: Vector3) -> Vector3:
 	if _mp_parallel and _is_conveyor_mode():
-		var aligned := ParallelBelts.snap(builds, point, anchor)
-		if not aligned.is_equal_approx(point):
+		var aligned := ParallelBelts.alignment(builds, point, anchor)
+		if not aligned.is_empty():
 			_guide_turn = NAN
-			return aligned
+			return aligned.point
 	return super._guided(anchor, point)
+
+func _parallel_route(from: Vector3, to: Vector3) -> bool:
+	var points := ParallelBelts.route(builds, from, to)
+	if points.size() < 3 or points.size() > 256:
+		return false
+	_drop_route()
+	if _router == null:
+		_router = BeltRouter.new(self)
+	_router.pipe = false
+	var valid: bool = _router._clears(points, {})
+	var reason := tr("blocked")
+	for i in points.size() - 1:
+		var evaluated := _evaluate(points[i], points[i + 1], true)
+		if not evaluated.ok:
+			reason = evaluated.reason
+			valid = false
+			break
+	_route = points
+	_route_from = from
+	_route_to = to
+	_apply_route()
+	if not valid:
+		_eval.ok = false
+		_eval.reason = reason
+	straight_reason = "" if _eval.ok else str(_eval.reason)
+	return true
+
+func _update_route(from: Vector3, to: Vector3, delta: float, corners := false) -> void:
+	if _mp_parallel and _is_conveyor_mode():
+		if _parallel_route(from, to):
+			return
+		if ParallelBelts.route(builds, from, to).size() == 2:
+			_drop_route()
+			return
+	super._update_route(from, to, delta, corners)
+
+func _leg_shape_reason(from: Vector3, to: Vector3, length: float) -> String:
+	if not _is_conveyor_mode() or length <= Cfg.BELT_MAX_LENGTH:
+		return super._leg_shape_reason(from, to, length)
+	if not from.is_finite() or not to.is_finite() or not is_finite(length) or length > 400.0:
+		return tr("too long")
+	if not is_instance_valid(player) or not BuildCamera.point_allowed(from, player.global_position) or not BuildCamera.point_allowed(to, player.global_position):
+		return preload("res://mods/multiplayer/mp_i18n.gd").phrase("Außerhalb der Karte", "Outside the map")
+	return super._leg_shape_reason(from, from + (to - from) * (Cfg.BELT_MAX_LENGTH / length), Cfg.BELT_MAX_LENGTH)
+
+func _lay_run(from: Vector3, to: Vector3, line_id := 0) -> void:
+	var points := _port_knees(from, to)
+	var long := false
+	for i in points.size() - 1:
+		long = long or points[i].distance_to(points[i + 1]) > Cfg.BELT_MAX_LENGTH
+	if not long:
+		super._lay_run(from, to, line_id)
+		return
+	if line_id == 0:
+		line_id = builds.new_line_id()
+	for i in points.size() - 1:
+		var length := points[i].distance_to(points[i + 1])
+		if length < 0.0001:
+			continue
+		var count := ceili(length / Cfg.BELT_MAX_LENGTH)
+		for j in count:
+			var start := points[i].lerp(points[i + 1], float(j) / count)
+			var end := points[i].lerp(points[i + 1], float(j + 1) / count)
+			if _mode == Mode.ENCLOSED_CONVEYOR:
+				builds.add_enclosed_conveyor(start, end, line_id)
+			else:
+				builds.add_conveyor(start, end, line_id)
 
 func _port_knees(from: Vector3, to: Vector3) -> PackedVector3Array:
 	var points := super._port_knees(from, to)
