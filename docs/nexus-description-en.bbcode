@@ -1,96 +1,62 @@
-[size=5][b]Find The Needle co-op mod[/b][/size]
+[b]Expanded co-op for Find The Needle Demo[/b]
 
-Adds co-op multiplayer to the demo. Several players dig the same haystack,
-share the money and see each other's buildings.
+Build and expand a shared factory with additional transport machines, overhead building controls, revised progression and targeted synchronization fixes. Current release: 0.19.6-xRangerDE.65, checked against Steam demo build 25963876. All participants must install the same mod and game versions.
 
-Connections go through Steam's relay network, so there is no port forwarding
-and no IP addresses to exchange. The host invites from the Steam friends list.
-
-[size=4][b]Open source[/b][/size]
-Every file in the download is readable: the mod is GDScript, and the whole
-thing lives at https://github.com/AleDev11/FindTheNeedle-Coop-Mod
-
-If you would rather not edit override.cfg by hand, there is an optional
-installer (install-helper.bat) attached to the release on GitHub. It is not in
-this download on purpose, so the file here stays free of scripts.
-
-[size=4][b]What is synced[/b][/size]
+[b]Included features[/b]
 [list]
-[*]The haystack. Everyone digs the same pile.
-[*]Buildings, placed and demolished.
-[*]Money, debt, hay sold, needles found, the collection.
-[*]The tech tree.
-[*]Uncovered needles. They show up for everyone and can only be handed in once.
-[*]New hay loads, which resync every client.
-[*]Player positions, names and the tool in hand.
-[*]Loose items: buckets, sacks, bales, wads. You see what the others pick up,
-carry, drop and throw, and you can pick up their things yourself.
-[*]What is riding on the belts.
-[*]Loose straw on the ground, so everyone digs into the same mess.
-[*]How the machines move, their smoke and lamps, and their settings.
-[*]The straw and the needle in your bare hands, drawn in your farmer's fist.
-[/list]
-There is in-game chat (Y) and a resync key (F8). The panel does not show IP
-addresses, Steam IDs or lobby codes, so it is safe to have on screen while
-streaming.
-
-[size=4][b]Requirements[/b][/size]
-[list]
-[*]Find The Needle demo (free on Steam), build V26 or newer
-[*]Windows 64-bit
-[*]The same mod version on every machine
-[*]The game has to be launched from Steam, or the invites will not work
+[*]Shared world, buildings, research, purchases and money, with personal tool inventories. The host simulates production and confirms inventory transfers.[/*]
+[*][b]Loading hopper:[/b] 10,000 starting capacity, upgrades to 100,000, and output portions from 100 to 1,000 within your unlocked belt limit. Existing 50,000-capacity hoppers keep their capacity and contents. Fill it from above, by robotic arm, with M while using the vacuum, or by right-clicking with carried raw hay/tools. Unaccepted overflow stays in its source. Connect raw-hay belts at the left, rear or right input, start a belt at the front output, or insert the hopper into a straight, level conveyor. Capacity upgrades preserve the on/off state. Dismantling a filled hopper drops its stored hay and needles.[/*]
+[*][b]4-, 6- and 8-port mergers and splitters.[/b] Separate paid 4 → 6 → 8 unlock chains; free placement or insertion into a straight, level belt. Empty devices allow input/output selection with E. Arms can link directly to these devices without an intermediate belt.[/*]
+[*][b]Overhead building camera:[/b] F7, then B to choose a part. Pan, zoom, place, and hover a machine to open its settings with E. The camera retains the existing permitted build area around your player.[/*]
+[*]Building controls: tap R for stepped rotation, hold R and move the mouse for free rotation, F6 to reverse a belt after placing its first point, F9 for parallel placement beside a straight, level belt. Native connection and collision checks still apply.[/*]
+[*]Improved wall/platform and roof alignment, with charcoal, cream, red and green wall/window/door variants using native materials.[/*]
+[*]Movable empty sale stations, plus four paid unlocks for up to five stations total. Extra compact scales cost 500 and use the shared prices/account. Use E for relocation, hold X to dismantle extra scales, and toggle the feed belt in the settings of an empty scale.[/*]
+[*]20 sale-price ranks, up to twice the base price. Rebalanced upgrade budgets, larger belt portions, expanded arm/lift/stairs/router progression and a purchasable double jump. Existing purchased levels are retained. Recorded overpayments for repriced upgrades are credited once when an older save is loaded.[/*]
+[*]Prestige map changes from the delivery board after the physical haystack is empty AND all six needle types are collected. Preview the settlement; retain tools, unlocks and upgrades while buildings and saleable goods are converted to money.[/*]
+[*]Host-confirmed needle/scanner transfers, machine-setting synchronization, arm-load and income display replication, and targeted press, wrapper, lift, water-connection and tool-drop fixes.[/*]
+[*]Guest vacuum recovery for a process crash and rejoin to the same host world, using a private local journal. Earlier host-save rollback and unsaved host progress are not recoverable by this feature.[/*]
 [/list]
 
-[size=4][b]Install[/b][/size]
+[b]Latest update: revisions 63–65[/b]
+Saving and autosaving work with the updated game. Custom 4/6/8-port devices are restored before world loading, and building controls, native-style panels, transparent icons and hopper connections have been revised. If devices disappeared and the world was saved again, restore a backup that still contains them; removed records cannot be reconstructed.
+
+[b]Installation[/b]
 [list=1]
-[*]Unzip the download.
-[*]Copy the [b]mods[/b] folder next to [b]FindTheNeedle.exe[/b]. In Steam:
-right-click the game, Manage, Browse local files.
-[*]Open [b]override.cfg[/b], in that same folder, with any text editor and add
-these two lines at the end:
+[*]Close the game. Back up your saves and existing mod files.[/*]
+[*]Extract the main ZIP. Copy its mods folder into the game directory beside FindTheNeedle.exe. Replace the previous multiplayer folder when updating; do not load two versions together.[/*]
+[*]In override.cfg, keep your existing settings and add the following entry under [autoload]:[/*]
+[/list]
 [code][autoload]
 MPMod="*mods/multiplayer/mp.gd"[/code]
-If the file already has an [autoload] section, only the second line is needed.
-[*]Launch from Steam. There is a MULTIPLAYER entry in the main menu.
+If [autoload] already exists, add only the MPMod line. Avoid duplicate entries and a filename ending in .txt.
+[list=1]
+[*]Start the Steam demo. The host creates the lobby and loads the save; friends join using Steam invitations. Everyone needs the same mod version and a compatible game build.[/*]
 [/list]
-There is no installer to run and the download contains no scripts. To
-uninstall, delete that line and the mods folder.
+Updating does not edit your save files. In-game changes and any eligible one-time credit are retained when the host saves. Do not downgrade a save containing new machines without a compatible backup. Never share mp_settings.cfg, recovery journals, saves or diagnostic logs with your installation package.
 
-Game updates replace override.cfg, so add the lines again after each one.
-
-[size=4][b]Playing[/b][/size]
-Host: MULTIPLAYER, CREATE GAME, INVITE FRIENDS, then start or load a save as
-usual. Everyone else joins by accepting the Steam invite.
-
-[size=4][b]Known limitations[/b][/size]
+[b]Credits and optional add-ons[/b]
 [list]
-[*]Machines run on the host only, so the same hay cannot be counted twice.
-Clients see them move, smoke and light up, and their settings match, but the
-work itself happens on one machine.
-[*]Shovel and fork loads use a visual model on remote players.
-[*]Equipment and money are shared. The host validates shop and building transactions.
-[*]Only the host saves. Clients never write to their own save files.
-[*]The online leaderboard is disabled while the mod is loaded.
+[*]Enhanced systems, integration, balancing and maintenance: xRangerDE. [url=https://github.com/Sucukdeluxe/FindTheNeedle-Coop-Mod]Source and full changelog[/url]. Developed with AI assistance and checked using local native game tests.[/*]
+[*]Code licensing and third-party notices are included in the download.[/*]
+[*]M-key vacuum unloading is built in; no separate Drop All mod is required.[/*]
+[*]Optional [url=https://www.nexusmods.com/findtheneedle/mods/9]Production Speed Update[/url], [url=https://www.nexusmods.com/findtheneedle/mods/11]Collection Tool Upgrades[/url] and [url=https://www.nexusmods.com/findtheneedle/mods/7]Autonomous Mice[/url] are separate works by BadHippo and are not bundled in this Nexus main file. Multiplayer integration is included for these add-ons. Do not assume arbitrary future add-on releases have been tested.[/*]
+[*]Farmer model: Quaternius, CC0. GodotSteam: MIT. Steamworks: Valve. Find The Needle and its game assets remain the property of their respective creators. Native models/materials are referenced from your installed game; game EXE/PCK files and decompiled game sources are not supplied.[/*]
 [/list]
 
-[size=4][b]What is in the download[/b][/size]
-GDScript you can open in any text editor, a farmer model, and the two
-libraries the Steam connection needs: GodotSteam (MIT, https://godotsteam.com)
-and Valve's Steamworks SDK redistributable. We compile nothing ourselves, and
-every file here is in the public repository linked at the top of this page,
-commit by commit.
-
-[size=4][b]Source[/b][/size]
-https://github.com/AleDev11/FindTheNeedle-Coop-Mod
-
-[size=4][b]Credits[/b][/size]
+[b]Grouped development history[/b]
+These are summaries of existing maintenance revisions, not additional downloads you must install. The main file is cumulative; withdrawn builds are not recommended.
 [list]
-[*]Mod by AleDev11
-[*]Find The Needle by FindTheNeedleDev
-[*]GodotSteam (MIT), godotsteam.com
-[*]Steamworks SDK, Valve
+[*]Revisions 1–9: early authority, personal-tool, purchase and conveyor-state corrections; preservation of loose hay and settled item updates.[/*]
+[*]10–19: diagnostics, machine intake and drone handling, integrated M-key unloading and lift display work. Revisions 11/12 were withdrawn or superseded; later builds replaced those approaches.[/*]
+[*]20–29: routing settings, pipe/power links, press/wrapper buffers, conveyor rebuild safety and lift/stair cargo preservation; V62 compatibility.[/*]
+[*]30–39: purchase placement, authoritative selling, stale callback protection, technology/drone replication, world-load lifecycle and arm/cargo displays.[/*]
+[*]40–49: water links, optional mouse replication, expanded vacuum upgrades, scanner identity handling, buffered hopper, overhead view, double jump and prestige.[/*]
+[*]50–59: save/recovery corrections, personal-tool and loose-hay fixes, revised economy with one-time credits, reduced unchanged-field synchronization work, guest vacuum journal, hopper settings and native-style merger models/insertion.[/*]
+[*]60–62: paid 4/6/8-port machines, improved hopper surfaces and accessory placement, direct arm routes, right-click hopper transfers, sale stations, free rotation, belt reversal/parallel mode and house alignment/colors.[/*]
+[*]63–65: custom-device save/load restoration, R/F6/F9 input corrections, mouse-capture recovery, all-port direction hints and native-style panels, transparent catalog icons, three hopper inputs and front output, filled-hopper dismantling and belt insertion, sale-scale controls, and compatibility fixes for saving and the hay press after the game update.[/*]
 [/list]
 
-Unofficial mod, not affiliated with the game's developer. It contains no game
-files, only its own scripts.
+[b]Compatibility and testing limits[/b]
+Targets the Windows Steam demo; release 0.19.6-xRangerDE.65 was checked against Steam build 25963876. The core additions work in single-player as well as co-op where applicable. Native local headless tests cover host/guest transactions, packet loss/duplication, save state, mixed cargo and blocked-output recovery. These checks do not establish a two-PC Internet/Steam result, GPU frame rates, compatibility with every mod, or freedom from all bugs. The reported overhead-camera slowdown was not reproduced as a sustained CPU regression in headless profiling; GPU performance remains unverified. The native game and mods can change; back up saves before updating.
+
+For a report, include the game/mod versions, host or guest role, steps to reproduce, and the relevant local diagnostic excerpt with personal data removed. The full per-version history is in CHANGELOG.md inside the ZIP and on GitHub.
