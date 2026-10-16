@@ -33,7 +33,7 @@ func start(session: Node, sync: Node) -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 func _text(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
 
 func busy() -> bool:
 	return _token != "" or _remote_token != "" or _committing

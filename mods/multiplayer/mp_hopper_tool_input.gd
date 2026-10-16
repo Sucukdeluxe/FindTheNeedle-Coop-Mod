@@ -584,4 +584,4 @@ func _failure(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason}
 
 static func _tr(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)

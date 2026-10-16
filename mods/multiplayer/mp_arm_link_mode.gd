@@ -72,7 +72,7 @@ func _write_hint() -> void:
 	if _hopper_id <= 0:
 		super._write_hint()
 		if ArmRoutes.owner_of(_hover) != null and _hover_ok:
-			_hint_sub.text = "Linksklick: Ladung aufnehmen · Rechtsklick: am Eingang ablegen" if TranslationServer.get_locale().begins_with("de") else "Left click: pick up cargo · Right click: deliver to the inlet"
+			_hint_sub.text = _service()._tr("Linksklick: Ladung aufnehmen · Rechtsklick: am Eingang ablegen", "Left click: pick up cargo · Right click: deliver to the inlet")
 		return
 	_hint_sub.text = _service()._tr("Rechtsklick: Trichter als Ablage verbinden oder lösen", "Right click: link or unlink hopper as drop destination") if _hover_ok else _service()._tr("Trichter außerhalb der Armreichweite", "Hopper outside arm reach")
 

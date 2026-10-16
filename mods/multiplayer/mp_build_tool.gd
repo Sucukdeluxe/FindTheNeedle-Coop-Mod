@@ -222,7 +222,7 @@ func _update_ghost(delta: float) -> void:
 			_eval = _eval.duplicate()
 			_eval["ok"] = false
 			_eval["done"] = false
-			_eval["reason"] = "Außerhalb des Baubereichs von 24 m." if TranslationServer.get_locale().begins_with("de") else "Outside the 24 m building area."
+			_eval["reason"] = preload("res://mods/multiplayer/mp_i18n.gd").phrase("Außerhalb der Karte", "Outside the map")
 
 func dismantle_reach() -> float:
 	var ray := _camera_ray()
@@ -358,7 +358,7 @@ func flow_hint() -> String:
 		return ""
 	var reversed := _upstream or (_state == State.RUNNING and _out_of_t(_aim_point()))
 	var direction := "B → A" if reversed else "A → B"
-	return "F6 · Bandrichtung umkehren (%s)" % direction if TranslationServer.get_locale().begins_with("de") else "F6 · Reverse belt direction (%s)" % direction
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase("F6 · Bandrichtung umkehren (%s)", "F6 · Reverse belt direction (%s)") % direction
 
 func _out_of_t(point: Vector3) -> bool:
 	return false if _mp_flow_manual else super._out_of_t(point)
@@ -425,13 +425,13 @@ func _port_knees(from: Vector3, to: Vector3) -> PackedVector3Array:
 
 func control_hint() -> String:
 	var hints := PackedStringArray()
-	var german := TranslationServer.get_locale().begins_with("de")
+	var i18n := preload("res://mods/multiplayer/mp_i18n.gd")
 	if _is_conveyor_mode():
 		hints.append(flow_hint())
 		if BuildCamera.key_available(PARALLEL_TOGGLE_KEY):
-			hints.append(("F9 · Parallel-Modus: " if german else "F9 · Parallel mode: ") + (("Ein" if german else "On") if _mp_parallel else ("Aus" if german else "Off")))
+			hints.append(i18n.phrase("F9 · Parallel-Modus: %s", "F9 · Parallel mode: %s") % (i18n.phrase("Ein", "On") if _mp_parallel else i18n.phrase("Aus", "Off")))
 	if can_turn() or _mode == Mode.ROBOTIC_ARM or (has_method("_is_hopper") and call("_is_hopper")):
-		hints.append("R halten + Maus · Frei drehen" if german else "Hold R + mouse · Rotate freely")
+		hints.append(i18n.phrase("R halten + Maus · Frei drehen", "Hold R + mouse · Rotate freely"))
 	return "  ·  ".join(hints)
 
 func status() -> Dictionary:

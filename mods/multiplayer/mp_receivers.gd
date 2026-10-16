@@ -29,7 +29,7 @@ static func ensure_catalog() -> void:
 				"upgrades": ["distributor_speed"], "note": _tr("Schließt Bänder und Maschinen zusammen", "Joins belts and machines")}
 
 static func _tr(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
 
 func selected() -> bool:
 	return is_instance_valid(hoppers.world_sync.player) and hoppers.world_sync.player.build_id in Catalog.ids()
@@ -233,7 +233,7 @@ func _open(target: Node3D) -> void:
 	whole.add_theme_constant_override("separation", 0)
 	card.add_child(whole)
 	var splitter: bool = target.get_script() == Distributor
-	var title: String = ("%d-ANSCHLUSS-" % target.port_count) + ("VERTEILER" if splitter else "SAMMLER") if TranslationServer.get_locale().begins_with("de") else ("%d-PORT " % target.port_count) + ("SPLITTER" if splitter else "MERGER")
+	var title := ("%s · %d %s" % [_tr("Verteiler", "Splitter") if splitter else _tr("Sammler", "Merger"), target.port_count, _tr("Anschlüsse", "Ports")]).to_upper()
 	var top := PlateKit.top(whole, title, "*", _close, null)
 	var photo: Control = top.photo
 	(photo.get_child(0) as TextureRect).texture = preload("res://mods/multiplayer/mp_receiver_icon.gd").texture(target.port_count, splitter)

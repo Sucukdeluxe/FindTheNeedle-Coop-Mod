@@ -1,9 +1,3 @@
-# Strings for the mod's UI, in the languages the game itself ships.
-#
-# The locale comes from the game's own setting (TranslationServer), so the mod
-# follows whatever the player picked in Options. Unknown locales fall back to
-# English. Tool names go through the game's translations instead of living
-# here, so they read exactly like they do in the rest of the UI.
 extends RefCounted
 
 const FALLBACK := "en"
@@ -117,6 +111,19 @@ const STRINGS := {
 	"no_debug_menu": "This build has no debug menu.",
 },
 "es": {
+	"power_changed": "No se completó la acción de la red eléctrica. La red cambió o la acción no está disponible; espera a la sincronización e inténtalo de nuevo.",
+	"sync_diagnostic_warning": "Se detectó un problema de sincronización persistente. Detalles guardados localmente en mp_diagnostics.jsonl.",
+	"building_missing": "El edificio ya no existe en el anfitrión. Espera a la sincronización e inténtalo de nuevo.",
+	"building_invalid": "No se pudo realizar esta acción de construcción. Comprueba el objetivo e inténtalo de nuevo.",
+	"economy_wait": "Esperando a que el anfitrión procese las transacciones.",
+	"economy_expired": "Esta transacción ya se ha procesado. Comprueba el estado actual.",
+	"economy_shop_distance": "Acércate a la tienda.",
+	"economy_price_changed": "El precio ha cambiado. Comprueba el precio actual e inténtalo de nuevo.",
+	"economy_funds": "Fondos compartidos insuficientes.",
+	"tool_unavailable": "Esta herramienta ya no está disponible.",
+	"tool_capacity": "Ya tienes la herramienta o el inventario está lleno.",
+	"shared_tool_sale": "Suelta la herramienta antes de venderla.",
+	"purchase_declined": "Compra no completada: los requisitos o fondos compartidos han cambiado.",
 	"title": "MULTIJUGADOR",
 	"subtitle": "Mod cooperativo v%s   ·   F2 panel   ·   Y chat   ·   F8 resincronizar",
 	"your_name": "TU NOMBRE",
@@ -318,6 +325,19 @@ const STRINGS := {
 	"no_debug_menu": "Dieser Build hat kein Debug-Menü.",
 },
 "fr": {
+	"power_changed": "Action du réseau électrique non effectuée. Le réseau a changé ou l’action est indisponible ; attendez la synchronisation puis réessayez.",
+	"sync_diagnostic_warning": "Problème de synchronisation persistant détecté. Détails enregistrés localement dans mp_diagnostics.jsonl.",
+	"building_missing": "Le bâtiment n’existe plus chez l’hôte. Attendez la synchronisation puis réessayez.",
+	"building_invalid": "Cette action de construction a échoué. Vérifiez la cible puis réessayez.",
+	"economy_wait": "En attente du traitement des transactions par l’hôte.",
+	"economy_expired": "Cette transaction a déjà été traitée. Vérifiez l’état actuel.",
+	"economy_shop_distance": "Rapprochez-vous du magasin.",
+	"economy_price_changed": "Le prix a changé. Vérifiez le prix actuel puis réessayez.",
+	"economy_funds": "Fonds partagés insuffisants.",
+	"tool_unavailable": "Cet outil n’est plus disponible.",
+	"tool_capacity": "Outil déjà possédé ou inventaire plein.",
+	"shared_tool_sale": "Posez l’outil avant de le vendre.",
+	"purchase_declined": "Achat non effectué : les conditions ou les fonds partagés ont changé.",
 	"title": "MULTIJOUEUR",
 	"subtitle": "Mod coop v%s   ·   F2 panneau   ·   Y chat   ·   F8 resync",
 	"your_name": "TON NOM",
@@ -412,6 +432,19 @@ const STRINGS := {
 	"no_debug_menu": "Cette version n'a pas de menu de débogage.",
 },
 "it": {
+	"power_changed": "Azione sulla rete elettrica non completata. La rete è cambiata o l’azione non è disponibile; attendi la sincronizzazione e riprova.",
+	"sync_diagnostic_warning": "Rilevato un problema di sincronizzazione persistente. Dettagli salvati localmente in mp_diagnostics.jsonl.",
+	"building_missing": "L’edificio non è più presente sull’host. Attendi la sincronizzazione e riprova.",
+	"building_invalid": "Impossibile eseguire questa azione di costruzione. Controlla il bersaglio e riprova.",
+	"economy_wait": "In attesa che l’host elabori le transazioni.",
+	"economy_expired": "Questa transazione è già stata elaborata. Controlla lo stato attuale.",
+	"economy_shop_distance": "Avvicinati al negozio.",
+	"economy_price_changed": "Il prezzo è cambiato. Controlla il prezzo attuale e riprova.",
+	"economy_funds": "Fondi condivisi insufficienti.",
+	"tool_unavailable": "Questo attrezzo non è più disponibile.",
+	"tool_capacity": "Attrezzo già posseduto o inventario pieno.",
+	"shared_tool_sale": "Lascia l’attrezzo prima di venderlo.",
+	"purchase_declined": "Acquisto non completato: i requisiti o i fondi condivisi sono cambiati.",
 	"title": "MULTIGIOCATORE",
 	"subtitle": "Mod coop v%s   ·   F2 pannello   ·   Y chat   ·   F8 sincronizza",
 	"your_name": "IL TUO NOME",
@@ -506,6 +539,19 @@ const STRINGS := {
 	"no_debug_menu": "Questa build non ha il menu di debug.",
 },
 "cs": {
+	"power_changed": "Akce elektrické sítě nebyla dokončena. Síť se změnila nebo akce není dostupná; počkejte na synchronizaci a zkuste to znovu.",
+	"sync_diagnostic_warning": "Zjištěn trvalý problém se synchronizací. Podrobnosti byly místně uloženy do mp_diagnostics.jsonl.",
+	"building_missing": "Budova již u hostitele neexistuje. Počkejte na synchronizaci a zkuste to znovu.",
+	"building_invalid": "Tuto stavební akci nelze provést. Zkontrolujte cíl a zkuste to znovu.",
+	"economy_wait": "Čekání na zpracování transakcí hostitelem.",
+	"economy_expired": "Tato transakce již byla zpracována. Zkontrolujte aktuální stav.",
+	"economy_shop_distance": "Přibližte se k obchodu.",
+	"economy_price_changed": "Cena se změnila. Zkontrolujte aktuální cenu a zkuste to znovu.",
+	"economy_funds": "Nedostatek společných prostředků.",
+	"tool_unavailable": "Tento nástroj již není dostupný.",
+	"tool_capacity": "Nástroj již vlastníte nebo je inventář plný.",
+	"shared_tool_sale": "Před prodejem nástroj položte.",
+	"purchase_declined": "Nákup nebyl dokončen: podmínky nebo společné prostředky se změnily.",
 	"title": "HRA VÍCE HRÁČŮ",
 	"subtitle": "Koop mod v%s   ·   F2 panel   ·   Y chat   ·   F8 synchronizace",
 	"your_name": "TVOJE JMÉNO",
@@ -600,6 +646,19 @@ const STRINGS := {
 	"no_debug_menu": "Tento build nemá ladicí menu.",
 },
 "pl": {
+	"power_changed": "Nie wykonano operacji sieci elektrycznej. Sieć się zmieniła lub operacja jest niedostępna; poczekaj na synchronizację i spróbuj ponownie.",
+	"sync_diagnostic_warning": "Wykryto utrzymujący się problem synchronizacji. Szczegóły zapisano lokalnie w mp_diagnostics.jsonl.",
+	"building_missing": "Budynek nie istnieje już u hosta. Poczekaj na synchronizację i spróbuj ponownie.",
+	"building_invalid": "Nie można wykonać tej operacji budowlanej. Sprawdź cel i spróbuj ponownie.",
+	"economy_wait": "Oczekiwanie na przetworzenie transakcji przez hosta.",
+	"economy_expired": "Ta transakcja została już przetworzona. Sprawdź aktualny stan.",
+	"economy_shop_distance": "Podejdź bliżej sklepu.",
+	"economy_price_changed": "Cena się zmieniła. Sprawdź aktualną cenę i spróbuj ponownie.",
+	"economy_funds": "Za mało wspólnych środków.",
+	"tool_unavailable": "To narzędzie nie jest już dostępne.",
+	"tool_capacity": "Masz już to narzędzie lub ekwipunek jest pełny.",
+	"shared_tool_sale": "Odłóż narzędzie przed sprzedażą.",
+	"purchase_declined": "Zakup nie został ukończony: wymagania lub wspólne środki uległy zmianie.",
 	"title": "GRA WIELOOSOBOWA",
 	"subtitle": "Mod co-op v%s   ·   F2 panel   ·   Y czat   ·   F8 synchronizacja",
 	"your_name": "TWOJA NAZWA",
@@ -694,6 +753,19 @@ const STRINGS := {
 	"no_debug_menu": "Ta wersja nie ma menu debugowania.",
 },
 "ru": {
+	"power_changed": "Действие в электросети не выполнено. Сеть изменилась или действие недоступно; дождитесь синхронизации и повторите попытку.",
+	"sync_diagnostic_warning": "Обнаружена постоянная проблема синхронизации. Подробности сохранены локально в mp_diagnostics.jsonl.",
+	"building_missing": "У хоста больше нет этого здания. Дождитесь синхронизации и повторите попытку.",
+	"building_invalid": "Не удалось выполнить действие со зданием. Проверьте цель и повторите попытку.",
+	"economy_wait": "Ожидание обработки транзакций хостом.",
+	"economy_expired": "Эта транзакция уже обработана. Проверьте текущее состояние.",
+	"economy_shop_distance": "Подойдите ближе к магазину.",
+	"economy_price_changed": "Цена изменилась. Проверьте текущую цену и повторите попытку.",
+	"economy_funds": "Недостаточно общих средств.",
+	"tool_unavailable": "Этот инструмент больше недоступен.",
+	"tool_capacity": "Инструмент уже есть или инвентарь полон.",
+	"shared_tool_sale": "Положите инструмент перед продажей.",
+	"purchase_declined": "Покупка не завершена: условия или общие средства изменились.",
 	"title": "СЕТЕВАЯ ИГРА",
 	"subtitle": "Кооп-мод v%s   ·   F2 панель   ·   Y чат   ·   F8 синхронизация",
 	"your_name": "ТВОЁ ИМЯ",
@@ -788,6 +860,19 @@ const STRINGS := {
 	"no_debug_menu": "В этой сборке нет отладочного меню.",
 },
 "tr": {
+	"power_changed": "Elektrik ağı işlemi tamamlanmadı. Ağ değişti veya işlem kullanılamıyor; eşitlemeyi bekleyip yeniden dene.",
+	"sync_diagnostic_warning": "Kalıcı eşitleme sorunu algılandı. Ayrıntılar yerel mp_diagnostics.jsonl dosyasına kaydedildi.",
+	"building_missing": "Yapı artık sunucuda yok. Eşitlemeyi bekleyip yeniden dene.",
+	"building_invalid": "Bu yapı işlemi gerçekleştirilemedi. Hedefi kontrol edip yeniden dene.",
+	"economy_wait": "Sunucunun işlemleri tamamlaması bekleniyor.",
+	"economy_expired": "Bu işlem zaten tamamlandı. Mevcut durumu kontrol et.",
+	"economy_shop_distance": "Mağazaya yaklaş.",
+	"economy_price_changed": "Fiyat değişti. Güncel fiyatı kontrol edip yeniden dene.",
+	"economy_funds": "Ortak para yetersiz.",
+	"tool_unavailable": "Bu alet artık kullanılamıyor.",
+	"tool_capacity": "Alet zaten var veya envanter dolu.",
+	"shared_tool_sale": "Satmadan önce aleti bırak.",
+	"purchase_declined": "Satın alma tamamlanmadı: gereksinimler veya ortak para değişti.",
 	"title": "ÇOK OYUNCULU",
 	"subtitle": "Ortak oyun modu v%s   ·   F2 panel   ·   Y sohbet   ·   F8 eşitle",
 	"your_name": "ADIN",
@@ -882,6 +967,19 @@ const STRINGS := {
 	"no_debug_menu": "Bu sürümde hata ayıklama menüsü yok.",
 },
 "ja": {
+	"power_changed": "電力網の操作を完了できませんでした。電力網が変更されたか、操作が利用できません。同期を待ってから再試行してください。",
+	"sync_diagnostic_warning": "継続的な同期の問題を検出しました。詳細はローカルのmp_diagnostics.jsonlに保存されました。",
+	"building_missing": "ホスト側に建物がありません。同期を待ってから再試行してください。",
+	"building_invalid": "建物の操作を実行できませんでした。対象を確認して再試行してください。",
+	"economy_wait": "ホストによる取引の処理を待っています。",
+	"economy_expired": "この取引は処理済みです。現在の状態を確認してください。",
+	"economy_shop_distance": "店に近づいてください。",
+	"economy_price_changed": "価格が変更されました。現在の価格を確認して再試行してください。",
+	"economy_funds": "共有資金が不足しています。",
+	"tool_unavailable": "この道具は利用できなくなりました。",
+	"tool_capacity": "道具をすでに所持しているか、持ち物がいっぱいです。",
+	"shared_tool_sale": "売却する前に道具を置いてください。",
+	"purchase_declined": "購入を完了できませんでした。条件または共有資金が変更されました。",
 	"title": "マルチプレイ",
 	"subtitle": "協力プレイMOD v%s   ·   F2 パネル   ·   Y チャット   ·   F8 再同期",
 	"your_name": "あなたの名前",
@@ -976,6 +1074,19 @@ const STRINGS := {
 	"no_debug_menu": "このビルドにはデバッグメニューがない。",
 },
 "ko": {
+	"power_changed": "전력망 작업을 완료하지 못했습니다. 전력망이 변경되었거나 작업을 사용할 수 없습니다. 동기화를 기다린 후 다시 시도하세요.",
+	"sync_diagnostic_warning": "지속적인 동기화 문제가 감지되었습니다. 자세한 내용은 로컬 mp_diagnostics.jsonl에 저장되었습니다.",
+	"building_missing": "호스트에 건물이 더 이상 없습니다. 동기화를 기다린 후 다시 시도하세요.",
+	"building_invalid": "이 건물 작업을 수행하지 못했습니다. 대상을 확인한 후 다시 시도하세요.",
+	"economy_wait": "호스트의 거래 처리를 기다리는 중입니다.",
+	"economy_expired": "이미 처리된 거래입니다. 현재 상태를 확인하세요.",
+	"economy_shop_distance": "상점에 더 가까이 가세요.",
+	"economy_price_changed": "가격이 변경되었습니다. 현재 가격을 확인한 후 다시 시도하세요.",
+	"economy_funds": "공유 자금이 부족합니다.",
+	"tool_unavailable": "이 도구는 더 이상 사용할 수 없습니다.",
+	"tool_capacity": "이미 보유한 도구이거나 인벤토리가 가득 찼습니다.",
+	"shared_tool_sale": "판매하기 전에 도구를 내려놓으세요.",
+	"purchase_declined": "구매를 완료하지 못했습니다. 요구 조건 또는 공유 자금이 변경되었습니다.",
 	"title": "멀티플레이",
 	"subtitle": "협동 모드 v%s   ·   F2 패널   ·   Y 채팅   ·   F8 재동기화",
 	"your_name": "내 이름",
@@ -1070,6 +1181,19 @@ const STRINGS := {
 	"no_debug_menu": "이 빌드에는 디버그 메뉴가 없어요.",
 },
 "zh": {
+	"power_changed": "电网操作未完成。电网已更改或操作不可用；请等待同步后重试。",
+	"sync_diagnostic_warning": "检测到持续的同步问题。详细信息已保存到本地 mp_diagnostics.jsonl。",
+	"building_missing": "主机中已不存在该建筑。请等待同步后重试。",
+	"building_invalid": "无法执行该建筑操作。请检查目标后重试。",
+	"economy_wait": "正在等待主机处理交易。",
+	"economy_expired": "该交易已处理。请检查当前状态。",
+	"economy_shop_distance": "请靠近商店。",
+	"economy_price_changed": "价格已更改。请检查当前价格后重试。",
+	"economy_funds": "共享资金不足。",
+	"tool_unavailable": "该工具已不可用。",
+	"tool_capacity": "已拥有该工具或物品栏已满。",
+	"shared_tool_sale": "出售前请放下工具。",
+	"purchase_declined": "购买未完成：条件或共享资金已更改。",
 	"title": "多人游戏",
 	"subtitle": "合作模组 v%s   ·   F2 面板   ·   Y 聊天   ·   F8 重新同步",
 	"your_name": "你的名字",
@@ -1166,11 +1290,8 @@ const STRINGS := {
 }
 
 
-# Two-letter code of whatever the game is set to, e.g. "es" for "es_ES".
 func locale() -> String:
-	var l := TranslationServer.get_locale()
-	if l.length() >= 2:
-		l = l.substr(0, 2).to_lower()
+	var l := language_code(TranslationServer.get_locale())
 	return l if STRINGS.has(l) else FALLBACK
 
 
@@ -1179,3 +1300,98 @@ func t(key: String) -> String:
 	if table.has(key):
 		return table[key]
 	return STRINGS[FALLBACK].get(key, key)
+
+
+static func phrase(de: String, en: String, locale_override: String = "") -> String:
+	var language := locale_override if not locale_override.is_empty() else TranslationServer.get_locale()
+	language = language_code(language)
+	if language == "de":
+		return de
+	return preload("res://mods/multiplayer/mp_feature_i18n.gd").translate(en, language)
+
+
+static func language_code(locale: String) -> String:
+	var normalized := locale.replace("-", "_").to_lower()
+	var language := normalized.get_slice("_", 0)
+	if language == "zh":
+		for part in normalized.split("_"):
+			if part in ["tw", "hk", "mo", "hant"]:
+				return "zh_TW"
+	return language
+
+
+static var _received_exact := {}
+static var _received_patterns: Array = []
+static var _received_slots: RegEx
+
+static func localize_received(text: String, locale_override: String = "") -> String:
+	if text.is_empty():
+		return text
+	if _received_slots == null:
+		_prepare_received()
+	var language := language_code(locale_override if not locale_override.is_empty() else TranslationServer.get_locale())
+	if _received_exact.has(text):
+		return _received_target(_received_exact[text], language)
+	if text.length() > 4096:
+		return text
+	for entry in _received_patterns:
+		var found: RegExMatch = entry.expression.search(text)
+		if found == null:
+			continue
+		var target := _received_target(entry.record, language)
+		var slots := _received_slots.search_all(target)
+		if slots.size() != found.get_group_count():
+			continue
+		var result := ""
+		var offset := 0
+		for i in slots.size():
+			result += target.substr(offset, slots[i].get_start() - offset).replace("%%", "%")
+			result += found.get_string(i + 1)
+			offset = slots[i].get_end()
+		return result + target.substr(offset).replace("%%", "%")
+	return text
+
+static func _prepare_received() -> void:
+	_received_slots = RegEx.new()
+	_received_slots.compile("%[0-9.]*[sdf]")
+	for key in STRINGS.en:
+		var record := {"key": key, "de": STRINGS.de.get(key, STRINGS.en[key]), "en": STRINGS.en[key]}
+		for language in STRINGS:
+			_register_received(str(STRINGS[language].get(key, "")), record)
+	var features := preload("res://mods/multiplayer/mp_feature_i18n.gd")
+	for german in features.GERMAN:
+		var record := {"de": german, "en": features.GERMAN[german]}
+		_register_received(german, record)
+		_register_received(record.en, record)
+		for translated in features.STRINGS.get(record.en, []):
+			_register_received(str(translated), record)
+
+static func _register_received(source: String, record: Dictionary) -> void:
+	if source.is_empty() or _received_exact.has(source):
+		return
+	_received_exact[source] = record
+	var slots := _received_slots.search_all(source)
+	if slots.is_empty():
+		return
+	var pattern := "(?s)\\A"
+	var offset := 0
+	for slot in slots:
+		pattern += _escape_received(source.substr(offset, slot.get_start() - offset)) + "(.*?)"
+		offset = slot.get_end()
+	pattern += _escape_received(source.substr(offset)) + "\\z"
+	var expression := RegEx.new()
+	if expression.compile(pattern) == OK:
+		_received_patterns.append({"expression": expression, "record": record})
+
+static func _escape_received(text: String) -> String:
+	var result := ""
+	for character in text.replace("%%", "%"):
+		if character in "\\.^$|?*+()[]{}":
+			result += "\\"
+		result += character
+	return result
+
+static func _received_target(record: Dictionary, language: String) -> String:
+	if record.has("key"):
+		return str(STRINGS.get(language, STRINGS.en).get(record.key, record.en))
+	return phrase(record.de, record.en, language)

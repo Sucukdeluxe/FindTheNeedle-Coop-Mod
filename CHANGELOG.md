@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.6-xRangerDE.66
+
+Allow overhead construction across the playable map and move sale stations directly from the contextual controls.
+
+- Remove the 24 m player-centred limit from overhead movement and validated building actions. Pan across the playable terrain and zoom out further; ordinary first-person reach and placement checks remain active.
+- Look at an empty selling stand or sale scale and press N to enter its placement preview. The native hint bar shows the action and the actual key. If N is already assigned, an unused alternative is selected.
+- Right-click cancels relocation without moving the station; successful placement closes the preview. E still opens station settings.
+- Add localized building, hopper, routing, sale-station and colour action labels for all 17 language options in the current game. Complete missing core multiplayer alerts for the original 12 locales and remove German-only errors.
+- Display recognized host system notifications in the recipient’s language while preserving player chat and inserted names or values.
+- Use English for remaining untranslated legacy text. Not every older description is translated into all 17 languages.
+
+Existing saves remain supported. All players need the same mod and game versions. Validation uses isolated native headless tests and local multiplayer sessions; the previously reported graphics slowdown is not claimed to be fixed.
+
 ## 0.19.6-xRangerDE.65
 
 Restore saving after the game update and repair loading-hopper controls and conveyor connections.

@@ -143,9 +143,9 @@ func dismantle_progress() -> float:
 
 func dismantle_name() -> String:
 	if _sale_wreck > 1:
-		return "Verkaufswaage" if TranslationServer.get_locale().begins_with("de") else "Sale Scale"
+		return preload("res://mods/multiplayer/mp_i18n.gd").phrase("Verkaufswaage", "Sale Scale")
 	if _hopper_wreck != 0:
-		return "Einfülltrichter" if TranslationServer.get_locale().begins_with("de") else "Loading Hopper"
+		return preload("res://mods/multiplayer/mp_i18n.gd").phrase("Einfülltrichter", "Loading Hopper")
 	return super.dismantle_name()
 
 func _rotation_available() -> bool:
@@ -192,3 +192,10 @@ func can_toggle_flow() -> bool:
 
 func flow_hint() -> String:
 	return "" if _is_hopper() else super.flow_hint()
+
+func back_out() -> void:
+	if is_instance_valid(player) and player.build_id == "mp_sale_move":
+		cancel()
+		player.put_away_build()
+		return
+	super.back_out()

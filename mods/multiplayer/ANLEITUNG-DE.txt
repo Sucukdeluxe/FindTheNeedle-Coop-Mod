@@ -1,9 +1,9 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.65
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.66
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
 
-NEUE BEDIENUNG .62
+BEDIENUNG .66
 - R halten und Maus links/rechts: frei drehen. R antippen: feste Drehschritte.
 - F6: Laufrichtung des gerade gezeichneten Förderbands umkehren.
 - F9: Parallel-Modus für benachbarte, gerade Förderbänder umschalten.
@@ -12,7 +12,8 @@ NEUE BEDIENUNG .62
   Nur der aufnehmbare Anteil wird übertragen. M für den Sauger bleibt erhalten.
 - Roboterarme können direkt auf Sammler und Verteiler ablegen; die Ziele lassen
   sich auch manuell verbinden, speichern und wieder laden.
-- E an einer Verkaufsstelle: leere Verkaufsstelle versetzen. Vier neue
+- N an einer leeren Verkaufsstelle: direkt versetzen. Bei belegtem N zeigt die
+  Tastenleiste eine freie Alternative. Rechtsklick bricht ab; E öffnet Einstellungen. Vier
   Freischaltstufen erlauben zusammen fünf Verkaufsstellen. Zusätzliche Waagen
   stehen im Baukatalog und kosten je 500.
 - Wände rasten an äußeren Plattformkanten ein. Vier Farbvarianten für Wände,
@@ -41,13 +42,13 @@ WEITERE FUNKTIONEN
 - F7: Vogelperspektive direkt einschalten, B öffnet den Baukatalog. WASD/Pfeile verschieben,
   Umschalt beschleunigt, Mausrad zoomt, Linksklick baut, Rechtsklick geht einen
   Bauschritt zurück. F7/Escape stellt die vorige Ansicht wieder her.
-  Der Host prüft weiterhin Baukosten, Anschlüsse und den Baubereich von 24 m
-  um die tatsächliche Spielerposition. F7 öffnet die Baukamera statt „Problem Debug“.
+  Die Kamera erreicht die gesamte bebaubare Karte und lässt sich weiter herauszoomen.
+  Der Host prüft weiterhin Baukosten, Anschlüsse, Kartengrenzen und Platzierung. F7 öffnet die Baukamera statt „Problem Debug“.
   Strg+F7 öffnet weiterhin den Debugbericht. Andere eigene F7-Belegungen bleiben.
   Mit Bild↑/Bild↓ die Bauhöhe ändern; Pfeiltasten verschieben nur die Kamera.
 - Einfülltrichter: 2.500 Kaufpreis, neue Trichter 10.000 bis 100.000 Halme Speicher.
   Frei oder am waagerechten Bandanfang platzieren. M füllt ein, E öffnet Einstellungen.
-  Volle Bänder stoppen die Ausgabe; vor dem Abbau muss der Trichter leer sein.
+  Volle Bänder stoppen die Ausgabe. Beim Abbau fallen Inhalt und enthaltene Nadeln auf den Boden.
   Der Trichter funktioniert im Einzelspieler und Multiplayer.
   Originalheu zeigt den tatsächlichen Inhalt an. Die kurze Einfüllanimation
   startet nur bei Zuwachs; sie erzeugt kein zusätzliches aufhebbares Heu.

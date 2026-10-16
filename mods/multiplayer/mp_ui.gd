@@ -832,6 +832,7 @@ func set_progress(v: float) -> void:
 
 
 func notify(text: String, accent := COL_TITLE) -> void:
+	text = preload("res://mods/multiplayer/mp_i18n.gd").localize_received(text)
 	print("[MPMod] ", text)
 	set_status(text)
 	# the same line twice in a row counts up on the card it already has

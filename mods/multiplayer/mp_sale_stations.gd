@@ -5,6 +5,9 @@ const Scale = preload("res://mods/multiplayer/mp_sale_scale.gd")
 const BUILD_ID := "mp_sale_scale"
 const MOVE_ID := "mp_sale_move"
 const UPGRADE_ID := "mp_sale_scales"
+const MOVE_KEYS := [KEY_N, KEY_I, KEY_J, KEY_K, KEY_P, KEY_F10]
+var _move_key: Key = KEY_NONE
+var _key_epoch := -1
 var hoppers: Node
 var world_sync: Node
 var mp: Node
@@ -233,6 +236,8 @@ func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	if world_sync.player.build_id == MOVE_ID and _moving_id == 0:
 		return {"ok": false, "reason": _tr("E an einer Verkaufsstelle drücken und Versetzen wählen", "Press E at a sale station and choose Move")}
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
+	if ray.is_empty():
+		return {"ok": false, "reason": _tr("Außerhalb der Karte", "Outside the map")}
 	var row := candidate(ray.transform, float(ray.length), _build_yaw, _moving_id)
 	if row.has("position") and ray.has("view") and not _in_area(row.position, float(row.yaw), _moving_id, world_sync.player.global_position):
 		row.ok = false
@@ -302,13 +307,18 @@ func cancel_preview() -> void:
 		_ghost.hide()
 
 func begin_move(id: int) -> void:
+	if not _usable() or not _pending.is_empty() or world_sync._frozen:
+		return
 	var station := model(id)
 	if not is_instance_valid(station) or not station.mp_can_move():
 		world_sync.toast(_tr("Verkaufsstelle zuerst vollständig leeren", "Empty the sale station first"))
 		return
 	if is_instance_valid(_panel):
 		_panel.close()
+	ensure_catalog()
 	world_sync.player.equip_build(MOVE_ID)
+	if world_sync.player.build_id != MOVE_ID or not world_sync.player.build.is_active():
+		return
 	_moving_id = id
 	set_build_yaw(float(_row(id).yaw))
 
@@ -340,6 +350,8 @@ func _completed(sequence: int, result: Dictionary) -> void:
 	_pending.erase(sequence)
 	if result.get("ok", false) and action == "sale_move":
 		cancel_preview()
+		if world_sync.player.build_id == MOVE_ID:
+			world_sync.player.put_away_build()
 
 func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	if not _usable() or _mode not in ["host", "offline"] or not world_sync.economy.executing or world_sync._frozen:
@@ -407,6 +419,8 @@ func target_id(allow_build_camera := false) -> int:
 		return 0
 	var camera: Camera3D = world_sync.player.camera
 	var ray: Dictionary = hoppers._local_build_ray(camera.global_transform, 6.0) if allow_build_camera else {"origin": camera.global_position, "direction": -camera.global_basis.z, "length": 6.0}
+	if ray.is_empty():
+		return 0
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
 	var hit: Dictionary = world_sync.world.get_world_3d().direct_space_state.intersect_ray(query)
 	var collider: Variant = hit.get("collider")
@@ -438,11 +452,29 @@ func _process(delta: float) -> void:
 		_clock = 0.0
 		_refresh_links()
 
+func move_key() -> Key:
+	if _key_epoch != InputSetup.epoch:
+		_key_epoch = InputSetup.epoch
+		_move_key = KEY_NONE
+		for key in MOVE_KEYS:
+			if hoppers.BuildCamera.key_available(key):
+				_move_key = key
+				break
+	return _move_key
+
 func _input(event: InputEvent) -> void:
-	if not _usable() or not event.is_action_pressed("interact") or event.is_echo():
+	if not _usable() or event.is_echo() or world_sync._frozen:
+		return
+	var key := move_key()
+	var moving: bool = key != KEY_NONE and event is InputEventKey and event.pressed and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not event.meta_pressed and (event.physical_keycode == key or event.keycode == key)
+	if not moving and not event.is_action_pressed("interact"):
 		return
 	var id := target_id(true)
 	if id == 0:
+		return
+	if moving:
+		begin_move(id)
+		get_viewport().set_input_as_handled()
 		return
 	if not is_instance_valid(_panel):
 		_panel = load("res://mods/multiplayer/mp_sale_panel.gd").new()
@@ -455,4 +487,4 @@ static func _failure(message: String) -> Dictionary:
 	return {"ok": false, "message": message}
 
 static func _tr(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)

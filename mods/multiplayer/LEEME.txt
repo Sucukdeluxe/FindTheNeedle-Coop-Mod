@@ -1,4 +1,4 @@
-MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-xRangerDE.61
+MOD COOPERATIVO PARA FIND THE NEEDLE  v0.19.6-xRangerDE.66
 =============================================
 
 Mod no oficial. Todos los jugadores necesitan el juego (la demo, gratis en
@@ -95,3 +95,8 @@ La recuperación completa tras un cierre inesperado del invitado sigue pendiente
 
 AJUSTE .53
 El precio de venta tiene 20 niveles, hasta el doble del precio base. Se conservan los niveles comprados. El anfitrión o jugador individual recibe una sola vez la diferencia de las mejoras cuyo precio pagado consta en la partida. No se estiman compras sin registro ni niveles regalados.
+
+CONTROLES .66
+F7: cámara cenital sobre todo el mapa transitable. WASD o flechas para moverla y rueda para ampliar.
+Apunta a una estación de venta vacía y pulsa N para moverla. Si N está asignada, la barra muestra una tecla libre. Clic derecho cancela; E abre los ajustes.
+Los nuevos controles están traducidos para las 17 opciones de idioma del juego. Los textos antiguos sin traducción se muestran en inglés.

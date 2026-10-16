@@ -28,7 +28,7 @@ static func build_cost(count: int) -> float:
 	return float(BUILD_COSTS.get(count, 0.0))
 
 static func ensure_cards(nodes: Dictionary, locale: String) -> void:
-	var german := locale.begins_with("de")
+	var text := preload("res://mods/multiplayer/mp_i18n.gd")
 	for distributor in [false, true]:
 		for index in COUNTS.size():
 			var count: int = COUNTS[index]
@@ -37,10 +37,10 @@ static func ensure_cards(nodes: Dictionary, locale: String) -> void:
 			var previous := "smart_splitter" if index == 0 else id(COUNTS[index - 1], distributor)
 			if nodes.get(key, {}).get("router_version") == locale and nodes[key].get("costs") == costs:
 				continue
-			var title := ("Verteiler" if distributor else "Sammler") if german else ("Splitter" if distributor else "Merger")
+			var title := text.phrase("Verteiler", "Splitter", locale) if distributor else text.phrase("Sammler", "Merger", locale)
 			nodes[key] = {"kind": "unlock", "flat": true, "requires": [previous], "costs": costs, "branch": "lines", "icon": "splitter" if distributor else "joiner", "router_version": locale,
-				"name": "%s · %d %s" % [title, count, "Anschlüsse" if german else "ports"],
-				"blurb": ("Schaltet den Bau frei. Baukosten werden pro Gebäude zusätzlich bezahlt. Der Vorgänger muss zuerst freigeschaltet sein." if german else "Unlocks construction. Each building has a separate construction cost. Unlock the previous size first."),
-				"reward": ("Im Baukatalog verfügbar" if german else "Available in the build catalog")}
+				"name": "%s · %d %s" % [title, count, text.phrase("Anschlüsse", "Ports", locale)],
+				"blurb": text.phrase("Schaltet den Bau frei. Baukosten werden pro Gebäude zusätzlich bezahlt. Der Vorgänger muss zuerst freigeschaltet sein.", "Unlocks construction. Each building has a separate construction cost. Unlock the previous size first.", locale),
+				"reward": text.phrase("Im Baukatalog verfügbar", "Available in the build catalog", locale)}
 			if not TechTree.ids().has(key):
 				TechTree.ids().append(key)

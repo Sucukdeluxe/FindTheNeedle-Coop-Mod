@@ -1522,20 +1522,20 @@ func _on_pile_replaced() -> void:
 
 func order_pile(peer: int, args: Dictionary) -> Dictionary:
 	if (mp.active() and not mp.is_host) or _frozen or int(args.get("pile_seed", -1)) != GameState.run_seed:
-		return {"ok": false, "message": "Die Welt hat sich geändert. Bitte erneut öffnen."}
+		return {"ok": false, "message": preload("res://mods/multiplayer/mp_i18n.gd").phrase("Die Welt hat sich geändert. Bitte erneut öffnen.", "The world has changed. Open this menu again.")}
 	if is_instance_valid(prestige) and prestige.busy() or is_instance_valid(sweep_sync) and sweep_sync.busy():
-		return {"ok": false, "message": "Eine Weltaktion läuft bereits."}
+		return {"ok": false, "message": preload("res://mods/multiplayer/mp_i18n.gd").phrase("Eine Weltaktion läuft bereits.", "A world action is already in progress.")}
 	if peer != 1 and (not mp.players.has(peer) or str(mp.players[peer].get("state", "")) != "world"):
-		return {"ok": false, "message": "Spieler ist noch nicht bereit."}
+		return {"ok": false, "message": preload("res://mods/multiplayer/mp_i18n.gd").phrase("Spieler ist noch nicht bereit.", "The player is not ready yet.")}
 	if not args.get("pay_now", false) is bool or not GameState.may_order_pile():
-		return {"ok": false, "message": "Die Voraussetzungen für die nächste Ladung fehlen."}
+		return {"ok": false, "message": preload("res://mods/multiplayer/mp_i18n.gd").phrase("Die Voraussetzungen für die nächste Ladung fehlen.", "The requirements for the next load are not met.")}
 	var zone: Node = world.get("landing_zone")
 	if is_instance_valid(zone):
 		zone.refresh()
 		if zone.is_blocked():
-			return {"ok": false, "message": "Der Abladebereich ist blockiert."}
+			return {"ok": false, "message": preload("res://mods/multiplayer/mp_i18n.gd").phrase("Der Abladebereich ist blockiert.", "The unloading area is blocked.")}
 	if bool(args.get("pay_now", false)) and not GameState.can_afford(GameState.next_stack_fee()):
-		return {"ok": false, "message": "Das gemeinsame Guthaben reicht nicht aus."}
+		return {"ok": false, "message": preload("res://mods/multiplayer/mp_i18n.gd").phrase("Das gemeinsame Guthaben reicht nicht aus.", "Not enough shared funds.")}
 	_frozen = true
 	world._deliver_new_pile(bool(args.get("pay_now", false)))
 	return {"ok": true, "pending": true}
@@ -1775,6 +1775,7 @@ func on_event(id: int, kind: String, _data: Dictionary) -> void:
 
 
 func toast(text: String, seconds: float = 3.5) -> void:
+	text = preload("res://mods/multiplayer/mp_i18n.gd").localize_received(text)
 	var hud: Variant = world.get("hud")
 	if hud != null and is_instance_valid(hud) and hud.has_method("show_toast"):
 		hud.show_toast(text, seconds)

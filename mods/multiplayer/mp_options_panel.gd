@@ -82,7 +82,7 @@ func _mp_sweep_finished(token: String, result: Dictionary) -> void:
 		_yard_note.text = _yard_verdict()
 
 func _mp_text(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
 
 func _mp_number(value: int) -> String:
 	var text := str(value)

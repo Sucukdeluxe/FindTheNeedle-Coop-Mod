@@ -43,7 +43,7 @@ func _layout() -> void:
 		var output: bool = target.port_is_output(side)
 		var ink: Color = ArmPanel.COL_TAKE_INK if output else ArmPanel.COL_PUT_INK
 		_buttons[side].add_theme_color_override("font_color", ink)
-		_buttons[side].tooltip_text = ("Ausgang" if output else "Eingang") if TranslationServer.get_locale().begins_with("de") else ("Output" if output else "Input")
+		_buttons[side].tooltip_text = preload("res://mods/multiplayer/mp_i18n.gd").phrase("Ausgang", "Output") if output else preload("res://mods/multiplayer/mp_i18n.gd").phrase("Eingang", "Input")
 	queue_redraw()
 
 func _draw() -> void:

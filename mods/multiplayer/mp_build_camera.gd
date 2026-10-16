@@ -4,11 +4,12 @@ signal notice(message: String)
 signal mode_changed(enabled: bool)
 
 const MODE := "orthographic_build_v1"
-const MAX_RADIUS := 24.0
+const MAP_HALF_EXTENT := 128.0
+static var _map_bounds := Rect2(Vector2(-MAP_HALF_EXTENT, -MAP_HALF_EXTENT), Vector2.ONE * MAP_HALF_EXTENT * 2.0)
 const MIN_HEIGHT := 8.0
 const MAX_HEIGHT := 32.0
 const MIN_SIZE := 6.0
-const MAX_SIZE := 32.0
+const MAX_SIZE := 128.0
 const BELOW_PLAYER := 8.0
 const NEAR := 0.05
 const CAMERA_BASIS := Basis(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 0.0, -1.0), Vector3(0.0, 1.0, 0.0))
@@ -33,6 +34,12 @@ func start(target: Node3D) -> void:
 	if active:
 		leave()
 	player = target
+	_map_bounds = Rect2(Vector2(-MAP_HALF_EXTENT, -MAP_HALF_EXTENT), Vector2.ONE * MAP_HALF_EXTENT * 2.0)
+	var terrain := player.get_parent().get_node_or_null("YardTerrain")
+	if terrain is Node3D:
+		var centre: Vector3 = terrain.to_global(terrain.centre)
+		var half: float = (terrain.SOLID_SAMPLES - 1) * terrain.CELL * terrain.global_basis.x.length() * 0.5
+		_map_bounds = Rect2(Vector2(centre.x - half, centre.z - half), Vector2.ONE * half * 2.0)
 	set_process(true)
 	set_process_input(true)
 	set_process_unhandled_input(true)
@@ -146,9 +153,9 @@ func pan(direction: Vector2, delta: float, faster: bool = false) -> void:
 	if not active or not direction.is_finite() or not is_finite(delta) or delta <= 0.0:
 		return
 	var amount := direction.limit_length() * _size * (1.4 if faster else 0.7) * minf(delta, 0.1)
-	var offset := Vector2(_focus.x - _anchor.x, _focus.z - _anchor.z) + amount
-	offset = offset.limit_length(MAX_RADIUS)
-	_focus = _anchor + Vector3(offset.x, 0.0, offset.y)
+	var next := Vector2(_focus.x, _focus.z) + amount
+	next = next.clamp(_map_bounds.position, _map_bounds.end)
+	_focus = Vector3(next.x, _anchor.y, next.y)
 	_update_camera()
 
 func zoom(steps: float) -> void:
@@ -238,7 +245,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 			if current_ray().is_empty():
-				notice.emit(_tr("Außerhalb des Baubereichs von 24 m.", "Outside the 24 m building area."))
+				notice.emit(_tr("Außerhalb der Karte", "Outside the map"))
 			else:
 				tool.call("primary")
 			get_viewport().set_input_as_handled()
@@ -269,7 +276,7 @@ static func key_available(key: Key) -> bool:
 	return true
 
 static func point_allowed(point: Vector3, origin: Vector3) -> bool:
-	return point.is_finite() and origin.is_finite() and Vector2(point.x - origin.x, point.z - origin.z).length() <= MAX_RADIUS + 0.01 and point.y >= origin.y - BELOW_PLAYER - 0.01 and point.y <= origin.y + MAX_HEIGHT + 0.01
+	return point.is_finite() and origin.is_finite() and _map_bounds.grow(0.01).has_point(Vector2(point.x, point.z)) and point.y >= origin.y - BELOW_PLAYER - 0.01 and point.y <= origin.y + MAX_HEIGHT + 0.01
 
 static func validate_view(view: Variant, origin: Vector3) -> Dictionary:
 	if not (view is Dictionary) or view.get("mode") != MODE or not origin.is_finite():
@@ -436,4 +443,4 @@ static func _preview_allowed(tool: Node, ghost: Node3D, origin: Vector3) -> bool
 	return true
 
 static func _tr(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)

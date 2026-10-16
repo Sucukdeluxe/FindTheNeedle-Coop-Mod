@@ -816,7 +816,7 @@ static func _failure(message: String) -> Dictionary:
 	return {"ok": false, "message": message}
 
 static func _tr(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
 
 static func _number(value: int) -> String:
 	var out := str(value)

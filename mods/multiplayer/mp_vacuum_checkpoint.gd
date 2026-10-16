@@ -108,7 +108,7 @@ func finish_restore(prepared: Dictionary, restored: bool) -> bool:
 	return true
 
 static func _text(de: String, en: String) -> String:
-	return de if TranslationServer.get_locale().begins_with("de") else en
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
 
 static func snapshot(host: Dictionary, local: Dictionary, fill: int, seed: int) -> Dictionary:
 	if not _valid_local(local):

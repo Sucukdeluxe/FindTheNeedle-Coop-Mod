@@ -29,7 +29,8 @@ static func base_id(id: String) -> String:
 static func ensure_catalog() -> void:
 	var entries: Dictionary = BuildCatalog.entries()
 	var ordered := {}
-	var names := ["", "Anthrazit", "Creme", "Rot", "Grün"] if TranslationServer.get_locale().begins_with("de") else ["", "Charcoal", "Cream", "Red", "Green"]
+	var text := preload("res://mods/multiplayer/mp_i18n.gd")
+	var names := ["", text.phrase("Anthrazit", "Charcoal"), text.phrase("Creme", "Cream"), text.phrase("Rot", "Red"), text.phrase("Grün", "Green")]
 	for id in entries:
 		if index(str(id)) > 0:
 			continue

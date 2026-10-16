@@ -174,4 +174,4 @@ func _de() -> bool:
 	return TranslationServer.get_locale().begins_with("de")
 
 func _t(german: String, english: String) -> String:
-	return german if _de() else english
+	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(german, english)
