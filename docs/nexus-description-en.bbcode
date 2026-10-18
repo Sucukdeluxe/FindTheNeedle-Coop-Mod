@@ -1,10 +1,10 @@
 [b]Expanded co-op for Find The Needle Demo[/b]
 
-Build and expand a shared factory with additional transport machines, overhead building controls, revised progression and targeted synchronization fixes. Current release: 0.19.6-xRangerDE.67, checked against Steam demo build 25963876. All participants must install the same mod and game versions.
+Build and expand a shared factory with additional transport machines, overhead building controls, revised progression and targeted synchronization fixes. Current release: 0.19.6-xRangerDE.70, checked against Steam demo build 25963876. All participants must install the same mod and game versions.
 
 [b]Included features[/b]
 [list]
-[*]Shared world, buildings, research, purchases and money, with personal tool inventories. The host simulates production and confirms inventory transfers.[/*]
+[*]Up to eight players including the host. Shared world, buildings, research, purchases and money, with personal tool inventories. The host simulates production and confirms inventory transfers.[/*]
 [*][b]Loading hopper:[/b] 10,000 starting capacity, upgrades to 100,000, and output portions from 100 to 1,000 within your unlocked belt limit. Existing 50,000-capacity hoppers keep their capacity and contents. Fill it from above, by robotic arm, with M while using the vacuum, or by right-clicking with carried raw hay/tools. Unaccepted overflow stays in its source. Connect raw-hay belts at the left, rear or right input, start a belt at the front output, or insert the hopper into a straight, level conveyor. Capacity upgrades preserve the on/off state. Dismantling a filled hopper drops its stored hay and needles.[/*]
 [*][b]4-, 6- and 8-port mergers and splitters.[/b] Separate paid 4 → 6 → 8 unlock chains; free placement or insertion into a straight, level belt. Empty devices allow input/output selection with E. Arms can link directly to these devices without an intermediate belt.[/*]
 [*][b]Overhead building camera:[/b] F7, then B to choose a part. Pan, zoom, place, and hover a machine to open its settings with E. Pan across the entire playable terrain, with a wider zoom range. Hall roofs including extensions and the stand canopy are hidden in overhead view, with selection and building beneath them. The host validates map boundaries and placement; the former 24 m limit around the player no longer applies in overhead view.[/*]
@@ -17,7 +17,14 @@ Build and expand a shared factory with additional transport machines, overhead b
 [*]Guest vacuum recovery for a process crash and rejoin to the same host world, using a private local journal. Earlier host-save rollback and unsaved host progress are not recoverable by this feature.[/*]
 [/list]
 
-[b]Latest update: revision 67[/b]
+[b]Latest update: revision 70[/b]
+Move Supply Co with N; its interaction and delivery points follow the saved, synchronized location. The command stays out of the build catalog. Sale-station and shop previews remain visible at close range. Each overhead viewport now receives distant machine animations and loose straw. A small translucent game/mod version label appears at the bottom right.
+
+Arm Spacing offers ten ranks down to 50% required spacing (150,000 total). Arm Carry Size retains eight ranks up to +64% (80,000 total). The complete vacuum budget is 500,000: 300,000 capacity and 200,000 suction. Existing ranks are preserved. Merger surfaces carry the player toward the configured output, and parallel-belt previews follow the adjacent run.
+
+Robot-arm destination search took about 70% less time in a 32-arm native headless benchmark with identical results. This is a targeted CPU improvement, not a rendered FPS claim. Concurrent building, upgrades, editing and rejoining were checked with up to eight local game processes, including packet loss and duplication.
+
+[b]Previous update: revision 67[/b]
 Angled and curved parallel conveyors, long conveyor runs in one placement, overhead roof cutaways, confirmed sale-station transport and preservation of mod/add-on unlocks after switching language. Existing collision and host checks remain active.
 
 [b]Previous update: revision 66[/b]
@@ -66,6 +73,6 @@ These are summaries of existing maintenance revisions, not additional downloads 
 Overhead camera and validated building actions across the playable map; N for direct sale-station relocation with the active key shown in the native HUD; cancel/finish behaviour; wider translation coverage and recipient-language system notifications.
 
 [b]Compatibility and testing limits[/b]
-Targets the Windows Steam demo; release 0.19.6-xRangerDE.67 was checked against Steam build 25963876. The core additions work in single-player as well as co-op where applicable. Native local headless tests cover host/guest transactions, packet loss/duplication, save state, mixed cargo and blocked-output recovery. These checks do not establish a two-PC Internet/Steam result, GPU frame rates, compatibility with every mod, or freedom from all bugs. The reported overhead-camera slowdown was not reproduced as a sustained CPU regression in headless profiling; GPU performance remains unverified. The native game and mods can change; back up saves before updating.
+Targets the Windows Steam demo; release 0.19.6-xRangerDE.70 was checked against Steam build 25963876. The core additions work in single-player as well as co-op where applicable. Native local headless tests cover host/guest transactions, packet loss/duplication, save state, mixed cargo and blocked-output recovery. These checks do not establish a two-PC Internet/Steam result, GPU frame rates, compatibility with every mod, or freedom from all bugs. The reported overhead-camera slowdown was not reproduced as a sustained CPU regression in headless profiling; GPU performance remains unverified. The native game and mods can change; back up saves before updating.
 
 For a report, include the game/mod versions, host or guest role, steps to reproduce, and the relevant local diagnostic excerpt with personal data removed. The full per-version history is in CHANGELOG.md inside the ZIP and on GitHub.

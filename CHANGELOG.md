@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.19.6-xRangerDE.69 (unreleased)
+## 0.19.6-xRangerDE.70
+
+- Hide the Supply Co relocation command from the build catalog. Keep direct selection with N at the shop.
+
+- Keep the full relocation preview visible when the camera is inside its bounds. Use softer, double-sided translucent surfaces at close range instead of hiding the model and leaving only its outline. Applies to sale stations and Supply Co.
+
+## 0.19.6-xRangerDE.69 (local build, included in .70)
 
 - Show the current game build and multiplayer mod version as a small translucent label in the bottom-right corner.
 
@@ -9,7 +15,7 @@
 - Reduce robot-arm destination search work by rejecting out-of-reach router paths before detailed projection and reusing the selected path basis. Preserve reachable destinations and ordering.
 
 
-## 0.19.6-xRangerDE.68 (unreleased)
+## 0.19.6-xRangerDE.68 (local build, included in .70)
 
 - Add Arm Spacing beside the existing arm upgrades: ten ranks reduce required placement spacing by five percentage points each, to 50%, while retaining working reach, base collisions and exclusive cargo claims. Its complete cost is 150,000.
 - Keep the existing eight Arm Carry Size ranks and their +64% maximum, with a complete cost of 80,000.

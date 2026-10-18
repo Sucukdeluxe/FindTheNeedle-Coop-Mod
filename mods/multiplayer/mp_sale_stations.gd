@@ -297,10 +297,13 @@ func preview(camera: Transform3D, reach: float, show: bool) -> Dictionary:
 	var view: Dictionary = hoppers._local_build_ray(camera, reach)
 	var eye: Vector3 = view.get("origin", camera.origin)
 	var inside := _bounds(_moving_id).grow(0.25).has_point(_ghost.to_local(eye))
-	var tint := Color(0.2, 0.85, 0.5, 0.24) if row.get("ok", false) else Color(0.95, 0.2, 0.18, 0.24)
+	var opacity := 0.12 if inside else 0.24
+	var tint := Color(0.2, 0.85, 0.5, opacity) if row.get("ok", false) else Color(0.95, 0.2, 0.18, opacity)
 	for mesh in _ghost.get_children():
 		var outline := mesh.name == "PlacementOutline"
-		mesh.visible = outline or not inside
+		mesh.visible = true
+		if not outline:
+			mesh.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED if inside else BaseMaterial3D.CULL_BACK
 		mesh.material_override.albedo_color = Color(tint, 0.9) if outline else tint
 	return row
 

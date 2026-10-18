@@ -5,7 +5,7 @@ const WallPalette = preload("res://mods/multiplayer/mp_wall_palette.gd")
 const HopperIcon = preload("res://mods/multiplayer/mp_hopper_icon.gd")
 
 func _shows(id: String) -> bool:
-	return id != "mp_sale_move" and super._shows(id)
+	return id not in ["mp_sale_move", "mp_supply_move"] and super._shows(id)
 
 func _build_icon(id: String) -> TextureRect:
 	var icon := super._build_icon(WallPalette.base_id(id))
