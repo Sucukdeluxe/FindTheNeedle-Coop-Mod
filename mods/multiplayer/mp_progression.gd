@@ -30,6 +30,7 @@ func ensure_cards() -> void:
 	preload("res://mods/multiplayer/mp_sale_stations.gd").ensure_cards(nodes, locale)
 	_ensure_double_jump(nodes, locale, german)
 	_ensure_arm(nodes, locale, german)
+	preload("res://mods/multiplayer/mp_arm_upgrades.gd").ensure_cards()
 	_ensure_distributor(nodes, locale, german)
 	for id in NEW_CARDS:
 		if not nodes.get(NEW_CARDS[id]) is Dictionary:

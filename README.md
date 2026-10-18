@@ -1,6 +1,6 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.67`, based on upstream 0.19.5. This build targets the Windows Steam demo and was checked with game build **25963876**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.68`, based on upstream 0.19.5. This build targets the Windows Steam demo and was checked with game build **25963876**.
 
 Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
@@ -28,6 +28,8 @@ New action hints cover all 17 language options in the current game. The original
 
 ## New controls and upgrades
 
+- **Robot arms:** Arm Carry Size retains eight ranks up to +64% and costs 80,000 in total. Arm Spacing unlocks after the Standard Arm blueprint and reduces the required spacing by five percentage points per rank, down to 50%, for 150,000 in total. Working reach and physical base clearance remain unchanged. Existing purchased ranks are retained.
+
 - **Building controls:** hold R and move the mouse horizontally for free rotation; tap R for the original steps. F6 reverses the belt being drawn. F9 follows adjacent conveyors at arbitrary horizontal angles and through connected bends. Long conveyor runs are split into connected native sections in one placement, retaining per-metre costs. Connection and collision checks still apply. In F7 view, hover a machine and press E for its existing settings.
 - **House building:** walls snap to exposed platform edges in native wall modules. Roofs align with wall tops and eaves. Optional charcoal, cream, red and green wall/window/door variants retain the native materials and save their color.
 - **Sale stations:** look at an empty sale station and press N to enter its placement preview. The native hint bar shows the selected key; an unused alternative is chosen if N is assigned. After confirmed pickup, carry the station away from its old location. Right-click cancels; E opens settings. Four upgrade ranks unlock up to five total sale stations; extra compact scales cost 500 each and use the same prices and shared account. Moving a loaded or unsettled station is blocked. The original stand remains available in old saves.
@@ -43,7 +45,7 @@ New action hints cover all 17 language options in the current game. The original
 - **Double Jump:** one shared 2,500 purchase in Fitness after Spring Heels. Release jump after taking off, then press again for one extra airborne jump. Landing restores it. An equipped jetpack retains its own control behavior.
 - **Next Load details:** remaining buried needles and the number of represented types are shown on the delivery board and in its detail window.
 
-Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with the complete capacity ladder costing 75,000 and the complete suction ladder costing 50,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
+Existing vacuum upgrades reach 50,000 capacity across 41 ranks and 1,000 strands/second at suction rank 20, with the complete capacity ladder costing 300,000 and the complete suction ladder costing 200,000. Outside direct belt/hopper transfers, M retains its existing physical-output behavior. The separate `drop_all.gd` is not needed.
 
 The hopper has an industrial steel model and a matching image in the building catalog and hotbar. Its native hay surface follows the stored amount and stays inside the sloping walls. A brief intake effect runs only on a stock increase; restored contents and repeated snapshots do not replay it. The effect is visual only and creates no collectible hay. Its stock and controls appear in a readable HUD card. Single-player uses local checked transactions for construction and vacuum transfer, without opening a network session.
 

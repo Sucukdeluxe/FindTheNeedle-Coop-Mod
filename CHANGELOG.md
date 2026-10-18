@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.19.6-xRangerDE.68 (unreleased)
+
+- Add Arm Spacing beside the existing arm upgrades: ten ranks reduce required placement spacing by five percentage points each, to 50%, while retaining working reach, base collisions and exclusive cargo claims. Its complete cost is 150,000.
+- Keep the existing eight Arm Carry Size ranks and their +64% maximum, with a complete cost of 80,000.
+- Rebalance future vacuum purchases to 300,000 for all capacity ranks and 200,000 for all suction ranks. Preserve owned upgrades and the existing legacy-credit calculation.
 
 - Show sale-station relocation previews immediately, with a visible outline through the selected station, ground projection when looking forward, and placement controls. Keep the original station in place until confirmation.
 - Point parallel-conveyor previews along the adjacent run at its endpoints. Keep previews and flow aligned with the drawn direction and preserve manual F6 reversal.

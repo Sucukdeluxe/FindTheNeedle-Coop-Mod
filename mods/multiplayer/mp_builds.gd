@@ -387,3 +387,35 @@ func id_of(building: Node3D) -> String:
 		if color > 0 and color < WallPalette.KEYS.size() and id in WallPalette.BASE_IDS:
 			return "mp_%s_%s" % [id, WallPalette.KEYS[color]]
 	return id
+
+func arm_reach_conflict(at: Vector3, tier: int, skip: RoboticArm = null) -> bool:
+	if Tech.rank_of("arm_spacing") == 0:
+		return super.arm_reach_conflict(at, tier, skip)
+	for neighbour in arm_reach_neighbours(at, tier, 0.0):
+		if neighbour.arm != skip and neighbour.blocking:
+			return true
+	return false
+
+func arm_reach_neighbours(at: Vector3, tier: int, margin: float) -> Array[Dictionary]:
+	var neighbours := super.arm_reach_neighbours(at, tier, margin)
+	var scale := preload("res://mods/multiplayer/mp_arm_upgrades.gd").spacing_scale(Tech.rank_of("arm_spacing"))
+	if is_equal_approx(scale, 1.0):
+		return neighbours
+	var data: Dictionary = Cfg.ROBOT_ARM_TIERS[clampi(tier, 0, Cfg.ROBOT_ARM_TIERS.size() - 1)]
+	var shoulder := at + Vector3.UP * RoboticArm.SHOULDER_HEIGHT * float(data.scale)
+	var result: Array[Dictionary] = []
+	for neighbour in neighbours:
+		var arm: RoboticArm = neighbour.arm
+		var other := arm.global_position + Vector3.UP * RoboticArm.SHOULDER_HEIGHT * arm.visual_scale()
+		var limit := maxf(float(data.reach), arm.reach_m()) * scale
+		var rise := other.y - shoulder.y
+		if absf(rise) >= limit:
+			continue
+		var radius := sqrt(limit * limit - rise * rise)
+		if Vector2(at.x - other.x, at.z - other.z).length() > radius + margin:
+			continue
+		var adjusted := neighbour.duplicate()
+		adjusted.radius = radius
+		adjusted.blocking = shoulder.distance_to(other) <= limit
+		result.append(adjusted)
+	return result

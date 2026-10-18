@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.67"
+const VERSION := "0.19.6-xRangerDE.68"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -121,6 +121,7 @@ func _ready() -> void:
 	for f in [
 		"mp_balance.gd",
 		"mp_arm_state.gd",
+		"mp_arm_upgrades.gd",
 		"mp_arm_visual.gd",
 		"mp_avatar.gd",
 		"mp_belt_items.gd",

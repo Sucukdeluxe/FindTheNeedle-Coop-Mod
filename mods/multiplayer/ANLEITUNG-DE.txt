@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.67
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.68
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -67,6 +67,11 @@ WEITERE FUNKTIONEN
 - Bandportionen: 100, 200, 300, 500, 1.000 Halme. Alle vier Erweiterungen kosten
   zusammen 25.000. Gilt für direkte M-Bandausgabe und Trichter.
 - Armtempo: 20 Stufen; alle 20 Stufen kosten zusammen 80.000.
+- Armladung / Arm Carry Size: acht Stufen bis +64 %, insgesamt 80.000.
+- Arm-Abstand: nach dem Standardarm-Bauplan verfügbar. Zehn Stufen senken
+  den nötigen Bauabstand um je fünf Prozentpunkte bis auf 50 %, insgesamt
+  150.000. Die Greifreichweite bleibt erhalten; Sockel dürfen sich nicht
+  überlappen. Bereits gekaufte Stufen bleiben erhalten.
 - Heulift-/Heutreppentempo: je zehn Stufen bis 400 %, zusätzlich zum Bandmotor.
   Bereits gekaufte Stufen bleiben erhalten.
 - Verteiler/Sammler: zehn Stufen bis 250 % internes Tempo, zusammen 40.000.
@@ -110,7 +115,7 @@ SAUGER-UPGRADES
   14 zusätzliche Stufen mit jeweils 2.500 Halmen hinzu.
 - Saugkraft: 20 Stufen bis 1.000 Halme pro Sekunde.
 - Die drei nativen Basispreise bleiben erhalten. Bereits vorhandene erste sechs
-  Alle 41 Kapazitätsstufen kosten zusammen 75.000, alle 20 Saugkraftstufen 50.000.
+  Alle 41 Kapazitätsstufen kosten zusammen 300.000, alle 20 Saugkraftstufen 200.000.
   Gekaufte Stufen bleiben erhalten.
 - Behebt die in .42/.43 fehlenden Stufen bei einem nativen Katalog mit drei Stufen.
 - Käufe werden weiterhin vom Host geprüft und gemeinsam synchronisiert.

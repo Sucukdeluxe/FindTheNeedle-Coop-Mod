@@ -2,6 +2,11 @@ extends RefCounted
 
 const SCHEMA := "xranger_balance_v54"
 const PREVIOUS_SCHEMA := "xranger_balance_v53"
+const PRICE_SCHEMA := "xranger_balance_prices_v68"
+const PRICE_UPDATES := {
+	"vac_bin": [80,160,280,450,700,1000,1400,1530,1660,1810,1970,2150,2340,2550,2780,3020,3290,3590,3910,4260,4640,5050,5500,5990,6530,7110,7750,8440,9190,10010,10910,11880,12940,14100,15360,16730,18230,19850,21630,23560,25670],
+	"vac_suction": [80,160,280,450,700,1000,1400,1840,2410,3170,4160,5450,7160,9400,12340,16190,21250,27890,36610,48060]
+}
 const PRICES := {
 	"vac_bin": [80,160,280,292,295,298,301,305,311,317,324,333,344,357,373,391,413,440,472,511,557,613,680,760,857,972,1110,1276,1475,1714,2001,2345,2757,3253,3847,4561,5417,6444,7677,9156,10931],
 	"vac_suction": [80,160,280,378,511,690,960,1172,1351,1565,1822,2131,2501,2947,3480,4120,4887,5809,6915,8241],
@@ -27,7 +32,7 @@ const PRICES := {
 }
 
 static func costs_for(id: String, count: int = -1) -> Array:
-	var costs: Array = PRICES.get(id, []).duplicate()
+	var costs: Array = PRICE_UPDATES.get(id, PRICES.get(id, [])).duplicate()
 	return costs if count < 0 else costs.slice(0, count)
 
 static func ensure_cards() -> void:
@@ -40,7 +45,7 @@ static func ensure_cards() -> void:
 		if not current is Array:
 			continue
 		var expected_size: int = PRICES[id].size() if id == "hay_price" else current.size()
-		if int(card.get(SCHEMA, -1)) == current.size() and card.get("flat", false) and current.size() == expected_size and (id == "hay_price" or current.size() <= PRICES[id].size()):
+		if int(card.get(PRICE_SCHEMA, -1)) == current.size() and card.get("flat", false) and current.size() == expected_size and (id == "hay_price" or current.size() <= PRICES[id].size()):
 			continue
 		var costs := costs_for(id, current.size())
 		if id == "hay_price":
@@ -55,7 +60,7 @@ static func ensure_cards() -> void:
 			costs.append_array(current.slice(costs.size()))
 		card["costs"] = costs
 		card["flat"] = true
-		card[SCHEMA] = costs.size()
+		card[PRICE_SCHEMA] = costs.size()
 
 static func refund(purchases: Array, ranks: Dictionary, previous: Dictionary = {}) -> Dictionary:
 	var history := _previous_credit(previous)

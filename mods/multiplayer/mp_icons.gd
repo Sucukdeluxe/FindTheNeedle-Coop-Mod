@@ -20,6 +20,10 @@ static func upgrade(id: String) -> Texture2D:
 	var key := "upgrade:" + id
 	if _textures.has(key):
 		return _textures[key]
+	if id == "arm_spacing":
+		var texture := _arm_spacing_icon()
+		_textures[key] = texture
+		return texture
 	var tile := TechTree.icon_of(id)
 	var native := TechPanel.icon_for(tile)
 	if native != null and not id.begins_with("mp_receiver") and not id.begins_with("mp_splitter"):
@@ -51,3 +55,14 @@ static func upgrade(id: String) -> Texture2D:
 	var texture := ImageTexture.create_from_image(image)
 	_textures[key] = texture
 	return texture
+
+static func _arm_spacing_icon() -> Texture2D:
+	var image := TechPanel.icon_for("arm").get_image()
+	image.convert(Image.FORMAT_RGBA8)
+	image.resize(256, 256, Image.INTERPOLATE_LANCZOS)
+	var badge := Image.new()
+	if badge.load_svg_from_string(FileAccess.get_file_as_string("res://mods/multiplayer/icons/arm_spacing_badge.svg")) != OK:
+		return TechPanel.icon_for("arm")
+	image.blend_rect(badge, Rect2i(Vector2i.ZERO, badge.get_size()), Vector2i(144, 144))
+	image.generate_mipmaps()
+	return ImageTexture.create_from_image(image)
