@@ -31,3 +31,9 @@ func from_dict(data: Dictionary, refund_v5_truncation: bool = false) -> void:
 	preload("res://mods/multiplayer/mp_balance.gd").ensure_cards()
 	super.from_dict(data, refund_v5_truncation)
 	preload("res://mods/multiplayer/mp_balance.gd").apply_credit()
+
+func scan_seconds(base: float) -> float:
+	var card: Dictionary = TechTree.nodes().get("scan_speed", {})
+	var maximum: int = card.get("costs", []).size()
+	var reference: float = Cfg.SCANNER_TIERS[1]["scan_seconds"]
+	return base * Progression.scanner_cycle_scale(rank_of("scan_speed"), maximum, reference) / specimen_scale("scan_speed")

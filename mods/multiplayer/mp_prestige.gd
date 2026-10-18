@@ -26,11 +26,39 @@ var _saved_process := {}
 var _cancel_reason := ""
 var _remaining_stamp := -10000
 var _remaining_cache := 0.0
+var _collection_note: Label
+var _collection_clock := 0.0
 
 func start(session: Node, sync: Node) -> void:
 	mp = session
 	world_sync = sync
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_setup_collection_note()
+
+func _setup_collection_note() -> void:
+	var panel: Node = world_sync.world.get("needle_panel")
+	if not is_instance_valid(panel):
+		return
+	var sub: Label = panel.get("_sub")
+	if not is_instance_valid(sub):
+		return
+	_collection_note = Label.new()
+	_collection_note.name = "PrestigeProgress"
+	_collection_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_collection_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_collection_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UiFont.style(_collection_note, 14, Color(0.13, 0.12, 0.11), 0, false)
+	var column := sub.get_parent()
+	column.add_child(_collection_note)
+	column.move_child(_collection_note, sub.get_index() + 1)
+	_refresh_collection_note()
+
+func _refresh_collection_note() -> void:
+	if not is_instance_valid(_collection_note):
+		return
+	_collection_note.visible = int(GameState.mp_prestige.get("cycles", 0)) > 0
+	if _collection_note.visible:
+		_collection_note.text = State.current_progress(GameState, NeedleTypes.pool(Cfg.DEMO_LAST_LOT), TranslationServer.get_locale())
 
 func _text(de: String, en: String) -> String:
 	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
@@ -199,6 +227,10 @@ func on_cancel(token: String, seed: int) -> void:
 	_thaw()
 
 func _process(_delta: float) -> void:
+	_collection_clock += _delta
+	if _collection_clock >= 0.25:
+		_collection_clock = 0.0
+		_refresh_collection_note()
 	if _token != "" and not _committing and Time.get_ticks_msec() > _deadline:
 		_abort(_text("Zeitüberschreitung beim Spielerabgleich. Nichts wurde verkauft.", "Player synchronization timed out. Nothing was sold."))
 
@@ -318,7 +350,8 @@ func _finish_prepare() -> void:
 	state.hay_sold = float(state.hay_sold) + inventory.hay
 	state.money_earned = float(state.money_earned) + credit.gross
 	state.money_peak = maxf(float(state.get("money_peak", 0)), state.money)
-	state.mp_hoppers = {"version": 1, "next_id": 1, "rows": []}
+	state.mp_hoppers = preload("res://mods/multiplayer/mp_hopper_state.gd").empty()
+	state.mp_sale_stations = {}
 	state.mp_needle_committed = {}
 	state.mp_vacuum_transfers = {}
 	state.erase("mp_vacuum_checkpoint")
@@ -366,6 +399,9 @@ func _retained_props(props: Array, pile: Dictionary) -> Array:
 	return out
 
 func shutdown() -> void:
+	if is_instance_valid(_collection_note):
+		_collection_note.queue_free()
+	_collection_note = null
 	_shutdown_requested = true
 	if _committing:
 		_cancel_reason = _text("Sitzung beendet. Der Kartenwechsel wird abgebrochen.", "Session ended. Cancelling the map change.")

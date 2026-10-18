@@ -1,6 +1,7 @@
 extends "res://scripts/ui/load_panel.gd"
 
 const NeedleReport = preload("res://mods/multiplayer/mp_needle_report.gd")
+const PrestigeState = preload("res://mods/multiplayer/mp_prestige_state.gd")
 const PrestigePanel = preload("res://mods/multiplayer/mp_prestige_panel.gd")
 var mp_economy: Node
 var _mp_needle_refresh := 0.0
@@ -78,7 +79,14 @@ func _refresh_needles() -> bool:
 	var ready := super._refresh_needles()
 	var report := NeedleReport.counts(GameState.needle_taken, GameState.needle_type, NeedleTypes.count())
 	if is_instance_valid(_mp_report):
-		_write(_mp_report, NeedleReport.line(report, TranslationServer.get_locale()))
+		var message := NeedleReport.line(report, TranslationServer.get_locale())
+		if int(GameState.mp_prestige.get("cycles", 0)) > 0:
+			message += "\n" + PrestigeState.current_progress(GameState, NeedleTypes.pool(Cfg.DEMO_LAST_LOT), TranslationServer.get_locale())
+		_write(_mp_report, message)
+	if is_instance_valid(_mp_prestige):
+		var progress := PrestigeState.normalize(GameState.mp_prestige, GameState.run_seed)
+		var found := PrestigeState.found_count(progress, GameState.discovered, NeedleTypes.pool(Cfg.DEMO_LAST_LOT), GameState.run_seed)
+		_mp_prestige.text = ("Prestige · Neue Karte" if TranslationServer.get_locale().begins_with("de") else "Prestige · New map") + " · %d / 6" % found
 	return ready
 
 func _process(delta: float) -> void:

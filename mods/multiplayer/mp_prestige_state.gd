@@ -54,3 +54,29 @@ static func credit(strands: float, worth: float, price: float, debt: float, shar
 	var gross := worth * price
 	var payment := minf(maxf(0.0, debt), gross * clampf(share, 0.0, 1.0))
 	return {"gross": gross, "paid": gross - payment, "debt": maxf(0.0, debt - payment)}
+
+const RUN_PROGRESS := {
+	"en": "This run: %d / %d needle types. Cabinet collection includes previous runs.",
+	"de": "Dieser Durchlauf: %d / %d Nadelarten. Die Schranksammlung enthält frühere Durchläufe.",
+	"es": "Partida actual: %d / %d tipos de agujas. La colección incluye partidas anteriores.",
+	"fr": "Partie actuelle : %d / %d types d’aiguilles. La collection inclut les parties précédentes.",
+	"it": "Partita attuale: %d / %d tipi di aghi. La collezione include le partite precedenti.",
+	"cs": "Tento průchod: %d / %d druhů jehel. Sbírka obsahuje i předchozí průchody.",
+	"pl": "Bieżący przebieg: %d / %d rodzajów igieł. Kolekcja obejmuje wcześniejsze przebiegi.",
+	"ru": "Текущее прохождение: %d / %d типов игл. Коллекция включает прошлые прохождения.",
+	"tr": "Bu tur: %d / %d iğne türü. Koleksiyona önceki turlar da dahildir.",
+	"ja": "今回：針の種類 %d / %d。棚のコレクションには以前の周回分も含まれます。",
+	"ko": "이번 회차: 바늘 종류 %d / %d. 진열장 컬렉션에는 이전 회차도 포함됩니다.",
+	"zh": "本轮：%d / %d 种针。柜中收藏包含此前轮次。",
+	"pt": "Partida atual: %d / %d tipos de agulhas. A coleção inclui partidas anteriores.",
+	"uk": "Поточне проходження: %d / %d типів голок. Колекція містить попередні проходження.",
+	"ar": "الجولة الحالية: %d / %d من أنواع الإبر. تضم مجموعة الخزانة الجولات السابقة.",
+	"fa": "دور فعلی: %d / %d نوع سوزن. مجموعهٔ کمد شامل دورهای قبلی است.",
+	"zh_TW": "本輪：%d / %d 種針。櫃中收藏包含先前輪次。"
+}
+
+static func current_progress(state: Node, types: PackedInt32Array, locale: String) -> String:
+	var data := normalize(state.get("mp_prestige"), int(state.get("run_seed")))
+	var found := found_count(data, state.get("discovered"), types, int(state.get("run_seed")))
+	var language := preload("res://mods/multiplayer/mp_i18n.gd").language_code(locale)
+	return str(RUN_PROGRESS.get(language, RUN_PROGRESS.en)) % [found, types.size()]

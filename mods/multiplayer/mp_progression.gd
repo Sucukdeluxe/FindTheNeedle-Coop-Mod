@@ -30,6 +30,7 @@ func ensure_cards() -> void:
 	preload("res://mods/multiplayer/mp_sale_stations.gd").ensure_cards(nodes, locale)
 	_ensure_double_jump(nodes, locale, german)
 	_ensure_arm(nodes, locale, german)
+	_ensure_scanner(nodes, locale)
 	preload("res://mods/multiplayer/mp_arm_upgrades.gd").ensure_cards()
 	_ensure_distributor(nodes, locale, german)
 	for id in NEW_CARDS:
@@ -133,3 +134,49 @@ func _ensure_double_jump(nodes: Dictionary, locale: String, german: bool) -> voi
 			"blurb": "Nach dem Absprung die Sprungtaste loslassen und in der Luft erneut drücken. Ein zusätzlicher Sprung pro Landung, für alle Spieler freigeschaltet. Ein ausgerüstetes Jetpack behält seine eigene Steuerung." if german else "Release jump after taking off, then press it again in mid-air. One extra jump per landing, unlocked for all players. An equipped jetpack keeps its own controls.",
 			"reward": "Doppelsprung freigeschaltet" if german else "Double jump unlocked"}
 	_ensure_order("double_jump")
+
+static func scanner_cycle_scale(rank: int, maximum: int, reference_seconds: float) -> float:
+	if maximum <= 0 or reference_seconds <= 0.0:
+		return 1.0
+	return pow(minf(1.0, 0.5 / reference_seconds), float(clampi(rank, 0, maximum)) / float(maximum))
+
+const SCANNER_DESCRIPTION := {
+	"en": "Speeds up every scanner. Times shown are for Mk II at full power, before specimen bonuses. The final rank reaches 0.5 s per cycle.",
+	"de": "Beschleunigt alle Scanner. Die Zeiten gelten für Mk II bei voller Stromversorgung, ohne Sammlungsboni. Die letzte Stufe erreicht 0,5 s pro Durchlauf.",
+	"es": "Acelera todos los escáneres. Tiempos para Mk II a plena potencia, sin bonificaciones de colección. El último nivel alcanza 0,5 s por ciclo.",
+	"fr": "Accélère tous les scanners. Durées pour le Mk II à pleine puissance, hors bonus de collection. Le dernier niveau atteint 0,5 s par cycle.",
+	"it": "Accelera tutti gli scanner. Tempi per Mk II a piena potenza, senza bonus della collezione. L’ultimo livello raggiunge 0,5 s per ciclo.",
+	"cs": "Zrychluje všechny skenery. Časy platí pro Mk II při plném napájení, bez bonusů sbírky. Poslední úroveň dosáhne 0,5 s na cyklus.",
+	"pl": "Przyspiesza wszystkie skanery. Czasy dla Mk II przy pełnym zasilaniu, bez premii kolekcji. Ostatni poziom osiąga 0,5 s na cykl.",
+	"ru": "Ускоряет все сканеры. Время указано для Mk II при полном питании без бонусов коллекции. Последний уровень: 0,5 с за цикл.",
+	"tr": "Tüm tarayıcıları hızlandırır. Süreler koleksiyon bonusları olmadan tam güçte Mk II içindir. Son seviyede döngü süresi 0,5 saniyedir.",
+	"ja": "すべてのスキャナーを高速化します。表示時間は標本ボーナスを含まない、電力供給が十分なMk IIの値です。最終段階では1サイクル0.5秒です。",
+	"ko": "모든 스캐너를 가속합니다. 표시 시간은 수집 보너스를 제외하고 전력이 충분한 Mk II 기준입니다. 마지막 단계는 주기당 0.5초입니다.",
+	"zh": "加快所有扫描仪。显示时间以供电充足且无收藏加成的 Mk II 为准。最后一级每周期为 0.5 秒。",
+	"pt": "Acelera todos os scanners. Tempos para Mk II com energia total, sem bônus de coleção. O último nível atinge 0,5 s por ciclo.",
+	"uk": "Прискорює всі сканери. Час для Mk II за повного живлення без бонусів колекції. Останній рівень: 0,5 с за цикл.",
+	"ar": "يسرّع جميع الماسحات. الأوقات تخص Mk II بطاقة كاملة دون مكافآت المجموعة. يصل المستوى الأخير إلى 0.5 ثانية لكل دورة.",
+	"fa": "همهٔ اسکنرها را سریع‌تر می‌کند. زمان‌ها برای Mk II با برق کامل و بدون پاداش مجموعه هستند. سطح آخر به 0.5 ثانیه در هر چرخه می‌رسد.",
+	"zh_TW": "加快所有掃描器。顯示時間以供電充足且無收藏加成的 Mk II 為準。最後一級每週期為 0.5 秒。"
+}
+
+func _ensure_scanner(nodes: Dictionary, locale: String) -> void:
+	var card: Variant = nodes.get("scan_speed")
+	if not card is Dictionary or not card.get("costs") is Array or card.costs.is_empty():
+		return
+	var marker := locale + ":" + str(card.costs.size())
+	if card.get("mp_scan_cycle_v74") == marker:
+		return
+	var reference: float = Cfg.SCANNER_TIERS[1]["scan_seconds"]
+	var language := preload("res://mods/multiplayer/mp_i18n.gd").language_code(locale)
+	var comma := language in ["de", "fr", "es", "it", "cs", "pl", "pt", "ru", "uk", "tr"]
+	var values := []
+	for rank in range(1, card.costs.size() + 1):
+		var shown := "%.2f" % (reference * scanner_cycle_scale(rank, card.costs.size(), reference))
+		values.append(shown.replace(".", ",") if comma else shown)
+	card["values"] = values
+	card["base"] = ("%.2f" % reference).replace(".", ",") if comma else "%.2f" % reference
+	card["unit"] = " s · Mk II"
+	card.erase("suffix")
+	card["blurb"] = SCANNER_DESCRIPTION.get(language, SCANNER_DESCRIPTION.en)
+	card["mp_scan_cycle_v74"] = marker

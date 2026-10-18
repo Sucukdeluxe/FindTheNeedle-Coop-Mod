@@ -121,6 +121,8 @@ func _refresh() -> void:
 	var state: Dictionary = service.status()
 	var remaining := Report.number(int(ceil(maxf(0.0, float(state.get("remaining", 0.0))))), "." if _de() else ",")
 	_status.text = _t("Heu im Haufen: %s · Nadelarten: %d / %d", "Hay in stack: %s · Needle types: %d / %d") % [remaining, int(state.get("found", 0)), int(state.get("total", 6))]
+	if int(state.get("cycles", 0)) > 0:
+		_status.text += "\n" + preload("res://mods/multiplayer/mp_prestige_state.gd").current_progress(GameState, NeedleTypes.pool(Cfg.DEMO_LAST_LOT), TranslationServer.get_locale())
 	if not str(state.get("reason", "")).is_empty():
 		_status.text += "\n" + str(state.reason)
 	_preview_button.disabled = _pending or not bool(state.get("allowed", false))

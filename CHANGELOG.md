@@ -2,6 +2,10 @@
 
 ## 0.19.6-xRangerDE.74 (unreleased)
 
+- Keep sale and Supply Co services active when switching between offline play and hosting. Clear sold extra sale stations from a new prestige world.
+- Distinguish current-run needle progress from the retained cabinet collection in prestige and collection interfaces, in all 17 languages.
+- Rebalance the five existing scanner-speed ranks to reach a 0.5-second Mk II cycle before specimen bonuses, with existing costs and purchased ranks retained.
+
 - Prevent hidden authoritative build helpers from consuming the local player's parallel-mode and rotation input.
 - Add Parallel conveyor mode to the native Controls menu, with saved bindings, conflict handling, translated labels and matching in-game hints.
 

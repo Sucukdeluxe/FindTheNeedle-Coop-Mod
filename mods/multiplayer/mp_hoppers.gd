@@ -72,11 +72,13 @@ func _role() -> String:
 		return "offline"
 	return "host" if mp.is_host else "guest"
 
-func session_started() -> void:
+func _start_station_services() -> void:
 	if is_instance_valid(sale_stations):
 		sale_stations.session_started()
 	if is_instance_valid(supply_station):
 		supply_station.session_started()
+
+func session_started() -> void:
 	ensure_catalog()
 	var mode := _role()
 	if mode == "":
@@ -84,10 +86,12 @@ func session_started() -> void:
 			session_ended()
 		return
 	if mode == _mode and _storage_valid:
+		_start_station_services()
 		return
 	if _mode != "":
 		session_ended()
 	_mode = mode
+	_start_station_services()
 	var saved: Variant = GameState.get("mp_hoppers")
 	_storage_valid = saved == null or saved == {} or Store.valid(saved)
 	if not _storage_valid:
