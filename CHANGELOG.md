@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.19.6-xRangerDE.71 (unreleased)
+
+- Keep the native Multiplayer entry directly below Load Game visible and connected to the co-op panel, even when its label changes language. Add keyboard focus and Enter activation using the native menu style.
+
 ## 0.19.6-xRangerDE.70
 
 - Hide the Supply Co relocation command from the build catalog. Keep direct selection with N at the shop.

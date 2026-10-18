@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.70"
+const VERSION := "0.19.6-xRangerDE.71"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -370,6 +370,8 @@ func _update_menu_hook(menu: Node, delta: float) -> void:
 		return
 	var button: Variant = _menu_button.get_ref() if _menu_button != null else null
 	if is_instance_valid(button) and button.is_inside_tree() and menu.is_ancestor_of(button):
+		button.text = menu.tr("MULTIPLAYER")
+		button.visible = true
 		return
 	_menu_button = null
 	_menu_retry -= delta

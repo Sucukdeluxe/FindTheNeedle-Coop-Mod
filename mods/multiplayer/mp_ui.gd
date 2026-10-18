@@ -1168,6 +1168,10 @@ func hook_menu(menu: Node) -> void:
 			b.pressed.connect(func() -> void:
 				Audio.play("ui_open")
 				open_panel())
+			b.set_meta("mp_menu_entry", true)
+			b.text = menu.tr("MULTIPLAYER")
+			b.focus_mode = Control.FOCUS_ALL
+			b.add_theme_stylebox_override("focus", b.get_theme_stylebox("hover"))
 			b.visible = true
 			return
 		await get_tree().process_frame
@@ -1181,7 +1185,11 @@ func _find_mp_button(n: Node) -> Button:
 	var stack: Array[Node] = [n]
 	while not stack.is_empty():
 		var c: Node = stack.pop_back()
-		if c is Button and (c as Button).text in want:
-			return c
+		if c is Button:
+			if c.has_meta("mp_menu_entry") or c.text in want:
+				return c
+			for connection in c.pressed.get_connections():
+				if connection.callable.get_method() == &"_on_multiplayer":
+					return c
 		stack.append_array(c.get_children())
 	return null
