@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Carry players through 4-, 6- and 8-port mergers to the configured output. Match the internal collision surfaces to the visible junction, remove crossing internal rail collisions, and keep surface movement synchronized with conveyor speed and stopped lanes.
+
 ## 0.19.6-xRangerDE.67
 
 Fix parallel conveyor placement, long construction runs, overhead roof visibility and sale-station relocation.
