@@ -2,6 +2,7 @@ extends ConveyorJoiner
 
 const Model = preload("res://mods/multiplayer/mp_receiver_model.gd")
 var port_count := 4
+var covered := false
 var output_port := 0
 var _transfer_surfaces: Array = []
 
@@ -65,7 +66,7 @@ func build_cost() -> float:
 
 func to_dict() -> Dictionary:
 	return {"type": "mp_receiver%d" % port_count, "position": global_position,
-		"yaw": global_rotation.y, "receiver_output": output_port, "next_side": next_side}
+		"yaw": global_rotation.y, "receiver_output": output_port, "next_side": next_side, "covered": covered}
 
 func empty() -> bool:
 	for path in paths():
@@ -165,3 +166,8 @@ func set_preview_valid(valid: bool) -> void:
 			mesh.hide()
 			continue
 		mesh.material_overlay = ConveyorKit.ghost_material(valid)
+
+func set_covered(on: bool) -> void:
+	covered = on
+	if is_instance_valid(_body):
+		Model.set_covered(self, on)

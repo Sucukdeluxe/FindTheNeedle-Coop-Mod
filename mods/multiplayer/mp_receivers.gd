@@ -186,13 +186,24 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 				continue
 			if not (args.get("output") is int) or args.output < 0 or args.output >= target.port_count or (target.input_port if distributor else target.output_port) != args.get("previous") or not target.empty():
 				return {"ok": false, "message": _tr("Modul zuerst leerlaufen lassen", "Let the module empty first")}
+			var covered: Variant = args.get("covered", target.covered)
+			if not covered is bool or (args.has("covered") and args.get("previous_covered") != target.covered):
+				return {"ok": false}
+			if covered and not target.covered and not Tech.is_unlocked("enclosed_belt"):
+				return {"ok": false, "message": _cover_text(2)}
+			if args.output == (target.input_port if distributor else target.output_port):
+				target.set_covered(covered)
+				hoppers.world_sync.builds.changed.emit()
+				return {"ok": true}
 			var count: int = target.port_count
 			var yaw: float = target.global_rotation.y
 			var builds: Node = hoppers.world_sync.builds
 			(builds.splitters if distributor else builds.joiners).erase(target)
 			builds.remove_child(target)
 			target.queue_free()
-			builds.add_multi_splitter(at, yaw, count, args.output) if distributor else builds.add_receiver(at, yaw, count, args.output)
+			var replacement: Node3D = builds.add_multi_splitter(at, yaw, count, args.output) if distributor else builds.add_receiver(at, yaw, count, args.output)
+			replacement.set_covered(covered)
+			builds.changed.emit()
 			return {"ok": true}
 		return {"ok": false}
 	if args.get("count") not in Catalog.COUNTS or not (args.get("yaw") is float) or not is_finite(args.yaw) or absf(args.yaw) > TAU or not BuildCatalog.is_unlocked(Catalog.id(args.count, distributor)):
@@ -252,6 +263,13 @@ func _open(target: Node3D) -> void:
 	UiFont.style(legend, 14, ArmPanel.COL_INK_SOFT, 0, false)
 	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rows.add_child(legend)
+	var cover := PlateKit.button(_cover_text(0 if target.covered else 1), "", _toggle_cover)
+	cover.name = "RouterCoverToggle"
+	cover.toggle_mode = true
+	cover.button_pressed = target.covered
+	cover.disabled = not target.covered and not Tech.is_unlocked("enclosed_belt")
+	cover.tooltip_text = _cover_text(2) if cover.disabled else ""
+	rows.add_child(cover)
 	var done := PlateKit.button(_tr("Schließen", "Close"), "", _close)
 	rows.add_child(done)
 	if not get_viewport().size_changed.is_connected(_fit_menu):
@@ -267,11 +285,19 @@ func _fit_menu() -> void:
 	_menu_card.position = (view - _menu_card.size) * 0.5
 
 func _set_output(side: int) -> void:
+	if is_instance_valid(_menu_target):
+		_configure(side, _menu_target.covered)
+
+func _toggle_cover() -> void:
+	if is_instance_valid(_menu_target):
+		_configure(_menu_target.input_port if _menu_target.get_script() == Distributor else _menu_target.output_port, not _menu_target.covered)
+
+func _configure(side: int, covered: bool) -> void:
 	if not is_instance_valid(_menu_target):
 		_close()
 		return
 	var player: Node = hoppers.world_sync.player
-	var args := {"position": _menu_target.global_position, "output": side, "previous": (_menu_target.input_port if _menu_target.get_script() == Distributor else _menu_target.output_port), "distributor": _menu_target.get_script() == Distributor, "body": player.global_transform, "camera": player.camera.global_transform}
+	var args := {"position": _menu_target.global_position, "output": side, "previous": (_menu_target.input_port if _menu_target.get_script() == Distributor else _menu_target.output_port), "distributor": _menu_target.get_script() == Distributor, "covered": covered, "previous_covered": _menu_target.covered, "body": player.global_transform, "camera": player.camera.global_transform}
 	var ray: Dictionary = hoppers._local_build_ray(player.camera.global_transform, 6.0)
 	if ray.has("view"):
 		args.build_view = ray.view
@@ -288,3 +314,27 @@ func _close() -> void:
 func _exit_tree() -> void:
 	if is_instance_valid(_ghost):
 		_ghost.queue_free()
+
+const COVER_TEXT := {
+	"en": ["Enclosure: on", "Enclosure: off", "Unlock enclosed conveyors first."],
+	"de": ["Abdeckung: An", "Abdeckung: Aus", "Zuerst geschlossene Förderbänder freischalten."],
+	"es": ["Cubierta: activada", "Cubierta: desactivada", "Desbloquea primero las cintas cerradas."],
+	"fr": ["Capot : activé", "Capot : désactivé", "Débloquez d’abord les convoyeurs fermés."],
+	"it": ["Copertura: attiva", "Copertura: disattiva", "Sblocca prima i nastri chiusi."],
+	"cs": ["Kryt: zapnutý", "Kryt: vypnutý", "Nejprve odemkněte uzavřené dopravníky."],
+	"pl": ["Osłona: włączona", "Osłona: wyłączona", "Najpierw odblokuj zamknięte przenośniki."],
+	"ru": ["Кожух: включён", "Кожух: выключен", "Сначала откройте закрытые конвейеры."],
+	"tr": ["Kapak: açık", "Kapak: kapalı", "Önce kapalı konveyörlerin kilidini açın."],
+	"ja": ["カバー：あり", "カバー：なし", "先に密閉型コンベヤーをアンロックしてください。"],
+	"ko": ["덮개: 켜짐", "덮개: 꺼짐", "먼저 밀폐형 컨베이어를 해제하세요."],
+	"zh": ["外罩：开启", "外罩：关闭", "请先解锁封闭式传送带。"],
+	"pt": ["Cobertura: ativada", "Cobertura: desativada", "Desbloqueie primeiro as esteiras fechadas."],
+	"uk": ["Кожух: увімкнено", "Кожух: вимкнено", "Спочатку відкрийте закриті конвеєри."],
+	"ar": ["الغطاء: مفعّل", "الغطاء: معطّل", "افتح الناقلات المغلقة أولاً."],
+	"fa": ["پوشش: فعال", "پوشش: غیرفعال", "ابتدا نوار نقاله‌های بسته را باز کنید."],
+	"zh_TW": ["外罩：開啟", "外罩：關閉", "請先解鎖封閉式輸送帶。"]
+}
+
+static func _cover_text(index: int) -> String:
+	var language := preload("res://mods/multiplayer/mp_i18n.gd").language_code(TranslationServer.get_locale())
+	return str(COVER_TEXT.get(language, COVER_TEXT.en)[index])

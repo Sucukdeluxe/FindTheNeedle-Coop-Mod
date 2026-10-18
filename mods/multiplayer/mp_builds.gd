@@ -374,6 +374,7 @@ func from_array(data: Array) -> void:
 		var side := int(row.get("next_side", 0))
 		var sides: Array = receiver.output_sides() if distributor else receiver.inlet_sides()
 		receiver.next_side = side if side in sides else sides[0]
+		receiver.set_covered(row.get("covered", false) if row.get("covered", false) is bool else false)
 
 func add_wall(from: Vector3, to: Vector3, kind: YardWall.Bay) -> YardWall:
 	var wall := super.add_wall(from, to, kind)

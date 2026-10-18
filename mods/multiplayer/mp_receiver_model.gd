@@ -123,6 +123,8 @@ static func build(receiver: Node3D) -> Array:
 	details.name = "PortPlatesAndBolts"
 	details.mesh = hardware.commit()
 	body.add_child(details)
+	if bool(receiver.get("covered")):
+		set_covered(receiver, true)
 	return [body, infill]
 
 static func set_held(body: MeshInstance3D, held: bool, infill: MeshInstance3D = null) -> void:
@@ -185,3 +187,91 @@ static func _cylinder(st: SurfaceTool, center: Vector3, axis: Vector3, radius: f
 		_quad(st,center+a-axis*length*0.5,center+b-axis*length*0.5,center+b+axis*length*0.5,center+a+axis*length*0.5)
 		for point in [center+axis*length*0.5,center+b+axis*length*0.5,center+a+axis*length*0.5]:
 			_vertex(st,point,axis)
+
+static var _cover_section: Mesh
+static var _cover_lids: Dictionary = {}
+static var _cover_branches: Dictionary = {}
+
+static func _section_shell() -> Mesh:
+	if _cover_section != null:
+		return _cover_section
+	var source: Mesh = EnclosedConveyorKit.new().mesh("Section")
+	var result := ArrayMesh.new()
+	for surface in source.get_surface_count():
+		var arrays := SafeEngine.surface_arrays(source, surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if indices.is_empty():
+			indices = PackedInt32Array(range(vertices.size()))
+		var shell := PackedInt32Array()
+		for index in range(0, indices.size(), 3):
+			var a: int = indices[index]
+			var b: int = indices[index + 1]
+			var c: int = indices[index + 2]
+			if maxf(vertices[a].y, maxf(vertices[b].y, vertices[c].y)) > 0.1:
+				shell.append_array(PackedInt32Array([a, b, c]))
+		if shell.is_empty():
+			continue
+		arrays[Mesh.ARRAY_INDEX] = shell
+		result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		result.surface_set_material(result.get_surface_count() - 1, source.surface_get_material(surface))
+	_cover_section = result
+	return _cover_section
+
+static func _cover_lid(count: int) -> Mesh:
+	if _cover_lids.has(count):
+		return _cover_lids[count]
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_prism(surface, polygon(count, 0.482), 0.666, 0.638)
+	var bolts := polygon(count, 0.44)
+	for point in bolts:
+		_cylinder(surface, point + Vector3.UP * 0.675, Vector3.UP, 0.017, 0.018, 6)
+	surface.set_material(ConveyorKit.frame_material())
+	surface.generate_tangents()
+	_cover_lids[count] = surface.commit()
+	return _cover_lids[count]
+
+static func _branch_shell(router: Node3D) -> Mesh:
+	var count: int = router.port_count
+	if _cover_branches.has(count):
+		return _cover_branches[count]
+	var section := _section_shell()
+	var result := ArrayMesh.new()
+	var inner := core_radius(count, 0.482) * cos(PI / float(count)) - 0.05
+	for index in section.get_surface_count():
+		var surface := SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for side in count:
+			var end: Vector3 = router.port_local(side)
+			var direction := end.normalized()
+			var start := direction * inner
+			var transform := Transform3D(Basis(Vector3(direction.z, 0.0, -direction.x), Vector3.UP, direction).scaled_local(Vector3(1.0, 1.0, start.distance_to(end))), (start + end) * 0.5)
+			surface.append_from(section, index, transform)
+		surface.set_material(section.surface_get_material(index))
+		surface.commit(result)
+	_cover_branches[count] = result
+	return result
+
+static func set_covered(router: Node3D, on: bool) -> void:
+	var cover: Node3D = router.get_node_or_null("RouterCover")
+	if on and cover == null:
+		cover = Node3D.new()
+		cover.name = "RouterCover"
+		router.add_child(cover)
+		var count: int = router.port_count
+		var lid := MeshInstance3D.new()
+		lid.name = "HubLid"
+		lid.mesh = _cover_lid(count)
+		cover.add_child(lid)
+		var branch_mesh := MeshInstance3D.new()
+		branch_mesh.name = "BranchCovers"
+		branch_mesh.mesh = _branch_shell(router)
+		cover.add_child(branch_mesh)
+	if cover != null:
+		cover.visible = on
+	for label in router.find_children("PortLabel*", "Label3D", true, false):
+		if not label.has_meta("uncovered_position"):
+			label.set_meta("uncovered_position", label.position)
+		var at: Vector3 = label.get_meta("uncovered_position")
+		label.position = at + Vector3.UP * 0.56 if on else at

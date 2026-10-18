@@ -3,6 +3,7 @@ extends ConveyorSplitter
 const Model = preload("res://mods/multiplayer/mp_receiver_model.gd")
 const Catalog = preload("res://mods/multiplayer/mp_router_catalog.gd")
 var port_count := 4
+var covered := false
 var input_port := 2
 
 func radius() -> float:
@@ -176,4 +177,9 @@ func build_cost() -> float:
 	return Catalog.build_cost(port_count)
 
 func to_dict() -> Dictionary:
-	return {"type": Catalog.id(port_count, true), "position": global_position, "yaw": global_rotation.y, "splitter_input": input_port, "next_side": next_side}
+	return {"type": Catalog.id(port_count, true), "position": global_position, "yaw": global_rotation.y, "splitter_input": input_port, "next_side": next_side, "covered": covered}
+
+func set_covered(on: bool) -> void:
+	covered = on
+	if is_instance_valid(_body):
+		Model.set_covered(self, on)

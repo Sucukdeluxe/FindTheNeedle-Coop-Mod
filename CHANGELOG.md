@@ -2,6 +2,8 @@
 
 ## 0.19.6-xRangerDE.74 (unreleased)
 
+- Add optional enclosures to 4-, 6- and 8-port mergers and splitters after unlocking enclosed conveyors. Empty modules can be covered or uncovered through their existing settings; routing controls stay accessible, and enclosure state is saved and synchronized.
+
 - Keep sale and Supply Co services active when switching between offline play and hosting. Clear sold extra sale stations from a new prestige world.
 - Distinguish current-run needle progress from the retained cabinet collection in prestige and collection interfaces, in all 17 languages.
 - Rebalance the five existing scanner-speed ranks to reach a 0.5-second Mk II cycle before specimen bonuses, with existing costs and purchased ranks retained.
