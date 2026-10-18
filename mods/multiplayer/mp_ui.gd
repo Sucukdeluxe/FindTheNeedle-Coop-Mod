@@ -36,7 +36,8 @@ var _ip_edit: LineEdit
 var _port_edit: SpinBox
 var _status: Label
 var _progress: ProgressBar
-var _players_label: RichTextLabel
+var _players_list: VBoxContainer
+var _players_signature := ""
 var _host_btn: Button
 var _steam_host_btn: Button
 var _invite_btn: Button
@@ -299,6 +300,10 @@ func _lobby_label(text: String, font_size := 15, color := COL_TEXT) -> Label:
 
 
 func _lobby_field(parent: Control, key: String, control: Control) -> void:
+	if control is LineEdit:
+		_style_lobby_input(control)
+	elif control is SpinBox:
+		_style_lobby_input(control.get_line_edit())
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 7)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -425,14 +430,10 @@ func _build_panel() -> void:
 	_lobby_body.add_child(_progress)
 	_lobby_players_title = _lobby_label("", 16, COL_TITLE)
 	_lobby_body.add_child(_lobby_players_title)
-	_players_label = RichTextLabel.new()
-	_players_label.bbcode_enabled = true
-	_players_label.fit_content = true
-	_players_label.scroll_active = false
-	_players_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_players_label.add_theme_font_size_override("normal_font_size", 16)
-	_players_label.add_theme_font_override("normal_font", UiFont.regular())
-	_lobby_body.add_child(_players_label)
+	_players_list = VBoxContainer.new()
+	_players_list.name = "Players"
+	_players_list.add_theme_constant_override("separation", 0)
+	_lobby_body.add_child(_players_list)
 	_resync_btn = _button(mp.t("resync"), func() -> void: mp.request_resync())
 	_leave_btn = _button(mp.t("disconnect"), func() -> void: mp.leave(mp.t("session_closed")))
 	_lobby_body.add_child(_resync_btn)
@@ -461,6 +462,73 @@ func _build_panel() -> void:
 	_lobby_body.minimum_size_changed.connect(_queue_lobby_layout)
 	get_viewport().size_changed.connect(_queue_lobby_layout)
 	_queue_lobby_layout()
+
+
+func _style_lobby_input(field: LineEdit) -> void:
+	for state in ["normal", "read_only", "focus"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(0.045, 0.055, 0.04)
+		box.draw_center = state != "focus"
+		box.set_border_width_all(2 if state == "focus" else 1)
+		box.border_color = COL_TITLE if state == "focus" else Color(0.3, 0.33, 0.27)
+		box.content_margin_left = 12
+		box.content_margin_right = 12
+		box.content_margin_top = 9
+		box.content_margin_bottom = 9
+		field.add_theme_stylebox_override(state, box)
+	field.add_theme_color_override("font_color", COL_TEXT)
+	field.add_theme_color_override("caret_color", COL_TITLE)
+
+
+func _refresh_lobby_players() -> void:
+	var signature: String = str(mp.players) + str(mp.i18n.locale())
+	if signature == _players_signature:
+		return
+	_players_signature = signature
+	for child in _players_list.get_children():
+		_players_list.remove_child(child)
+		child.queue_free()
+	var ids: Array = mp.players.keys()
+	ids.sort()
+	for id in ids:
+		var player: Dictionary = mp.players[id]
+		var panel := PanelContainer.new()
+		var line := StyleBoxFlat.new()
+		line.bg_color = Color.TRANSPARENT
+		line.border_width_bottom = 1
+		line.border_color = Color(0.22, 0.25, 0.2)
+		line.content_margin_top = 12
+		line.content_margin_bottom = 12
+		panel.add_theme_stylebox_override("panel", line)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		panel.add_child(row)
+		var dot := ColorRect.new()
+		dot.color = player.get("color", Color.WHITE)
+		dot.custom_minimum_size = Vector2(7, 7)
+		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(dot)
+		var name_label := _styled(str(player.get("name", "")), 16, COL_TEXT, 0)
+		name_label.name = "PlayerName"
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		name_label.clip_text = true
+		name_label.tooltip_text = name_label.text
+		name_label.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(name_label)
+		if id == 1:
+			var role := _styled(mp.t("role_host"), 12, COL_TITLE, 0)
+			role.name = "Role"
+			row.add_child(role)
+		var states := {"world": "state_world", "loading": "state_loading", "lobby": "state_lobby", "menu": "state_menu"}
+		var status := _lobby_label(mp.t(states.get(str(player.get("state", "")), "state_lobby")), 13, COL_DIM)
+		status.name = "PlayerState"
+		status.size_flags_horizontal = Control.SIZE_SHRINK_END
+		status.custom_minimum_size.x = 132
+		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(status)
+		_players_list.add_child(panel)
 
 
 func _style_lobby_primary(button: Button) -> void:
@@ -1251,7 +1319,7 @@ func _refresh_guided_state() -> void:
 	_lobby_join_hint.visible = not on
 	_help_label.visible = on and not mp.in_world()
 	_lobby_players_title.visible = on
-	_players_label.visible = on
+	_players_list.visible = on
 	_resync_btn.visible = on and mp.in_world()
 	_leave_btn.visible = on or busy
 	_leave_btn.disabled = not on and not busy
@@ -1272,7 +1340,6 @@ func _refresh_guided_state() -> void:
 		_lobby_locale = language
 		_status.text = preload("res://mods/multiplayer/mp_i18n.gd").localize_received(_status.text)
 		_font_cache = UiFont.bold()
-		_players_label.add_theme_font_override("normal_font", UiFont.regular())
 		var nodes: Array[Node] = [_panel]
 		while not nodes.is_empty():
 			var node: Node = nodes.pop_back()
@@ -1303,18 +1370,7 @@ func refresh() -> void:
 	_resync_btn.disabled = not (on and mp.in_world())
 	_name_edit.editable = not on
 	_ip_edit.editable = not on
-	var lines := PackedStringArray()
-	if on:
-		lines.append("[color=#%s]%s[/color]" % [COL_TITLE.to_html(false), mp.t("role_host") if mp.is_host else mp.t("role_client")])
-		for id in mp.players:
-			var p: Dictionary = mp.players[id]
-			var st := {"world": mp.t("state_world"), "loading": mp.t("state_loading"), "lobby": mp.t("state_lobby"), "menu": mp.t("state_menu")}.get(str(p.get("state", "")), "")
-			lines.append("[color=#%s]●[/color] %s%s  [color=#8a8f99]%s[/color]" % [
-				(p["color"] as Color).to_html(false), _esc(str(p["name"])),
-				mp.t("host_suffix") if id == 1 else "", st])
-	else:
-		lines.append("[color=#8a8f99]%s[/color]" % mp.t("offline"))
-	_players_label.text = "\n".join(lines)
+	_refresh_lobby_players()
 	_refresh_guided_steps()
 	_refresh_guided_state()
 	# addresses are private: only drawn when the player asks for them
