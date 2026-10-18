@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.19.6-xRangerDE.73 (unreleased)
+## 0.19.6-xRangerDE.73
 
 - Keep name, IP and port field borders inside their bounds so the scroll container does not clip the focused edges.
 - Show players in aligned rows with one host label, a separate localized status and ellipsis for long names. Reuse rows until player data or language changes.
@@ -10,7 +10,7 @@
 - Replace the multiplayer panel with the selected guided layout: Session, Friends and Save. Add direct access to the native save selector for hosts, state-specific actions, an expandable IP section, keyboard focus and bounded scrolling.
 - Translate the guided interface into all 17 game languages. Complete the 105 core multiplayer strings for Portuguese, Ukrainian, Arabic, Persian and Traditional Chinese, including status/error messages. Update text and fonts on language changes; support right-to-left panel layout while keeping IP input left-to-right.
 
-## 0.19.6-xRangerDE.71 (local build, included in .72)
+## 0.19.6-xRangerDE.71 (local build, included in .73)
 
 - Keep the native Multiplayer entry directly below Load Game visible and connected to the co-op panel, even when its label changes language. Add keyboard focus and Enter activation using the native menu style.
 
