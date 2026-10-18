@@ -32,7 +32,6 @@ var _mp_flow_manual := false
 var _mp_parallel := false
 var _mp_preview_flow: MultiMeshInstance3D
 const FLOW_TOGGLE_KEY := KEY_F6
-const PARALLEL_TOGGLE_KEY := KEY_F9
 const ROTATE_RADIANS_PER_PIXEL := 0.008
 const ROTATE_DRAG_THRESHOLD := 3.0
 
@@ -256,7 +255,7 @@ func dismantle_reach() -> float:
 	return float(ray.length) if not ray.is_empty() else super.dismantle_reach()
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not event.meta_pressed and (event.physical_keycode == PARALLEL_TOGGLE_KEY or event.keycode == PARALLEL_TOGGLE_KEY) and BuildCamera.key_available(PARALLEL_TOGGLE_KEY) and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
+	if event.is_action_pressed("mp_parallel", false, true) and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
 		_mp_parallel = not _mp_parallel
 		_pick += 1
 		input_revision += 1
@@ -533,8 +532,8 @@ func control_hint() -> String:
 	var i18n := preload("res://mods/multiplayer/mp_i18n.gd")
 	if _is_conveyor_mode():
 		hints.append(flow_hint())
-		if BuildCamera.key_available(PARALLEL_TOGGLE_KEY):
-			hints.append(i18n.phrase("F9 · Parallel-Modus: %s", "F9 · Parallel mode: %s") % (i18n.phrase("Ein", "On") if _mp_parallel else i18n.phrase("Aus", "Off")))
+		if InputMap.has_action("mp_parallel") and not InputMap.action_get_events("mp_parallel").is_empty():
+			hints.append(i18n.phrase("F9 · Parallel-Modus: %s", "F9 · Parallel mode: %s").replace("F9", InputSetup.hint("mp_parallel")) % (i18n.phrase("Ein", "On") if _mp_parallel else i18n.phrase("Aus", "Off")))
 	if can_turn() or _mode == Mode.ROBOTIC_ARM or (has_method("_is_hopper") and call("_is_hopper")):
 		hints.append(i18n.phrase("R halten + Maus · Frei drehen", "Hold R + mouse · Rotate freely"))
 	return "  ·  ".join(hints)

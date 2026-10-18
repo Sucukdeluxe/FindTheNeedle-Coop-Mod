@@ -710,6 +710,7 @@ func _build_tool(actor: Player) -> Node:
 		actor.add_child(tool)
 		tool.set_process(false)
 		tool.set_physics_process(false)
+		tool.set_process_input(false)
 		tool.set_process_unhandled_input(false)
 	return tool
 

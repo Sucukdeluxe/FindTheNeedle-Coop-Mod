@@ -79,6 +79,7 @@ func _ready() -> void:
 	load(base_dir + "/mp_hoppers.gd").ensure_catalog()
 	_install_game_state()
 	_install_save_manager()
+	_install_input_setup()
 	vacuum_checkpoint = load(base_dir + "/mp_vacuum_checkpoint.gd").new()
 	add_child(vacuum_checkpoint)
 	vacuum_checkpoint.start(self)
@@ -1779,6 +1780,18 @@ func _install_game_state() -> void:
 	for key in values:
 		if key in GameState:
 			GameState.set(key, values[key])
+
+
+func _install_input_setup() -> void:
+	var values := {}
+	for property in InputSetup.get_property_list():
+		if int(property.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			values[property.name] = InputSetup.get(property.name)
+	InputSetup.set_script(load(base_dir + "/mp_input_setup.gd"))
+	for key in values:
+		if key in InputSetup:
+			InputSetup.set(key, values[key])
+	InputSetup.call("install")
 
 
 func _install_save_manager() -> void:

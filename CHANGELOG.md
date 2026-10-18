@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.19.6-xRangerDE.74 (unreleased)
+
+- Prevent hidden authoritative build helpers from consuming the local player's parallel-mode and rotation input.
+- Add Parallel conveyor mode to the native Controls menu, with saved bindings, conflict handling, translated labels and matching in-game hints.
+
 ## 0.19.6-xRangerDE.73
 
 - Keep name, IP and port field borders inside their bounds so the scroll container does not clip the focused edges.
