@@ -258,7 +258,7 @@ const STRINGS := {
 	"step_entering": "AUF DEN HOF",
 	"step_dig": "ZEIT ZU GRABEN",
 	"steam_ready": "Steam bereit als %s. Erstell das Spiel und lad deine Freunde ein: sie kommen rein, ohne am Router zu drehen oder eine IP zu tippen.",
-	"steam_missing": "Steam nicht verfügbar (%s). Starte das Spiel über Steam, um einzuladen; solange geht die IP-Verbindung.",
+	"steam_missing": "Steam ist nicht verfügbar (%s). Starte das Spiel über Steam oder verwende eine IP-Verbindung.",
 	"panel_help": "Host: SPIEL ERSTELLEN, dann wie immer starten oder einen Spielstand laden. Deine Freunde kommen über die Steam-Einladung rein, oder über dein Profil mit Spiel beitreten.",
 	"role_host": "Host",
 	"role_client": "Als Client verbunden",
@@ -268,7 +268,7 @@ const STRINGS := {
 	"state_loading": "lädt",
 	"state_lobby": "wartet",
 	"state_menu": "im Menü",
-	"ask_ip": "Tipp die IP des Hosts ein.",
+	"ask_ip": "Gib die IP-Adresse des Gastgebers ein.",
 	"session_closed": "Sitzung beendet.",
 	"left_game": "Du hast das Spiel verlassen.",
 	"joined": "%s ist dazugekommen.",
@@ -282,7 +282,7 @@ const STRINGS := {
 	"steam_entering": "Steam-Spiel wird betreten...",
 	"game_created": "Spiel erstellt. Drück FREUNDE EINLADEN oder lad sie über Steam ein.",
 	"create_first": "Erstell zuerst das Spiel.",
-	"now_load": "Jetzt starten oder einen Spielstand laden: deine Freunde landen darin.",
+	"now_load": "Starte ein neues Spiel oder lade einen Spielstand. Gäste treten automatisch bei.",
 	"server_open": "Server offen auf Port %d.",
 	"port_failed": "Port %d ließ sich nicht öffnen (Fehler %d). Benutzt ihn ein anderes Programm?",
 	"peer_failed": "Die Verbindung ließ sich nicht erstellen (Fehler %d).",
@@ -1292,10 +1292,13 @@ const STRINGS := {
 
 func locale() -> String:
 	var l := language_code(TranslationServer.get_locale())
-	return l if STRINGS.has(l) else FALLBACK
+	return l if STRINGS.has(l) or preload("res://mods/multiplayer/mp_lobby_i18n.gd").EXTRA.has(l) else FALLBACK
 
 
 func t(key: String) -> String:
+	var extended := preload("res://mods/multiplayer/mp_lobby_i18n.gd").text(key, locale())
+	if not extended.is_empty():
+		return extended
 	var table: Dictionary = STRINGS.get(locale(), {})
 	if table.has(key):
 		return table[key]
@@ -1354,8 +1357,11 @@ static func localize_received(text: String, locale_override: String = "") -> Str
 static func _prepare_received() -> void:
 	_received_slots = RegEx.new()
 	_received_slots.compile("%[0-9.]*[sdf]")
+	var extended := preload("res://mods/multiplayer/mp_lobby_i18n.gd")
 	for key in STRINGS.en:
 		var record := {"key": key, "de": STRINGS.de.get(key, STRINGS.en[key]), "en": STRINGS.en[key]}
+		for language in extended.EXTRA:
+			_register_received(str(extended.EXTRA[language].get(key, "")), record)
 		for language in STRINGS:
 			_register_received(str(STRINGS[language].get(key, "")), record)
 	var features := preload("res://mods/multiplayer/mp_feature_i18n.gd")
@@ -1393,5 +1399,8 @@ static func _escape_received(text: String) -> String:
 
 static func _received_target(record: Dictionary, language: String) -> String:
 	if record.has("key"):
+		var extended := preload("res://mods/multiplayer/mp_lobby_i18n.gd").text(record.key, language)
+		if not extended.is_empty():
+			return extended
 		return str(STRINGS.get(language, STRINGS.en).get(record.key, record.en))
 	return phrase(record.de, record.en, language)

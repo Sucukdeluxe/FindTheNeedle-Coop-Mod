@@ -43,7 +43,20 @@ var _invite_btn: Button
 var _steam_label: Label
 var _ip_toggle: Button
 var _ips_btn: Button
-var _steps_label: RichTextLabel
+var _step_labels: Array[Label] = []
+var _step_boxes: Array[StyleBoxFlat] = []
+var _lobby_stack: VBoxContainer
+var _lobby_scroll: ScrollContainer
+var _lobby_body: VBoxContainer
+var _lobby_labels := {}
+var _lobby_capacity: Label
+var _lobby_rules: Label
+var _lobby_join_hint: Label
+var _lobby_players_title: Label
+var _lobby_play: Button
+var _lobby_locale := ""
+var _lobby_layout_queued := false
+var _lobby_return_focus: WeakRef
 var _help_label: Label
 var _close_btn: Button
 var _title_label: Label
@@ -278,131 +291,262 @@ func _field(parent: Control, caption: String, ctl: Control) -> void:
 	parent.add_child(box)
 
 
+func _lobby_label(text: String, font_size := 15, color := COL_TEXT) -> Label:
+	var label := _styled(text, font_size, color, 0)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return label
+
+
+func _lobby_field(parent: Control, key: String, control: Control) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 7)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var caption := _lobby_label(mp.t(key), 13, COL_DIM)
+	_lobby_labels[key] = caption
+	box.add_child(caption)
+	box.add_child(control)
+	parent.add_child(box)
+
+
 func _build_panel() -> void:
-	# full-screen layer: dims the game and centres the panel
 	_root = ColorRect.new()
-	_root.color = Color(0, 0, 0, 0.45)
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.color = Color(0, 0, 0, 0.6)
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
 	add_child(_root)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(center)
-
 	_panel = PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = COL_BG
-	sb.set_border_width_all(1)
-	sb.border_color = COL_TITLE
-	sb.content_margin_left = 30
-	sb.content_margin_right = 30
-	sb.content_margin_top = 24
-	sb.content_margin_bottom = 24
-	_panel.add_theme_stylebox_override("panel", sb)
-	_panel.custom_minimum_size = Vector2(620, 0)
-	center.add_child(_panel)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	_panel.add_child(v)
-	_title_label = _label(mp.t("title"), 34, COL_TITLE)
-	v.add_child(_title_label)
-	_subtitle_label = _label(mp.t("subtitle") % mp.VERSION, 14, COL_DIM)
-	v.add_child(_subtitle_label)
-
-	# step-by-step guide; the current step is highlighted in refresh()
-	_steps_label = RichTextLabel.new()
-	_steps_label.bbcode_enabled = true
-	_steps_label.fit_content = true
-	_steps_label.scroll_active = false
-	_steps_label.custom_minimum_size = Vector2(560, 0)
-	_steps_label.add_theme_font_size_override("normal_font_size", 17)
-	v.add_child(_steps_label)
-
+	_panel.name = "GuidedLobby"
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = Color(0.075, 0.09, 0.065, 0.98)
+	frame.border_color = Color(0.38, 0.4, 0.32)
+	frame.set_border_width_all(1)
+	frame.content_margin_left = 28
+	frame.content_margin_right = 28
+	frame.content_margin_top = 25
+	frame.content_margin_bottom = 22
+	_panel.add_theme_stylebox_override("panel", frame)
+	_root.add_child(_panel)
+	_lobby_stack = VBoxContainer.new()
+	_lobby_stack.add_theme_constant_override("separation", 18)
+	_panel.add_child(_lobby_stack)
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 20)
+	_title_label = _lobby_label(mp.t("lobby_title"), 31, COL_TEXT)
+	heading.add_child(_title_label)
+	_lobby_capacity = _lobby_label("", 12, COL_DIM)
+	_lobby_capacity.custom_minimum_size.x = 108
+	_lobby_capacity.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_lobby_capacity.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	heading.add_child(_lobby_capacity)
+	_lobby_stack.add_child(heading)
+	_subtitle_label = _lobby_label(mp.t("lobby_subtitle"), 15, COL_DIM)
+	_lobby_stack.add_child(_subtitle_label)
+	var steps := HBoxContainer.new()
+	steps.name = "Steps"
+	steps.add_theme_constant_override("separation", 12)
+	for i in 3:
+		var box := PanelContainer.new()
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var line := StyleBoxFlat.new()
+		line.bg_color = Color.TRANSPARENT
+		line.border_width_top = 2
+		line.content_margin_top = 10
+		box.add_theme_stylebox_override("panel", line)
+		var label := _lobby_label("", 14, COL_DIM)
+		box.add_child(label)
+		steps.add_child(box)
+		_step_labels.append(label)
+		_step_boxes.append(line)
+	_lobby_stack.add_child(steps)
+	_lobby_scroll = ScrollContainer.new()
+	_lobby_scroll.name = "LobbyScroll"
+	_lobby_scroll.follow_focus = true
+	_lobby_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_lobby_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_lobby_stack.add_child(_lobby_scroll)
+	_lobby_body = VBoxContainer.new()
+	_lobby_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lobby_body.add_theme_constant_override("separation", 15)
+	_lobby_scroll.add_child(_lobby_body)
 	_name_edit = _edit(mp.my_name, mp.t("name_hint"))
 	_name_edit.max_length = 24
-	_name_edit.text_changed.connect(func(t: String) -> void: mp.set_player_name(t))
-	_field(v, mp.t("your_name"), _name_edit)
-
-	# --- Steam: the easy way, no ports and no IPs
-	_steam_label = _label("", 15, COL_DIM, true)
-	v.add_child(_steam_label)
-	var srow := HBoxContainer.new()
-	srow.add_theme_constant_override("separation", 10)
+	_name_edit.text_changed.connect(func(value: String) -> void: mp.set_player_name(value))
+	_lobby_field(_lobby_body, "your_name", _name_edit)
+	_steam_label = _lobby_label("", 14, COL_DIM)
+	_lobby_body.add_child(_steam_label)
 	_steam_host_btn = _button(mp.t("create_game"), func() -> void: mp.host_steam(), true)
+	_lobby_body.add_child(_steam_host_btn)
+	_lobby_join_hint = _lobby_label(mp.t("lobby_join_hint"), 14, COL_DIM)
+	_lobby_body.add_child(_lobby_join_hint)
 	_invite_btn = _button(mp.t("invite_friends"), func() -> void: mp.invite_friends(), true)
-	srow.add_child(_steam_host_btn)
-	srow.add_child(_invite_btn)
-	v.add_child(srow)
+	_lobby_body.add_child(_invite_btn)
+	_lobby_play = _button(mp.t("lobby_choose_save"), _open_host_saves, true)
+	_lobby_body.add_child(_lobby_play)
+	_help_label = _lobby_label("", 14, COL_DIM)
+	_lobby_body.add_child(_help_label)
 	_ip_toggle = _button(mp.t("ip_section"), func() -> void:
-		_ip_box.visible = not _ip_box.visible)
-	v.add_child(_ip_toggle)
+		_ip_box.visible = not _ip_box.visible
+		_ip_toggle.set_pressed_no_signal(_ip_box.visible)
+		_queue_lobby_layout())
+	_ip_toggle.toggle_mode = true
+	_lobby_body.add_child(_ip_toggle)
 	_ip_box = VBoxContainer.new()
-	_ip_box.add_theme_constant_override("separation", 10)
+	_ip_box.add_theme_constant_override("separation", 12)
 	_ip_box.visible = false
-	v.add_child(_ip_box)
-
-	var row2 := HBoxContainer.new()
-	row2.add_theme_constant_override("separation", 10)
+	_lobby_body.add_child(_ip_box)
 	_ip_edit = _edit(mp.last_ip, mp.t("ip_hint"))
-	_field(row2, mp.t("host_ip"), _ip_edit)
+	_ip_edit.text_direction = Control.TEXT_DIRECTION_LTR
+	_lobby_field(_ip_box, "host_ip", _ip_edit)
 	_port_edit = SpinBox.new()
 	_port_edit.min_value = 1024
 	_port_edit.max_value = 65535
 	_port_edit.value = mp.last_port
-	_port_edit.custom_minimum_size = Vector2(140, 40)
-	var port_box := VBoxContainer.new()
-	port_box.add_theme_constant_override("separation", 4)
-	port_box.add_child(_label(mp.t("port"), 14, COL_DIM))
-	port_box.add_child(_port_edit)
-	row2.add_child(port_box)
-	_ip_box.add_child(row2)
-
-	var row3 := HBoxContainer.new()
-	row3.add_theme_constant_override("separation", 10)
+	_port_edit.custom_minimum_size.y = 40
+	_port_edit.get_line_edit().text_direction = Control.TEXT_DIRECTION_LTR
+	_lobby_field(_ip_box, "port", _port_edit)
 	_host_btn = _button(mp.t("create_server"), _on_host, true)
-	_join_btn = _button(mp.t("join"), _on_join, true)
-	row3.add_child(_host_btn)
-	row3.add_child(_join_btn)
-	_ip_box.add_child(row3)
-
-	# Addresses stay hidden: this panel is often on screen while streaming.
+	_join_btn = _button(mp.t("join"), _on_join)
+	_ip_box.add_child(_host_btn)
+	_ip_box.add_child(_join_btn)
 	_ips_btn = _button(mp.t("show_ips"), func() -> void:
 		_show_ips = not _show_ips
 		refresh())
 	_ip_box.add_child(_ips_btn)
-
-	var row4 := HBoxContainer.new()
-	row4.add_theme_constant_override("separation", 10)
-	_leave_btn = _button(mp.t("disconnect"), func() -> void: mp.leave(mp.t("session_closed")))
-	_resync_btn = _button(mp.t("resync"), func() -> void: mp.request_resync())
-	row4.add_child(_leave_btn)
-	row4.add_child(_resync_btn)
-	v.add_child(row4)
-
-	v.add_child(HSeparator.new())
-	_status = _label("", 17, COL_TEXT, true)
-	v.add_child(_status)
+	_ips_label = _lobby_label("", 13, COL_DIM)
+	_ips_label.text_direction = Control.TEXT_DIRECTION_LTR
+	_ip_box.add_child(_ips_label)
+	_status = _lobby_label("", 14)
+	_lobby_body.add_child(_status)
 	_progress = ProgressBar.new()
-	_progress.custom_minimum_size = Vector2(0, 8)
+	_progress.custom_minimum_size.y = 7
 	_progress.visible = false
 	_style_bar(_progress)
-	v.add_child(_progress)
-
+	_lobby_body.add_child(_progress)
+	_lobby_players_title = _lobby_label("", 16, COL_TITLE)
+	_lobby_body.add_child(_lobby_players_title)
 	_players_label = RichTextLabel.new()
 	_players_label.bbcode_enabled = true
 	_players_label.fit_content = true
 	_players_label.scroll_active = false
-	_players_label.custom_minimum_size = Vector2(560, 0)
-	_players_label.add_theme_font_size_override("normal_font_size", 17)
-	v.add_child(_players_label)
-
-	_ips_label = _label("", 14, COL_DIM, true)
-	_ip_box.add_child(_ips_label)
-	_help_label = _label(mp.t("panel_help"), 14, COL_DIM, true)
-	v.add_child(_help_label)
+	_players_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_players_label.add_theme_font_size_override("normal_font_size", 16)
+	_players_label.add_theme_font_override("normal_font", UiFont.regular())
+	_lobby_body.add_child(_players_label)
+	_resync_btn = _button(mp.t("resync"), func() -> void: mp.request_resync())
+	_leave_btn = _button(mp.t("disconnect"), func() -> void: mp.leave(mp.t("session_closed")))
+	_lobby_body.add_child(_resync_btn)
+	_lobby_body.add_child(_leave_btn)
+	var rule_panel := PanelContainer.new()
+	var rule_style := StyleBoxFlat.new()
+	rule_style.bg_color = Color(0.13, 0.16, 0.1)
+	rule_style.border_color = Color(0.27, 0.31, 0.23)
+	rule_style.set_border_width_all(1)
+	rule_style.content_margin_left = 14
+	rule_style.content_margin_right = 14
+	rule_style.content_margin_top = 12
+	rule_style.content_margin_bottom = 12
+	rule_panel.add_theme_stylebox_override("panel", rule_style)
+	_lobby_rules = _lobby_label(mp.t("lobby_rules"), 13, Color(0.83, 0.86, 0.78))
+	rule_panel.add_child(_lobby_rules)
+	_lobby_body.add_child(rule_panel)
 	_close_btn = _button(mp.t("close"), close_panel)
-	v.add_child(_close_btn)
+	_lobby_stack.add_child(_close_btn)
+	for button in [_steam_host_btn, _invite_btn, _lobby_play, _ip_toggle, _host_btn, _join_btn, _ips_btn, _resync_btn, _leave_btn, _close_btn]:
+		button.focus_mode = Control.FOCUS_ALL
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.add_theme_stylebox_override("focus", button.get_theme_stylebox("hover"))
+	for button in [_steam_host_btn, _invite_btn, _lobby_play]:
+		_style_lobby_primary(button)
+	_lobby_body.minimum_size_changed.connect(_queue_lobby_layout)
+	get_viewport().size_changed.connect(_queue_lobby_layout)
+	_queue_lobby_layout()
+
+
+func _style_lobby_primary(button: Button) -> void:
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(0.9, 0.75, 0.4) if state != "disabled" else Color(0.24, 0.25, 0.2)
+		if state in ["hover", "focus"]:
+			box.bg_color = box.bg_color.lightened(0.12)
+		box.set_border_width_all(2 if state == "focus" else 1)
+		box.border_color = Color.WHITE if state == "focus" else box.bg_color
+		box.content_margin_left = 14
+		box.content_margin_right = 14
+		box.content_margin_top = 10
+		box.content_margin_bottom = 10
+		button.add_theme_stylebox_override(state, box)
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(key, Color(0.07, 0.09, 0.05))
+	button.add_theme_color_override("font_disabled_color", Color(0.65, 0.67, 0.6))
+
+
+func _queue_lobby_layout() -> void:
+	if _lobby_layout_queued:
+		return
+	_lobby_layout_queued = true
+	_layout_lobby.call_deferred()
+
+
+func _layout_lobby() -> void:
+	_lobby_layout_queued = false
+	if not is_instance_valid(_panel):
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	var available := viewport_size - Vector2(32, 32)
+	var width := minf(680.0, available.x)
+	_panel.size.x = width
+	var needed := _lobby_stack.get_combined_minimum_size().y + _lobby_body.get_combined_minimum_size().y + 47.0
+	_panel.size = Vector2(width, minf(needed, available.y))
+	_panel.position = (viewport_size - _panel.size) * 0.5
+	var controls: Array[Control] = []
+	var nodes: Array[Node] = [_panel]
+	while not nodes.is_empty():
+		var node: Node = nodes.pop_front()
+		if node is Control and node.is_visible_in_tree() and node.focus_mode != Control.FOCUS_NONE:
+			if not (node is BaseButton and node.disabled):
+				controls.append(node)
+		nodes.append_array(node.get_children())
+	for i in controls.size():
+		controls[i].focus_next = controls[i].get_path_to(controls[(i + 1) % controls.size()])
+		controls[i].focus_previous = controls[i].get_path_to(controls[(i - 1 + controls.size()) % controls.size()])
+
+
+func _open_host_saves() -> void:
+	if not mp.active() or not mp.is_host:
+		return
+	close_panel()
+	if mp.in_world():
+		return
+	var scene := get_tree().current_scene
+	if not is_instance_valid(scene) or not mp.is_menu(scene):
+		return
+	var stack: Array[Node] = [scene]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node.has_method("_on_load_game"):
+			node.call("_on_load_game")
+			return
+		stack.append_array(node.get_children())
+
+
+func _guided_step() -> int:
+	if not mp.active():
+		return 0
+	if mp.in_world() or mp.phase == mp.Phase.LOADING:
+		return 2
+	if mp.is_host:
+		return 2 if mp.players.size() > 1 else 1
+	return 0 if mp.phase == mp.Phase.CONNECTING else 1
+
+
+func _refresh_guided_steps() -> void:
+	var current := _guided_step()
+	var keys := ["lobby_step_session", "lobby_step_friends", "lobby_step_save"]
+	for i in 3:
+		_step_labels[i].text = "%d · %s" % [i + 1, mp.t(keys[i])]
+		_step_labels[i].add_theme_color_override("font_color", COL_TITLE if i == current else COL_DIM)
+		_step_boxes[i].border_color = COL_TITLE if i <= current else Color(0.3, 0.33, 0.28)
 
 
 func _build_feed() -> void:
@@ -790,9 +934,13 @@ func open_panel() -> void:
 	_name_edit.text = mp.my_name
 	_ip_edit.text = mp.last_ip
 	_port_edit.value = mp.last_port
+	var focus := get_viewport().gui_get_focus_owner()
+	_lobby_return_focus = weakref(focus) if is_instance_valid(focus) else null
 	_root.visible = true
 	_release_mouse()
 	refresh()
+	_queue_lobby_layout()
+	_close_btn.grab_focus.call_deferred()
 
 
 func close_panel() -> void:
@@ -800,6 +948,10 @@ func close_panel() -> void:
 		return
 	_root.visible = false
 	_restore_mouse()
+	var focus: Variant = _lobby_return_focus.get_ref() if _lobby_return_focus != null else null
+	if is_instance_valid(focus) and focus.is_visible_in_tree():
+		focus.grab_focus()
+	_lobby_return_focus = null
 	_update_wait()  # the card stands in for the panel once it is closed
 
 
@@ -837,6 +989,9 @@ func _on_join() -> void:
 
 func set_status(text: String) -> void:
 	_status.text = text
+	_status.visible = not text.is_empty()
+	refresh()
+	_queue_lobby_layout()
 
 
 func set_progress(v: float) -> void:
@@ -958,6 +1113,8 @@ func _forget_note() -> void:
 # dropping back to the menu.
 func _process(delta: float) -> void:
 	_try_restore_mouse()
+	if _panel != null and _lobby_locale != mp.i18n.language_code(TranslationServer.get_locale()):
+		refresh()
 	if _wait == null:
 		return
 	_wait_clock += delta
@@ -1058,31 +1215,18 @@ func _clock() -> float:
 	return float(Time.get_ticks_msec()) / 1000.0
 
 
-# Three numbered steps with the current one highlighted, so nobody has to
-# guess what to press next.
-func _steps_text() -> String:
-	var steps := [mp.t("create_game"), mp.t("invite_friends"), mp.t("step_play")]
-	var at := 0
-	if mp.active() and mp.is_host:
-		at = 1 if not mp.in_world() else 2
-		if mp.players.size() > 1:
-			at = 2
-	elif mp.active():
-		steps = [mp.t("step_connecting"), mp.t("step_entering"), mp.t("step_dig")]
-		at = 1 if mp.phase == mp.Phase.LOADING else (2 if mp.in_world() else 0)
-	var out := PackedStringArray()
-	for i in steps.size():
-		var col := COL_TITLE.to_html(false) if i == at else "8a8f99"
-		var mark := "▶" if i == at else "%d ·" % (i + 1)
-		out.append("[color=#%s]%s %s[/color]" % [col, mark, steps[i]])
-	return "   ".join(out)
-
-
 # Button and label text is set when the panel is built; re-apply it so a
 # language change in the game's options shows up without a restart.
 func _apply_texts() -> void:
-	_title_label.text = mp.t("title")
-	_subtitle_label.text = mp.t("subtitle") % mp.VERSION
+	_title_label.text = mp.t("lobby_title")
+	_subtitle_label.text = mp.t("lobby_subtitle")
+	_lobby_capacity.text = mp.t("lobby_capacity") % mp.MAX_PEERS
+	_lobby_rules.text = mp.t("lobby_rules")
+	_lobby_join_hint.text = mp.t("lobby_join_hint")
+	_lobby_play.text = mp.t("lobby_return") if mp.in_world() else mp.t("lobby_choose_save")
+	_lobby_players_title.text = mp.t("lobby_players") % [mp.players.size(), mp.MAX_PEERS]
+	for key in _lobby_labels:
+		_lobby_labels[key].text = mp.t(key)
 	_steam_host_btn.text = mp.t("create_game")
 	_invite_btn.text = mp.t("invite_friends")
 	_ip_toggle.text = mp.t("ip_section")
@@ -1091,10 +1235,54 @@ func _apply_texts() -> void:
 	_leave_btn.text = mp.t("disconnect")
 	_resync_btn.text = mp.t("resync")
 	_close_btn.text = mp.t("close")
-	_help_label.text = mp.t("panel_help")
+	_help_label.text = mp.t("now_load") if mp.is_host else mp.t("wait_hint_save")
 	_name_edit.placeholder_text = mp.t("name_hint")
 	_ip_edit.placeholder_text = mp.t("ip_hint")
 	_chat_edit.placeholder_text = mp.t("chat_hint")
+
+
+func _refresh_guided_state() -> void:
+	var on: bool = mp.active()
+	var busy: bool = mp._steam_hosting or mp._steam_joining
+	_steam_host_btn.visible = not on
+	_steam_host_btn.disabled = on or busy or not mp.steam_ready()
+	_invite_btn.visible = on and mp.is_host and mp.over_steam
+	_lobby_play.visible = on and mp.is_host
+	_lobby_join_hint.visible = not on
+	_help_label.visible = on and not mp.in_world()
+	_lobby_players_title.visible = on
+	_players_label.visible = on
+	_resync_btn.visible = on and mp.in_world()
+	_leave_btn.visible = on or busy
+	_leave_btn.disabled = not on and not busy
+	_leave_btn.text = mp.t("lobby_cancel") if busy or mp.phase == mp.Phase.CONNECTING else mp.t("disconnect")
+	_ip_toggle.visible = not on or not mp.over_steam
+	if not _ip_toggle.visible:
+		_ip_box.hide()
+		_ip_toggle.set_pressed_no_signal(false)
+	_name_edit.editable = not on and not busy
+	_ip_edit.editable = not on and not busy
+	_port_edit.editable = not on and not busy
+	_host_btn.disabled = on or busy
+	_join_btn.disabled = on or busy
+	_status.visible = not _status.text.is_empty()
+	var language: String = mp.i18n.language_code(TranslationServer.get_locale())
+	_panel.layout_direction = Control.LAYOUT_DIRECTION_RTL if language in ["ar", "fa"] else Control.LAYOUT_DIRECTION_LTR
+	if _lobby_locale != language:
+		_lobby_locale = language
+		_status.text = preload("res://mods/multiplayer/mp_i18n.gd").localize_received(_status.text)
+		_font_cache = UiFont.bold()
+		_players_label.add_theme_font_override("normal_font", UiFont.regular())
+		var nodes: Array[Node] = [_panel]
+		while not nodes.is_empty():
+			var node: Node = nodes.pop_back()
+			if node is Label:
+				node.add_theme_font_override("font", UiFont.regular())
+			elif node is Button:
+				node.add_theme_font_override("font", UiFont.bold())
+			nodes.append_array(node.get_children())
+		_title_label.add_theme_font_override("font", UiFont.bold())
+	_queue_lobby_layout()
 
 
 func refresh() -> void:
@@ -1106,7 +1294,7 @@ func refresh() -> void:
 	_steam_host_btn.disabled = on or not steam_ok
 	_invite_btn.disabled = not (on and mp.is_host and mp.over_steam)
 	if steam_ok:
-		_steam_label.text = mp.t("steam_ready") % mp.steam.persona
+		_steam_label.text = "Steam · %s" % mp.steam.persona
 	else:
 		_steam_label.text = mp.t("steam_missing") % mp.steam.load_status
 	_host_btn.disabled = on
@@ -1127,7 +1315,8 @@ func refresh() -> void:
 	else:
 		lines.append("[color=#8a8f99]%s[/color]" % mp.t("offline"))
 	_players_label.text = "\n".join(lines)
-	_steps_label.text = _steps_text()
+	_refresh_guided_steps()
+	_refresh_guided_state()
 	# addresses are private: only drawn when the player asks for them
 	if _show_ips:
 		var ips := PackedStringArray()
@@ -1139,7 +1328,7 @@ func refresh() -> void:
 				elif a.begins_with("26."):
 					tag = " (Radmin)"
 				elif a.begins_with("192.168.") or a.begins_with("10."):
-					tag = " (red local)"
+					tag = " (LAN)"
 				ips.append(a + tag)
 		_ips_label.text = mp.t("your_ips") % (", ".join(ips) if not ips.is_empty() else "-")
 		_ips_btn.text = mp.t("hide_ips")
