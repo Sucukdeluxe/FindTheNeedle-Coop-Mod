@@ -128,6 +128,18 @@ static func alignment(builds: Node, at: Vector3, anchor := Vector3.INF) -> Dicti
 				best.start = start
 	return best
 
+static func preview_direction(aligned: Dictionary, preferred: Vector3, length: float) -> Vector3:
+	var path: PackedVector3Array = aligned.path
+	var segment: int = aligned.segment
+	var direction: Vector3 = aligned.direction
+	var before: float = aligned.point.distance_to(path[segment])
+	var after: float = aligned.point.distance_to(path[segment + 1])
+	if before < length and before < after:
+		return direction
+	if after < length and after < before:
+		return -direction
+	return direction if direction.dot(preferred) >= 0.0 else -direction
+
 static func snap(builds: Node, at: Vector3, anchor := Vector3.INF) -> Vector3:
 	return alignment(builds, at, anchor).get("point", at)
 

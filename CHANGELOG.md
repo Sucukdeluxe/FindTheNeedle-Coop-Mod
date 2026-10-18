@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Show sale-station relocation previews immediately, with a visible outline through the selected station, ground projection when looking forward, and placement controls. Keep the original station in place until confirmation.
+- Point parallel-conveyor previews along the adjacent run at its endpoints. Keep previews and flow aligned with the drawn direction and preserve manual F6 reversal.
+
 - Carry players through 4-, 6- and 8-port mergers to the configured output. Match the internal collision surfaces to the visible junction, remove crossing internal rail collisions, and keep surface movement synchronized with conveyor speed and stopped lanes.
 
 ## 0.19.6-xRangerDE.67

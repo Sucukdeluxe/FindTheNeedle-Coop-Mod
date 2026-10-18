@@ -411,7 +411,7 @@ func _update_run(from: Vector3, to: Vector3, delta: float) -> void:
 	if _mp_parallel and _is_conveyor_mode() and _state == State.AIMING:
 		var aligned := ParallelBelts.alignment(builds, from)
 		if not aligned.is_empty():
-			to = from + aligned.direction * STUB_LENGTH
+			to = from + ParallelBelts.preview_direction(aligned, to - from, STUB_LENGTH) * STUB_LENGTH
 	super._update_run(from, to, delta)
 	if _state != State.RUNNING or not _is_conveyor_mode() or _mp_flow_manual or bool(_eval.get("ok", false)) or not is_instance_valid(builds):
 		return

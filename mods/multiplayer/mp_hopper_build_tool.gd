@@ -199,3 +199,8 @@ func back_out() -> void:
 		player.put_away_build()
 		return
 	super.back_out()
+
+func control_hint() -> String:
+	if is_instance_valid(player) and player.build_id in SALE_IDS:
+		return preload("res://mods/multiplayer/mp_i18n.gd").phrase("R halten + Maus · Frei drehen", "Hold R + mouse · Rotate freely")
+	return super.control_hint()

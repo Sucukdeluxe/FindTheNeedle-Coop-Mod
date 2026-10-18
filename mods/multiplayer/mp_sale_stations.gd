@@ -23,6 +23,7 @@ var _move_origins := {}
 var _build_yaw := 0.0
 var _ghost: Node3D
 var _ghost_id := -1
+var _preview_position := Vector3.INF
 var _pending := {}
 var _clock := 0.0
 var _panel: CanvasLayer
@@ -43,7 +44,7 @@ static func ensure_catalog() -> void:
 	entries[MOVE_ID] = {"name": _tr("Verkaufsstelle versetzen", "Move Sale Station"), "short": _tr("VERSETZEN", "MOVE"),
 		"unlock": "", "category": "haulage", "mode": BuildTool.Mode.CONVEYOR,
 		"cost": "$0", "place": _tr("Leere Verkaufsstelle auswählen und versetzen", "Select and move an empty sale station"),
-		"blurb": _tr("Versetzt den vorhandenen Verkaufsstand oder eine zusätzliche Waage. E öffnet die Auswahl.", "Moves the existing selling stand or an extra scale. Press E to select.")}
+		"blurb": _tr("Linksklick · Platzieren    Rechtsklick · Abbrechen", "Left-click · Place    Right-click · Cancel")}
 
 static func ensure_cards(nodes: Dictionary, locale: String) -> void:
 	var german := locale.begins_with("de")
@@ -197,9 +198,32 @@ func step_build_rotation() -> void:
 func _bounds(id: int) -> AABB:
 	return AABB(Vector3(-4.6, 0.06, -0.95), Vector3(9.25, 3.5, 4.65)) if id == 1 else AABB(Vector3(-0.65, 0.06, -1.0), Vector3(1.3, 1.8, 1.65))
 
+func _station_bodies(id: int) -> Array[RID]:
+	var result: Array[RID] = []
+	var station := model(id)
+	if is_instance_valid(station):
+		for body in station.find_children("*", "CollisionObject3D", true, false):
+			result.append(body.get_rid())
+	return result
+
 func candidate(camera: Transform3D, reach: float, yaw: float, moving: int, overhead := false) -> Dictionary:
-	var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin - camera.basis.z.normalized() * reach, Cfg.L_WORLD | Cfg.L_BUILD)
-	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(world_sync.world.get_world_3d().direct_space_state, query, overhead)
+	var direction := -camera.basis.z.normalized()
+	var query := PhysicsRayQueryParameters3D.create(camera.origin, camera.origin + direction * reach, Cfg.L_WORLD | Cfg.L_BUILD)
+	query.exclude = _station_bodies(moving)
+	var space: PhysicsDirectSpaceState3D = world_sync.world.get_world_3d().direct_space_state
+	var cutaway = preload("res://mods/multiplayer/mp_build_cutaway.gd")
+	var hit: Dictionary = cutaway.intersect_ray(space, query, overhead)
+	if moving > 0 and not overhead and (hit.is_empty() or hit.normal.y < 0.75):
+		var distance := 3.0
+		if not hit.is_empty():
+			distance = minf(distance, maxf(0.0, camera.origin.distance_to(hit.position) - 0.1))
+		var point := camera.origin + direction * distance
+		point.y = camera.origin.y
+		query.from = point
+		query.to = point + Vector3.DOWN * reach
+		var floor_hit: Dictionary = cutaway.intersect_ray(space, query, false)
+		if not floor_hit.is_empty() and camera.origin.distance_to(floor_hit.position) <= reach:
+			hit = floor_hit
 	if hit.is_empty() or hit.normal.y < 0.75:
 		return {"ok": false, "reason": _tr("Auf eine freie Baufläche zielen", "Aim at a clear building surface")}
 	var at: Vector3 = hit.position
@@ -261,16 +285,23 @@ func preview(camera: Transform3D, reach: float, show: bool) -> Dictionary:
 			_ghost.hide()
 		return {}
 	var row := build_candidate(camera, reach)
-	if not row.has("position"):
+	if row.has("position"):
+		_preview_position = row.position
+	elif _moving_id == 0 or not _preview_position.is_finite():
 		if is_instance_valid(_ghost):
 			_ghost.hide()
 		return row
 	_ensure_ghost(_moving_id)
 	_ghost.show()
-	_ghost.global_transform = Transform3D(Basis(Vector3.UP, float(row.yaw)), row.position)
-	var tint := Color(0.2, 0.85, 0.5, 0.42) if row.ok else Color(0.95, 0.2, 0.18, 0.42)
+	_ghost.global_transform = Transform3D(Basis(Vector3.UP, _build_yaw), _preview_position)
+	var view: Dictionary = hoppers._local_build_ray(camera, reach)
+	var eye: Vector3 = view.get("origin", camera.origin)
+	var inside := _bounds(_moving_id).grow(0.25).has_point(_ghost.to_local(eye))
+	var tint := Color(0.2, 0.85, 0.5, 0.24) if row.get("ok", false) else Color(0.95, 0.2, 0.18, 0.24)
 	for mesh in _ghost.get_children():
-		mesh.material_override.albedo_color = tint
+		var outline := mesh.name == "PlacementOutline"
+		mesh.visible = outline or not inside
+		mesh.material_override.albedo_color = Color(tint, 0.9) if outline else tint
 	return row
 
 func _ensure_ghost(id: int) -> void:
@@ -304,8 +335,30 @@ func _ensure_ghost(id: int) -> void:
 		_ghost.add_child(mesh)
 	if temporary:
 		station.free()
+	var outline := ImmediateMesh.new()
+	outline.surface_begin(Mesh.PRIMITIVE_LINES)
+	var bounds := _bounds(id).grow(0.015)
+	for corner in 8:
+		for axis in 3:
+			var other := corner ^ (1 << axis)
+			if corner < other:
+				outline.surface_add_vertex(bounds.get_endpoint(corner))
+				outline.surface_add_vertex(bounds.get_endpoint(other))
+	outline.surface_end()
+	var frame := MeshInstance3D.new()
+	frame.name = "PlacementOutline"
+	frame.mesh = outline
+	frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.no_depth_test = true
+	material.render_priority = 1
+	frame.material_override = material
+	_ghost.add_child(frame)
 
 func cancel_preview() -> void:
+	_preview_position = Vector3.INF
 	_moving_id = 0
 	_moving_revision = -1
 	_move_ready = false
@@ -339,6 +392,8 @@ func begin_move(id: int) -> void:
 	_moving_revision = int(old.revision)
 	_move_ready = false
 	set_build_yaw(float(old.yaw))
+	_preview_position = old.position
+	preview(world_sync.player.camera.global_transform, float(world_sync.player.build.get("_reach")), true)
 
 func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
 	if _moving_id > 0 and not _move_ready:
@@ -347,7 +402,7 @@ func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
 	if not row.get("ok", false):
 		world_sync.toast(row.get("reason", ""))
 		return 0
-	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw,
+	var args := {"camera": camera, "body": body, "position": row.position, "yaw": row.yaw, "reach": reach,
 		"id": _moving_id, "revision": _moving_revision if _moving_id > 0 else 0, "max_price": Store.COST}
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	if ray.has("view"):
@@ -426,6 +481,11 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 	var ray: Dictionary = hoppers._host_build_ray(peer, args) if args.has("build_view") else {"transform": args.camera, "length": Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus()}
 	if ray.is_empty():
 		return _failure(_tr("Ungültige Bauansicht", "Invalid build view"))
+	if not args.has("build_view"):
+		var requested_reach: Variant = args.get("reach", ray.length)
+		if not (requested_reach is float or requested_reach is int) or not is_finite(float(requested_reach)) or requested_reach <= 0.0 or requested_reach > float(ray.length):
+			return _failure(_tr("Ungültige Bauansicht", "Invalid build view"))
+		ray.length = float(requested_reach)
 	var row := candidate(ray.transform, float(ray.length), float(yaw), id, ray.has("anchor"))
 	if not row.get("ok", false) or row.position.distance_to(at) > 0.05 or not _in_area(at, float(yaw), id, args.body.origin):
 		return _failure(row.get("reason", _tr("Position hat sich geändert", "Position changed")))
