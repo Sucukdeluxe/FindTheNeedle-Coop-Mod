@@ -115,6 +115,8 @@ func _consider(node: Node) -> void:
 	elif _script_class(parent, "Roof") and node.name in ROOF_PARTS:
 		if not bool(parent.get("placement_preview")) and not bool(parent.get("deck_style")):
 			_hide_roof(node)
+	elif node is MeshInstance3D and node.name in ["Supply_Batch_M_Roof", "Supply_Batch_Supply_Canvas"] and _ancestor(node, "HayShop") != null:
+		_hide_roof(node)
 	elif node is MeshInstance3D and node.name == "HaySellingStand_Static_00":
 		var stand := _ancestor(node, "HaySellingStand")
 		if stand != null:
@@ -200,7 +202,7 @@ static func roof_collider(node: Node) -> bool:
 		return true
 	if _script_class(node, "Roof"):
 		return not bool(node.get("placement_preview")) and not bool(node.get("deck_style"))
-	return node.name in ["Col_Roof", "Col_RoofSign"] and _ancestor(node, "HaySellingStand") != null
+	return node.name in ["Col_Roof", "Col_RoofSign"] and (_ancestor(node, "HaySellingStand") != null or _ancestor(node, "HayShop") != null)
 
 static func _ancestor(node: Node, name: String) -> Node:
 	var current := node.get_parent()

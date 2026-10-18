@@ -7,7 +7,7 @@ signal completed(seq: int, result: Dictionary)
 const CACHE_LIMIT := 256
 const MAX_PENDING := 32
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
-const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "hopper_configure", "hopper_link", "receiver_place", "receiver_configure", "sale_place", "sale_move", "sale_remove", "sale_configure", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
+const LOCAL_ACTIONS := ["hopper_place", "hopper_remove", "hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "hopper_configure", "hopper_link", "receiver_place", "receiver_configure", "sale_place", "sale_move", "supply_move", "sale_remove", "sale_configure", "vacuum_belt", "vacuum_resolve", "vacuum_ack", "sweep_floor", "order_pile"]
 const BUILD_PREPARE_TIMEOUT_MSEC := 30000
 var mp: Node
 var world_sync: Node
@@ -392,6 +392,8 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return world_sync.order_pile(peer, args)
 	if action == "sweep_floor":
 		return world_sync.sweep_sync.execute(peer, args)
+	if action == "supply_move":
+		return world_sync.hoppers_sync.supply_station.execute(peer, action, args)
 	if action.begins_with("sale_"):
 		return world_sync.hoppers_sync.sale_stations.execute(peer, action, args)
 	if action.begins_with("receiver_"):

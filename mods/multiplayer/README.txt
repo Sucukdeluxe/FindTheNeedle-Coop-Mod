@@ -121,3 +121,6 @@ still incomplete; this release does not promise lossless recovery of unsaved pro
 
 BALANCING .53
 Sale price has 20 ranks at five percentage points each, reaching twice the base price. Existing ranks are preserved. Recorded overpayments for repriced upgrades are credited once when the host or single-player loads the save; gifted ranks and purchases without a recorded price are not estimated. The credit is saved together with the balance. Vacuum capacity costs 300,000 total, suction 200,000, arm speed 80,000 and distributor speed 40,000. Arm Carry Size costs 80,000 for eight ranks up to +64%. Arm Spacing costs 150,000 for ten ranks reducing required placement spacing to 50%; working reach and physical base clearance remain unchanged. Existing purchased ranks are retained.
+
+Supply Co: aim at the shop and press N for the relocation preview. Left-click places, right-click cancels. The host saves and synchronizes its position and rotation.
+Sessions support eight players total (host + seven guests). Shared upgrades apply to everyone. Overhead camera views synchronize visible machines and loose straw independently of the player body.

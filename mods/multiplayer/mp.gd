@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.68"
+const VERSION := "0.19.6-xRangerDE.69"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -132,6 +132,8 @@ func _ready() -> void:
 		"mp_boards.gd",
 		"mp_build_actor.gd",
 		"mp_build_camera.gd",
+		"mp_view_interest.gd",
+		"mp_supply_station.gd",
 		"mp_build_snapshot.gd",
 		"mp_build_tool.gd",
 		"mp_builds.gd",
@@ -1095,11 +1097,11 @@ func request_resync() -> void:
 # ---------------------------------------------------------------- in-world RPCs (forwarded to mp_world)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
-func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int, tool_fill: float = 0.0, world_seed: int = -1) -> void:
+func _rx_pose(pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int, tool_fill: float = 0.0, world_seed: int = -1, build_view: Vector4 = Vector4.ZERO) -> void:
 	if not _accept_world_seed(world_seed):
 		return
 	if world_sync != null:
-		world_sync.on_pose(multiplayer.get_remote_sender_id(), pos, yaw, pitch, tool, crouch, moving, hands, tool_fill)
+		world_sync.on_pose(multiplayer.get_remote_sender_id(), pos, yaw, pitch, tool, crouch, moving, hands, tool_fill, build_view)
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)

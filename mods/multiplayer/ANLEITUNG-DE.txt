@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.68
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.69
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
@@ -358,3 +358,6 @@ TRICHTER UND SAMMLER (.57)
 Trichter frei oder am Bandanfang platzieren. M: Hofsauger direkt einfüllen. Lose Heuladung von oben in die Öffnung werfen: Der Host übernimmt sie automatisch; Überfüllung bleibt außerhalb erhalten. E: Ausgabe an/aus, Portion 100 bis 1.000 (höchstens freigeschaltete Bandportion), Kapazität je Trichter kaufen. Neue Trichter 10.000, neun Erweiterungen bis 100.000. Bestehende Trichter behalten 50.000 Plätze und ihren Inhalt.
 Arme verwenden den Trichter automatisch, wenn kein passendes Band vorhanden ist. In „Bänder aussuchen“ mit Rechtsklick auf den Trichter gezielt verbinden; der markierte Rand muss in Armreichweite liegen. Volle Trichter lassen den Arm mit seiner Ladung warten.
 Sammler mit vier/acht Anschlüssen: drei/sieben Eingänge, ein nummerierter Ausgang. Freischaltung mit intelligentem Verteiler. E ändert den Ausgang nur bei leerem Sammler. Direkt in gerade, waagerechte Bänder einsetzen oder frei platzieren. R dreht die freie Bauvorschau. Bandmaterial wird angerechnet und Ladung erhalten; bei Platzmangel bleibt das Band unverändert. Rahmen, Schienen und Rollen nutzen native Modelle und Materialien; die Anschlussschilder liegen außerhalb des Transportwegs. Kosten 2.000/5.000. Im Einzelspieler und Multiplayer verfügbar.
+
+Supply Co: Den Laden ansehen und N für die Vorschau zum Versetzen drücken. Linksklick platziert, Rechtsklick bricht ab. Der Host speichert und synchronisiert Position und Drehung.
+Bis zu acht Spieler insgesamt (Gastgeber + sieben Gäste). Gemeinsame Upgrades gelten für alle. Jede Vogelperspektive synchronisiert die darin sichtbaren Maschinen und losen Halme unabhängig vom Standort der Spielfigur.

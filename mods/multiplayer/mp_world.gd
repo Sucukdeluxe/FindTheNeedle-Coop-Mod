@@ -68,6 +68,7 @@ const HOST_ABS := ["run_secs", "lot_tier", "hay_initial", "money_peak", "pile_cl
 const HOST_MAX := ["mission_index", "contract_index"]
 
 var avatars := {}
+var _build_views := {}
 var _avatar_script: Script
 var _me: Node  # our own body, seen when looking down
 var props_sync: Node  # loose item replication
@@ -428,7 +429,7 @@ func _send_pose() -> void:
 		crouch = float(player.crouch_amount())
 	var moving: float = (player.velocity * Vector3(1, 0, 1)).length() if "velocity" in player else 0.0
 	mp._rx_pose.rpc(player.global_position, player.rotation.y, pitch,
-		int(player.get("current_tool")), crouch, moving, _hands(), _tool_fill(), mp._outgoing_world_seed())
+		int(player.get("current_tool")), crouch, moving, _hands(), _tool_fill(), mp._outgoing_world_seed(), preload("res://mods/multiplayer/mp_view_interest.gd").capture(build_camera))
 
 
 # What is in our bare hands, in one number: how many straws in the low four
@@ -447,7 +448,14 @@ func _hands() -> int:
 	return straws | (needle << 4)
 
 
-func on_pose(id: int, pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int = 0, tool_fill: float = 0.0) -> void:
+func on_pose(id: int, pos: Vector3, yaw: float, pitch: float, tool: int, crouch: float, moving: float, hands: int = 0, tool_fill: float = 0.0, build_view: Vector4 = Vector4.ZERO) -> void:
+	if not pos.is_finite():
+		return
+	var region := preload("res://mods/multiplayer/mp_view_interest.gd").region(build_view, pos)
+	if region.has_volume():
+		_build_views[id] = region
+	else:
+		_build_views.erase(id)
 	_last_at[id] = pos
 	var a: Node = avatars.get(id)
 	if a == null or not is_instance_valid(a):
@@ -467,6 +475,7 @@ func on_pose(id: int, pos: Vector3, yaw: float, pitch: float, tool: int, crouch:
 
 
 func remove_avatar(id: int) -> void:
+	_build_views.erase(id)
 	if strands_sync != null and is_instance_valid(strands_sync):
 		strands_sync.drop_hand(id)
 	var a: Node = avatars.get(id)
@@ -476,6 +485,7 @@ func remove_avatar(id: int) -> void:
 
 
 func clear_avatars() -> void:
+	_build_views.clear()
 	for id in avatars.keys():
 		remove_avatar(id)
 
@@ -497,6 +507,18 @@ func forget_peer(id: int) -> void:
 	if strands_sync != null and is_instance_valid(strands_sync):
 		strands_sync.peer_gone(id)
 	_peer_ack.erase(id)
+
+
+func network_watchers() -> Array:
+	var watchers: Array = []
+	for id in avatars:
+		var avatar: Variant = avatars[id]
+		if not is_instance_valid(avatar) or not avatar.is_inside_tree():
+			continue
+		watchers.append(avatar.global_position)
+		if _build_views.has(id):
+			watchers.append(_build_views[id])
+	return watchers
 
 
 func avatar_positions() -> Dictionary:

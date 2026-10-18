@@ -28,6 +28,7 @@ enum Step { CONNECT, SAVE, WORLD, LOADING, INSIDE }
 
 var mp: Node
 
+var _version_label: Label
 var _root: ColorRect
 var _panel: PanelContainer
 var _name_edit: LineEdit
@@ -93,8 +94,23 @@ func _ready() -> void:
 	_build_chat()
 	_build_wait()
 	_build_panel()
+	_build_version()
 	get_window().focus_entered.connect(_window_focus_entered)
 	refresh()
+
+
+func _build_version() -> void:
+	_version_label = _styled("%s · MP %s" % [Cfg.BUILD_TAG, mp.VERSION], 12, Color(1.0, 1.0, 1.0, 0.55), 1)
+	_version_label.name = "MPVersionLabel"
+	_version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_version_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_version_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.4))
+	add_child(_version_label)
+	_version_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_version_label.offset_left = -320.0
+	_version_label.offset_top = -24.0
+	_version_label.offset_right = -12.0
+	_version_label.offset_bottom = -5.0
 
 
 # ---------------------------------------------------------------- building

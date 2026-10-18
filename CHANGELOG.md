@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.6-xRangerDE.69 (unreleased)
+
+- Show the current game build and multiplayer mod version as a small translucent label in the bottom-right corner.
+
+- Move Supply Co with N and the same immediate placement preview as sale stations. Preserve its shop inventory, interaction and delivery points; save and synchronize the confirmed position and rotation.
+- Synchronize machine animation and loose straw within each player’s overhead viewport, including zoomed-out views, while retaining the actual player position and ordinary nearby updates.
+- Reduce robot-arm destination search work by rejecting out-of-reach router paths before detailed projection and reusing the selected path basis. Preserve reachable destinations and ordering.
+
+
 ## 0.19.6-xRangerDE.68 (unreleased)
 
 - Add Arm Spacing beside the existing arm upgrades: ten ranks reduce required placement spacing by five percentage points each, to 50%, while retaining working reach, base collisions and exclusive cargo claims. Its complete cost is 150,000.

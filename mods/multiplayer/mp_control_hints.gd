@@ -12,6 +12,12 @@ func _hints() -> Array[PackedStringArray]:
 	var hoppers: Node = mp.world_sync.hoppers_sync
 	if not is_instance_valid(hoppers) or not is_instance_valid(hoppers.sale_stations):
 		return rows
+	var supply: Node = hoppers.get("supply_station")
+	if is_instance_valid(supply) and supply.target_id(true) == 1 and player.build_id != supply.move_build_id():
+		var supply_key: Key = supply.move_key()
+		if supply_key != KEY_NONE:
+			rows.push_front(PackedStringArray(["press:key:" + OS.get_keycode_string(supply_key), I18n.phrase("Supply Co versetzen", "Move Supply Co")]))
+		return rows
 	var service: Node = hoppers.sale_stations
 	var id: int = service.target_id(true)
 	if id == 0 or player.build_id == service.MOVE_ID:

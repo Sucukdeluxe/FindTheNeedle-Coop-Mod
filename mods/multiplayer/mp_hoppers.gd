@@ -12,6 +12,7 @@ var mp: Node
 var world_sync: Node
 var receivers: Node
 var sale_stations: Node
+var supply_station: Node
 var tool_input: Node
 var take_vacuum: Callable
 var _state := Store.empty()
@@ -57,6 +58,9 @@ func start(session: Node, sync: Node) -> void:
 	sale_stations = preload("res://mods/multiplayer/mp_sale_stations.gd").new()
 	add_child(sale_stations)
 	sale_stations.start(self)
+	supply_station = preload("res://mods/multiplayer/mp_supply_station.gd").new()
+	add_child(supply_station)
+	supply_station.start(self)
 	tool_input = preload("res://mods/multiplayer/mp_hopper_tool_input.gd").new()
 	add_child(tool_input)
 	tool_input.start(self)
@@ -71,6 +75,8 @@ func _role() -> String:
 func session_started() -> void:
 	if is_instance_valid(sale_stations):
 		sale_stations.session_started()
+	if is_instance_valid(supply_station):
+		supply_station.session_started()
 	ensure_catalog()
 	var mode := _role()
 	if mode == "":
@@ -103,6 +109,8 @@ func session_ended() -> void:
 		tool_input.session_ended()
 	if is_instance_valid(sale_stations):
 		sale_stations.session_ended()
+	if is_instance_valid(supply_station):
+		supply_station.session_ended()
 	if _mode in ["host", "offline"]:
 		_persist()
 	_mode = ""
@@ -123,6 +131,8 @@ func shutdown() -> void:
 		tool_input.shutdown()
 	if is_instance_valid(sale_stations):
 		sale_stations.shutdown()
+	if is_instance_valid(supply_station):
+		supply_station.shutdown()
 	session_ended()
 	if is_instance_valid(world_sync) and is_instance_valid(world_sync.builds) and world_sync.builds.changed.is_connected(invalidate_connections):
 		world_sync.builds.changed.disconnect(invalidate_connections)
@@ -145,6 +155,7 @@ func shutdown() -> void:
 static func ensure_catalog() -> void:
 	preload("res://mods/multiplayer/mp_wall_palette.gd").ensure_catalog()
 	preload("res://mods/multiplayer/mp_sale_stations.gd").ensure_catalog()
+	preload("res://mods/multiplayer/mp_supply_station.gd").ensure_supply_catalog()
 	preload("res://mods/multiplayer/mp_receivers.gd").ensure_catalog()
 	var entries: Dictionary = BuildCatalog.entries()
 	var locale := TranslationServer.get_locale()
@@ -784,6 +795,8 @@ func send_all(peer: int = 0) -> void:
 	var data := {"store": serialize(), "statuses": _statuses.duplicate()}
 	if is_instance_valid(sale_stations):
 		data["sales"] = sale_stations.serialize()
+	if is_instance_valid(supply_station):
+		data["supply"] = supply_station.serialize()
 	if peer > 0:
 		mp._rx_hoppers.rpc_id(peer, _epoch, _seq, data, mp._outgoing_world_seed())
 	else:
@@ -811,6 +824,8 @@ func on_state(epoch: String, seq: int, data: Dictionary) -> void:
 	_rebuild_models()
 	if is_instance_valid(sale_stations) and data.has("sales"):
 		sale_stations.on_state(data.sales)
+	if is_instance_valid(supply_station) and data.has("supply"):
+		supply_station.on_state(data.supply)
 
 static func _failure(message: String) -> Dictionary:
 	return {"ok": false, "message": message}

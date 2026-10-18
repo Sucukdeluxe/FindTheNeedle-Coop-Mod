@@ -2,7 +2,7 @@ extends "res://mods/multiplayer/mp_build_tool.gd"
 
 const RouterCatalog = preload("res://mods/multiplayer/mp_router_catalog.gd")
 const HOPPER_ID := "mp_hopper"
-const SALE_IDS := ["mp_sale_scale", "mp_sale_move"]
+const SALE_IDS := ["mp_sale_scale", "mp_sale_move", "mp_supply_move"]
 var _hopper_wreck := 0
 var _hopper_wreck_time := 0.0
 var _sale_wreck := 0
@@ -19,6 +19,8 @@ func _service() -> Node:
 	var hoppers := _hoppers()
 	if not is_instance_valid(hoppers):
 		return null
+	if player.build_id == "mp_supply_move":
+		return hoppers.get("supply_station")
 	if player.build_id in SALE_IDS:
 		return hoppers.get("sale_stations")
 	return hoppers.receivers if player.build_id in RouterCatalog.ids() else hoppers
@@ -32,7 +34,7 @@ func _sync_ghosts() -> void:
 	var hoppers := _service()
 	var base := _hoppers()
 	if is_instance_valid(base):
-		for service in [base, base.receivers, base.get("sale_stations")]:
+		for service in [base, base.receivers, base.get("sale_stations"), base.get("supply_station")]:
 			if is_instance_valid(service) and service != hoppers:
 				service.preview(player.camera.global_transform, _reach, false)
 	if is_instance_valid(hoppers) and is_instance_valid(player) and is_instance_valid(player.camera):
@@ -83,7 +85,7 @@ func status() -> Dictionary:
 	if is_instance_valid(hoppers):
 		evaluated = hoppers.build_candidate(player.camera.global_transform, _reach)
 	return {"kind": "mp_hopper", "placing": false, "ok": evaluated.get("ok", false),
-		"reason": evaluated.get("reason", ""), "length": 0.0, "cost": float(evaluated.get("cost", RouterCatalog.build_cost(RouterCatalog.count_for(player.build_id)) if player.build_id in RouterCatalog.ids() else (0.0 if player.build_id == "mp_sale_move" else 2500.0))), "reach": _reach, "aim_note": control_hint()}
+		"reason": evaluated.get("reason", ""), "length": 0.0, "cost": float(evaluated.get("cost", RouterCatalog.build_cost(RouterCatalog.count_for(player.build_id)) if player.build_id in RouterCatalog.ids() else (0.0 if player.build_id in ["mp_sale_move", "mp_supply_move"] else 2500.0))), "reach": _reach, "aim_note": control_hint()}
 
 func _begin_dismantle(loud := true) -> void:
 	var hoppers := _hoppers()
@@ -185,6 +187,9 @@ func cancel() -> void:
 		var sale: Variant = base.get("sale_stations")
 		if is_instance_valid(sale):
 			sale.cancel_preview()
+		var supply: Variant = base.get("supply_station")
+		if is_instance_valid(supply):
+			supply.cancel_preview()
 	super.cancel()
 
 func can_toggle_flow() -> bool:
@@ -194,7 +199,7 @@ func flow_hint() -> String:
 	return "" if _is_hopper() else super.flow_hint()
 
 func back_out() -> void:
-	if is_instance_valid(player) and player.build_id == "mp_sale_move":
+	if is_instance_valid(player) and player.build_id in ["mp_sale_move", "mp_supply_move"]:
 		cancel()
 		player.put_away_build()
 		return

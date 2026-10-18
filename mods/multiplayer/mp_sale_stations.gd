@@ -259,9 +259,9 @@ func _placement_reason(at: Vector3, yaw: float, moving: int) -> String:
 func build_candidate(camera: Transform3D, reach: float) -> Dictionary:
 	if not _usable():
 		return {"ok": false, "reason": _tr("Spielwelt wird vorbereitet", "Preparing world")}
-	if world_sync.player.build_id != MOVE_ID:
+	if world_sync.player.build_id != move_build_id():
 		_moving_id = 0
-	if world_sync.player.build_id == MOVE_ID and _moving_id == 0:
+	if world_sync.player.build_id == move_build_id() and _moving_id == 0:
 		return {"ok": false, "reason": _tr("E an einer Verkaufsstelle drücken und Versetzen wählen", "Press E at a sale station and choose Move")}
 	var ray: Dictionary = hoppers._local_build_ray(camera, reach)
 	if ray.is_empty():
@@ -369,14 +369,14 @@ func begin_move(id: int) -> void:
 	if not _usable() or not _pending.is_empty() or world_sync._frozen:
 		return
 	var station := model(id)
-	if not is_instance_valid(station) or not station.mp_can_move():
+	if not is_instance_valid(station) or not _station_can_move(station):
 		world_sync.toast(_tr("Verkaufsstelle zuerst vollständig leeren", "Empty the sale station first"))
 		return
 	if is_instance_valid(_panel):
 		_panel.close()
 	ensure_catalog()
-	world_sync.player.equip_build(MOVE_ID)
-	if world_sync.player.build_id != MOVE_ID or not world_sync.player.build.is_active():
+	world_sync.player.equip_build(move_build_id())
+	if world_sync.player.build_id != move_build_id() or not world_sync.player.build.is_active():
 		return
 	var old := _row(id)
 	var args := {"id": id, "revision": old.revision, "begin": true, "body": world_sync.player.global_transform, "camera": world_sync.player.camera.global_transform}
@@ -412,7 +412,7 @@ func request_place(camera: Transform3D, body: Transform3D, reach: float) -> int:
 func _request(action: String, args: Dictionary) -> int:
 	if not _usable() or not _pending.is_empty():
 		return 0
-	var sequence: int = world_sync.economy.request(action, args)
+	var sequence: int = world_sync.economy.request(_request_action(action), args)
 	if sequence > 0:
 		_pending[sequence] = action
 	return sequence
@@ -426,12 +426,12 @@ func _completed(sequence: int, result: Dictionary) -> void:
 		_move_ready = bool(result.get("ok", false)) and _moving_id > 0
 		if not result.get("ok", false):
 			cancel_preview()
-			if world_sync.player.build_id == MOVE_ID:
+			if world_sync.player.build_id == move_build_id():
 				world_sync.player.put_away_build()
 		return
 	if result.get("ok", false) and action == "sale_move":
 		cancel_preview()
-		if world_sync.player.build_id == MOVE_ID:
+		if world_sync.player.build_id == move_build_id():
 			world_sync.player.put_away_build()
 
 func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
@@ -451,7 +451,7 @@ func execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		elif not hoppers._near(peer, args, old.position, Cfg.BUILD_REACH_MAX + Tech.build_reach_bonus() + 8.0, true):
 			return _failure(_tr("Verkaufsstelle wurde geändert oder ist außer Reichweite", "Sale station changed or out of reach"))
 		var station := model(id)
-		if not is_instance_valid(station) or not station.mp_can_move():
+		if not is_instance_valid(station) or not _station_can_move(station):
 			return _failure(_tr("Verkaufsstelle zuerst vollständig leeren", "Empty the sale station first"))
 	if action == "sale_move" and args.get("begin", false) == true:
 		_move_origins[peer] = {"id": id, "revision": old.revision}
@@ -520,7 +520,7 @@ func target_id(allow_build_camera := false) -> int:
 	var query := PhysicsRayQueryParameters3D.create(ray.origin, ray.origin + ray.direction * float(ray.length), Cfg.L_BUILD | Cfg.L_WORLD)
 	var hit: Dictionary = preload("res://mods/multiplayer/mp_build_cutaway.gd").intersect_ray(world_sync.world.get_world_3d().direct_space_state, query, ray.has("view"))
 	var collider: Variant = hit.get("collider")
-	return int(collider.get_meta("mp_sale_station", 0)) if is_instance_valid(collider) else 0
+	return int(collider.get_meta(_station_meta(), 0)) if is_instance_valid(collider) else 0
 
 func request_remove(id: int) -> int:
 	var row := _row(id)
@@ -584,3 +584,15 @@ static func _failure(message: String) -> Dictionary:
 
 static func _tr(de: String, en: String) -> String:
 	return preload("res://mods/multiplayer/mp_i18n.gd").phrase(de, en)
+
+func move_build_id() -> String:
+	return MOVE_ID
+
+func _station_can_move(station: Node3D) -> bool:
+	return station.mp_can_move()
+
+func _request_action(action: String) -> String:
+	return action
+
+func _station_meta() -> String:
+	return "mp_sale_station"

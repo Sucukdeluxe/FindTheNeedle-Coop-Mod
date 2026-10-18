@@ -150,22 +150,12 @@ func _process(delta: float) -> void:
 
 
 func _watchers() -> Array:
-	var out: Array = []
 	var ws: Node = mp.world_sync
-	if ws == null or not is_instance_valid(ws):
-		return out
-	for id in ws.avatars:
-		var a: Variant = ws.avatars[id]
-		if a != null and is_instance_valid(a) and (a as Node3D).is_inside_tree():
-			out.append((a as Node3D).global_position)
-	return out
+	return ws.network_watchers() if is_instance_valid(ws) else []
 
 
 func _near(at: Vector3, watchers: Array) -> bool:
-	for w in watchers:
-		if at.distance_squared_to(w) < RANGE * RANGE:
-			return true
-	return false
+	return preload("res://mods/multiplayer/mp_view_interest.gd").near(at, watchers, RANGE)
 
 
 # Pick up straws that are ours and close enough to somebody else to matter,

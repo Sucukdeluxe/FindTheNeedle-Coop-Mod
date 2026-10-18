@@ -76,15 +76,24 @@ static func drops(builds: Node, from: Vector3, reach: float, only: BeltPath = nu
 	var candidates := [only] if only != null else all(builds, true)
 	for candidate in candidates:
 		var path: BeltPath = candidate
-		if owner_of(path) == null or not usable(path):
+		if owner_of(path) == null or not usable(path) or not _within_bounds(path, from, reach):
 			continue
 		var deck := point(path, from, true)
 		if not valid_drop(path, deck):
 			continue
-		var at := deck + path._basis_at(path.s_at(deck)).y * 0.26
+		var basis := path._basis_at(path.s_at(deck))
+		var at := deck + basis.y * 0.26
 		var distance := from.distance_squared_to(at)
 		if distance < reach * reach:
 			result.append({"conveyor": path, "point": at,
-				"forward": -path._basis_at(path.s_at(deck)).z, "distance2": distance})
+				"forward": -basis.z, "distance2": distance})
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.distance2 < b.distance2)
 	return result
+
+static func _within_bounds(path: BeltPath, from: Vector3, reach: float) -> bool:
+	if path._line.size() < 2:
+		return true
+	var bounds := AABB(path._line[0], Vector3.ZERO)
+	for point in path._line:
+		bounds = bounds.expand(point)
+	return bounds.grow(reach + 0.27).has_point(from)
