@@ -2,6 +2,9 @@
 
 ## 0.19.6-xRangerDE.74 (unreleased)
 
+- Keep one player’s build-preview preparation from blocking other players’ actions. Dismantling no longer waits for placement previews.
+- Ignore hidden roofs and unrelated sensor areas when selecting objects for dismantling in overhead view; preserve solid-world obstruction and select colliders at close range.
+
 - Add optional enclosures to 4-, 6- and 8-port mergers and splitters after unlocking enclosed conveyors. Empty modules can be covered or uncovered through their existing settings; routing controls stay accessible, and enclosure state is saved and synchronized.
 
 - Keep sale and Supply Co services active when switching between offline play and hosting. Clear sold extra sale stations from a new prestige world.

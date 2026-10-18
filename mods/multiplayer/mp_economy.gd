@@ -188,16 +188,28 @@ func on_request(peer: int, token: String, seq: int, action: String, args: Dictio
 func _physics_process(_delta: float) -> void:
 	if mp == null or not mp.active() or not mp.is_host or _queue.is_empty():
 		return
-	var entry: Dictionary = _queue[0]
+	var index := -1
+	var preparation := 1
+	var seen := {}
+	for i in _queue.size():
+		var waiting: Dictionary = _queue[i]
+		var pid := int(waiting.peer)
+		if seen.has(pid):
+			continue
+		seen[pid] = true
+		var ready := 1
+		if mp.players.has(pid) and int(waiting.seq) > int(_last.get(pid, 0)) and not world_sync._frozen and waiting.action == "place":
+			ready = _prepare_build_tool(pid, waiting.args)
+		if ready != 0:
+			index = i
+			preparation = ready
+			break
+	if index < 0:
+		return
+	var entry: Dictionary = _queue[index]
 	var peer := int(entry.peer)
 	var seq := int(entry.seq)
-	var preparation := 1
-	if mp.players.has(peer) and seq > int(_last.get(peer, 0)) and not world_sync._frozen \
-			and entry.action in ["place", "demolish", "demolish_tile", "reverse"]:
-		preparation = _prepare_build_tool(peer, entry.args)
-		if preparation == 0:
-			return
-	_queue.pop_front()
+	_queue.remove_at(index)
 	_queued.erase(str(peer) + ":" + str(seq))
 	if not mp.players.has(peer):
 		return

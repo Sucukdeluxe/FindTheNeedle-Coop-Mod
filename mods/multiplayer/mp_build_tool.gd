@@ -254,7 +254,49 @@ func dismantle_reach() -> float:
 	var ray := _camera_ray()
 	return float(ray.length) if not ray.is_empty() else super.dismantle_reach()
 
+func _mp_target_hit(reach: float) -> Dictionary:
+	if not is_instance_valid(player) or not is_instance_valid(builds):
+		return {}
+	var ray := _camera_ray()
+	var origin: Vector3 = ray.get("origin", player.eye_position())
+	var direction: Vector3 = ray.get("direction", player.look_direction())
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * reach, Cfg.L_BUILD | Cfg.L_WORLD)
+	query.collide_with_areas = true
+	query.hit_from_inside = true
+	var space := get_world_3d().direct_space_state
+	for i in 32:
+		var hit := Cutaway.intersect_ray(space, query, not ray.is_empty())
+		if hit.is_empty():
+			return {}
+		var collider: Node = hit.get("collider")
+		if not (collider is Area3D) or builds.owner_of(collider) != null:
+			return hit
+		var excluded := query.exclude
+		excluded.append(hit.rid)
+		query.exclude = excluded
+	return {}
+
+func dismantle_target() -> Node3D:
+	var hit := _mp_target_hit(dismantle_reach())
+	if hit.is_empty():
+		return null
+	_wreck_aim = hit.position - hit.normal * 0.05
+	var target: Node3D = builds.owner_of(hit.get("collider"))
+	if target is Platform and _camera_ray().is_empty():
+		var lid: Node3D = builds.roof_lying_at(hit.position)
+		if lid != null:
+			return lid
+	return target
+
 func _input(event: InputEvent) -> void:
+	var focus := get_viewport().gui_get_focus_owner()
+	if event is InputEventKey and is_instance_valid(focus) and focus.is_visible_in_tree() and (focus is LineEdit or focus is TextEdit):
+		_end_rotation(false)
+		return
+	var controller: Variant = player.get("mp_build_camera") if is_instance_valid(player) and "mp_build_camera" in player else null
+	var panel: Variant = controller.get_meta("mp_device_panel") if is_instance_valid(controller) and controller.has_meta("mp_device_panel") else null
+	if event is InputEventMouse and is_instance_valid(panel) and panel.contains_mouse(event.position):
+		return
 	if event.is_action_pressed("mp_parallel", false, true) and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
 		_mp_parallel = not _mp_parallel
 		_pick += 1
@@ -279,7 +321,6 @@ func _input(event: InputEvent) -> void:
 		_mp_rotate_held = true
 		_mp_rotate_dragged = false
 		_mp_rotate_pending = 0.0
-		var controller: Variant = player.get("mp_build_camera") if "mp_build_camera" in player else null
 		if is_instance_valid(controller) and controller.active:
 			controller.begin_rotation()
 		get_viewport().set_input_as_handled()
