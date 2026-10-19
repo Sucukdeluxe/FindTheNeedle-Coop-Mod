@@ -739,6 +739,10 @@ func _draw_custom_preview_flow(chains: Array, delta: float) -> void:
 func _draw_wye_hint() -> void:
 	if is_instance_valid(_hint_wye) and _hint_wye.has_method("port_is_output"):
 		var chains := _custom_router_chains(_hint_wye)
+		if chains.is_empty():
+			_hint_flow.hide()
+			_hint_flow.multimesh.visible_instance_count = 0
+			return
 		_hint_flow.show()
 		_fill_flow(_hint_flow.multimesh, chains, WYE_ARROW_PITCH, ARROW_LIFT, Color(1.0, 1.0, 1.0, _hint_level))
 		return
@@ -746,6 +750,8 @@ func _draw_wye_hint() -> void:
 
 func _custom_router_chains(node: Node3D) -> Array:
 	var chains := []
+	if not is_instance_valid(node) or not node.is_inside_tree() or node.is_queued_for_deletion():
+		return chains
 	for side in int(node.port_count):
 		var tip: Vector3 = node.port(side)
 		var outward := (tip - node.global_position).normalized()
