@@ -2,7 +2,7 @@
 
 ## 0.19.6-xRangerDE.74 (unreleased)
 
-- Add a held-R rotation preview for existing empty machines, including the feed-disc press. Left click confirms, right click or Escape cancels, and the authoritative host validates the target and synchronizes the new yaw.
+- Add a held-R green rotation preview for existing empty machines, including the feed-disc press. Left click confirms, right click or Escape cancels, and the authoritative host validates the target and synchronizes the new yaw.
 - Stop complete conveyor lines for every player, including hay, riders and surface motion. Persist line switches and restore them on load; new prestige maps start with no stopped lines.
 - Route belt, machine and vacuum synchronization through separate transport channels and cache belt ownership lookups to reduce interaction delays on loaded hosts.
 - Add atomic line, pole and device switching to the overhead device panel, with localized search, filtering, focus and pending states.

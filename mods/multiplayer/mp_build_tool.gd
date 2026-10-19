@@ -35,6 +35,7 @@ var _mp_existing_target: Node3D
 var _mp_existing_yaw := 0.0
 var _mp_existing_origin := 0.0
 var _mp_existing_pending := 0.0
+var _mp_existing_materials := {}
 const FLOW_TOGGLE_KEY := KEY_F6
 const ROTATE_RADIANS_PER_PIXEL := 0.008
 const ROTATE_DRAG_THRESHOLD := 3.0
@@ -292,6 +293,20 @@ func dismantle_target() -> Node3D:
 			return lid
 	return target
 
+func _show_existing_preview(target: Node3D) -> void:
+	_mp_existing_materials.clear()
+	var overlay: Material = ConveyorKit.ghost_material(true)
+	for node in target.find_children("*", "GeometryInstance3D", true, false):
+		if node is GeometryInstance3D:
+			_mp_existing_materials[node] = node.material_overlay
+			node.material_overlay = overlay
+
+func _clear_existing_preview() -> void:
+	for node in _mp_existing_materials:
+		if is_instance_valid(node):
+			node.material_overlay = _mp_existing_materials[node]
+	_mp_existing_materials.clear()
+
 func _begin_existing_rotation(target: Node3D) -> void:
 	if not is_instance_valid(target) or target is Conveyor or not is_instance_valid(player):
 		return
@@ -299,11 +314,13 @@ func _begin_existing_rotation(target: Node3D) -> void:
 	_mp_existing_origin = target.global_rotation.y
 	_mp_existing_yaw = _mp_existing_origin
 	_mp_existing_pending = 0.0
+	_show_existing_preview(target)
 	_mp_rotate_held = true
 	_mp_rotate_dragged = false
 	get_viewport().set_input_as_handled()
 
 func _cancel_existing_rotation() -> void:
+	_clear_existing_preview()
 	if is_instance_valid(_mp_existing_target):
 		_mp_existing_target.global_rotation.y = _mp_existing_origin
 	_mp_existing_target = null
@@ -312,6 +329,7 @@ func _cancel_existing_rotation() -> void:
 	_mp_rotate_dragged = false
 
 func _confirm_existing_rotation() -> void:
+	_clear_existing_preview()
 	var target := _mp_existing_target
 	var yaw := _mp_existing_yaw
 	_mp_existing_target = null
