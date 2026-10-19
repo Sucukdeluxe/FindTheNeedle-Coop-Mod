@@ -1,14 +1,19 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.77
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.78
 
 Das Multiplayer-Menü führt durch Sitzung, Freunde und Spielstand. Gastgeber können die native Spielstandauswahl direkt öffnen. Gäste sehen ihren Verbindungs- und Ladezustand. IP-Verbindungen sind im aufklappbaren Bereich verfügbar. Die Oberfläche und ihre Statusmeldungen unterstützen alle 17 Spielsprachen.
 
 Community-Korrekturfassung für die hier vorhandene Find-The-Needle-Demo.
 Alle Teilnehmer brauchen exakt dieselbe Mod-Version.
 
-BEDIENUNG .67
+BEDIENUNG
 - R halten und Maus links/rechts: frei drehen. R antippen: feste Drehschritte.
 - F6: Laufrichtung des gerade gezeichneten Förderbands umkehren.
 - F9: Parallel-Modus für benachbarte Förderbänder in freien Winkeln und Kurven.
+  Die Taste lässt sich unter Steuerung ändern. Jeder Spieler hat seine eigene Vorschau.
+- Bestehende leere Maschine anvisieren und R halten: drehen. Linksklick bestätigt,
+  Rechtsklick oder Escape bricht ab. Der Host prüft die gemeinsame Änderung.
+- In der Vogelperspektive öffnet sich rechts die Geräteliste. Maschinen und ganze
+  Förderbandlinien lassen sich dort für alle Spieler ein- und ausschalten.
 - Lange Förderbänder in einem Vorgang ziehen; verbundene native Abschnitte
   erhalten den Meterpreis und die Prüfung von Hindernissen und Steigung.
 - Vogelperspektive: Maschine mit Maus anvisieren und E für Einstellungen drücken.
@@ -34,7 +39,7 @@ INSTALLATION AUF WEITEREN RECHNERN
    Das ZIP enthält keine override.cfg und ersetzt keine Grafikeinstellungen.
 5. Über Steam starten. Der Host lädt seinen Spielstand und lädt die Mitspieler ein.
 
-PREISE UND GUTSCHRIFT .54
+PREISE UND GUTSCHRIFT
 - Größerer Eimer: alle Stufen zusammen 10.000.
 - Schneller ausschütten: alle Stufen zusammen 12.000.
 - Präzise Nadelortung: 7.500. Verkaufspreis-Stufen: zusammen weiterhin 12.885.
@@ -92,12 +97,11 @@ WEITERE FUNKTIONEN
   für den Netzwerkabgleich zwischengespeichert, Änderungen lösen einen Neuaufbau aus.
 
 PRÜFGRENZEN DIESER FASSUNG
-Gezielte Tests mit der nativen V62-Laufzeit ohne sichtbares Fenster: alle
-sechs Gerätetypen, Kaufreihen und getrennte Baukosten, doppelte Bauanfragen,
-Ändern der Anschlüsse, Speichern/Laden, beladener Bandeinbau, gleichzeitige
-Sammlerzuflüsse und Rückstau mit Wiederanlauf. Einzelne Umgebungsteile der
-Kaufprüfung verwenden Ersatzabhängigkeiten. Kein neuer Zwei-PC-Steam-/
-Internettest und kein Nachweis der gerenderten GPU-Leistung. Die erweiterte
+Gezielte Tests mit der nativen V66-Laufzeit ohne sichtbares Fenster prüfen unter
+anderem Bauaktionen, Drehung, Prestige, Stromgruppen, Bandstopps und Ladungsübergaben.
+Lasttests verwenden eine große Produktionswelt und bis zu acht lokale Spielprozesse.
+Netzwerkprüfungen simulieren Verzögerung, Paketverlust und doppelte Pakete.
+Das belegt keine feste Bildrate und ersetzt keinen Zwei-PC-Steam-/Internettest. Die erweiterte
 Geräteauswahl erfordert dieselbe Version bei allen Spielern. Vorhandene
 Gebäude und Kaufstufen bleiben erhalten.
 
@@ -116,8 +120,7 @@ SAUGER-UPGRADES
 - Kapazität: 41 Stufen bis 50.000 Halme. Nach Stufe 27 kommen
   14 zusätzliche Stufen mit jeweils 2.500 Halmen hinzu.
 - Saugkraft: 20 Stufen bis 1.000 Halme pro Sekunde.
-- Die drei nativen Basispreise bleiben erhalten. Bereits vorhandene erste sechs
-  Alle 41 Kapazitätsstufen kosten zusammen 300.000, alle 20 Saugkraftstufen 200.000.
+- Die drei nativen Basispreise bleiben erhalten. Alle 41 Kapazitätsstufen kosten zusammen 300.000, alle 20 Saugkraftstufen 200.000.
   Gekaufte Stufen bleiben erhalten.
 - Behebt die in .42/.43 fehlenden Stufen bei einem nativen Katalog mit drei Stufen.
 - Käufe werden weiterhin vom Host geprüft und gemeinsam synchronisiert.
@@ -293,9 +296,9 @@ WEITERE SYNCHRONISIERUNG
 - Eine Heuladung auf Schaufel/Heugabel ist beim anderen Spieler als Modell sichtbar.
 
 PRÜFUMFANG
-Die Mod wird mit isolierten Godot-/GDRE-Prüfungen und echten fensterlosen
-V62-Spielprozessen mit nativer Förderband-Erweiterung geprüft. Host und zwei
-Gäste verwenden getrennte Testspielstände. Geprüft werden unter anderem Käufe,
+Aktuelle Prüfungen laufen mit isolierten Godot-/GDRE-Tests und fensterlosen
+V66-Spielprozessen mit nativer Förderband-Erweiterung. Ältere Ergebnisse beziehen
+sich auf V62. Gastgeber und bis zu sieben Gäste verwenden getrennte Testspielstände. Geprüft werden unter anderem Käufe,
 Werkzeuge, Nadeln, Trichter, Kurven, Pressen, Wickler, Lift, Verteiler und Prestige.
 Netzwerkprüfungen simulieren Paketverlust und doppelte Pakete auf localhost.
 Diese Prüfungen belegen keine Fehlerfreiheit für alle Spielstände. Ein Test mit

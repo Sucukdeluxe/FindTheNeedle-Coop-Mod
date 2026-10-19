@@ -148,7 +148,7 @@ func request(action: String, args: Dictionary) -> int:
 	if mp.is_host:
 		on_request(1, epoch, _next, action, args)
 	else:
-		(mp._rx_vacuum_request if action.begins_with("vacuum_") else mp._rx_economy_request).rpc_id(1, epoch, _next, action, args, mp._outgoing_world_seed())
+		_request_rpc(action).rpc_id(1, epoch, _next, action, args, mp._outgoing_world_seed())
 	return _next
 
 func _execute_local(seq: int, action: String, args: Dictionary) -> void:
@@ -231,6 +231,9 @@ func _physics_process(_delta: float) -> void:
 	_results[peer][seq] = result.duplicate(true)
 	while _results[peer].size() > CACHE_LIMIT:
 		_results[peer].erase(_results[peer].keys()[0])
+	if entry.action == "power":
+		_reply(peer, seq, result)
+		return
 	if not entry.action.begins_with("needle_") and not entry.action.begins_with("vacuum_") and entry.action not in ["hopper_deposit", "hopper_tool_deposit", "hopper_tool_ack", "hopper_tool_resolve", "sweep_floor", "order_pile"]:
 		world_sync._flush_builds()
 	if entry.action == "t_configure" and result.get("ok", false):
@@ -248,13 +251,13 @@ func _process(delta: float) -> void:
 	_retry = 0.0
 	for seq in pending:
 		var entry: Dictionary = pending[seq]
-		(mp._rx_vacuum_request if str(entry.action).begins_with("vacuum_") else mp._rx_economy_request).rpc_id(1, epoch, int(seq), entry.action, entry.args, mp._outgoing_world_seed())
+		_request_rpc(str(entry.action)).rpc_id(1, epoch, int(seq), entry.action, entry.args, mp._outgoing_world_seed())
 
 func _reply(peer: int, seq: int, result: Dictionary) -> void:
 	if peer == 1:
 		on_result(epoch, seq, result)
 	else:
-		(mp._rx_vacuum_result if str(result.get("action", "")).begins_with("vacuum_") else mp._rx_economy_result).rpc_id(peer, epoch, seq, result, mp._outgoing_world_seed())
+		_result_rpc(str(result.get("action", ""))).rpc_id(peer, epoch, seq, result, mp._outgoing_world_seed())
 
 func on_result(token: String, seq: int, result: Dictionary) -> void:
 	if token != epoch or not pending.has(seq):
@@ -882,3 +885,13 @@ func _configure_t(args: Dictionary) -> Dictionary:
 	now.set_meta("mp_t_revision", _t_revision)
 	world_sync.machines_sync.send_all(0)
 	return {"ok": true, "target": BuildSnapshot.row(now), "t_revision": _t_revision}
+
+func _request_rpc(action: String) -> Callable:
+	if action == "power":
+		return mp._rx_power_request
+	return mp._rx_vacuum_request if action.begins_with("vacuum_") else mp._rx_economy_request
+
+func _result_rpc(action: String) -> Callable:
+	if action == "power":
+		return mp._rx_power_result
+	return mp._rx_vacuum_result if action.begins_with("vacuum_") else mp._rx_economy_result

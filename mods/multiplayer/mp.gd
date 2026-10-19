@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.77"
+const VERSION := "0.19.6-xRangerDE.78"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -787,6 +787,7 @@ func release_profile() -> void:
 
 
 func _on_peer_connected(id: int) -> void:
+	_tune_connection_timeout(id)
 	trace.note("peer %d connected" % id)
 	if is_host:
 		print("[MPMod] peer %d connected" % id)
@@ -832,6 +833,7 @@ func _broadcast_players() -> void:
 
 
 func _on_connected() -> void:
+	_tune_connection_timeout(1)
 	phase = Phase.LOBBY
 	ui.notify(t("connected_waiting"))
 	_rx_hello.rpc_id(1, my_name, VERSION, tool_profile)
@@ -1417,7 +1419,7 @@ func _rx_mice(epoch: String, sequence: int, packed: PackedByteArray, raw_size: i
 		world_sync.mice_sync.on_state(epoch, sequence, packed, raw_size)
 
 
-@rpc("authority", "call_remote", "reliable", 0)
+@rpc("authority", "call_remote", "reliable", 4)
 func _rx_power_state(epoch: String, state: Dictionary, world_seed: int = -1) -> void:
 	if not _accept_world_seed(world_seed):
 		return
@@ -1890,3 +1892,25 @@ func _rx_sweep_report(epoch: String, seed: int, token: String, rows: Array, ok: 
 func _rx_sweep_finished(epoch: String, seed: int, token: String, result: Dictionary) -> void:
 	if is_instance_valid(world_sync) and is_instance_valid(world_sync.sweep_sync):
 		world_sync.sweep_sync.on_finished(epoch, seed, token, result)
+
+func _tune_connection_timeout(id: int) -> void:
+	var peer := multiplayer.multiplayer_peer
+	if not peer is ENetMultiplayerPeer or (not is_host and id != 1):
+		return
+	var connection: ENetPacketPeer = peer.get_peer(id)
+	if connection != null:
+		connection.set_timeout(32, 15000, 45000)
+
+@rpc("any_peer", "call_remote", "reliable", 4)
+func _rx_power_request(epoch: String, seq: int, action: String, args: Dictionary, world_seed: int = -1) -> void:
+	if action != "power" or not _accept_world_seed(world_seed):
+		return
+	if is_host and world_sync != null and world_sync.economy != null:
+		world_sync.economy.on_request(multiplayer.get_remote_sender_id(), epoch, seq, action, args)
+
+@rpc("authority", "call_remote", "reliable", 4)
+func _rx_power_result(epoch: String, seq: int, result: Dictionary, world_seed: int = -1) -> void:
+	if result.get("action", "") != "power" or not _accept_world_seed(world_seed):
+		return
+	if world_sync != null and world_sync.economy != null:
+		world_sync.economy.on_result(epoch, seq, result)

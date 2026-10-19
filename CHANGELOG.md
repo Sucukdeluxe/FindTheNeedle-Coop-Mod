@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.6-xRangerDE.78 — 19.10.2026
+
+- Skip stationary machine-part interpolation and reuse transport ancestry checks within each outgoing packet. Preserve full corrections when a part or observer changes.
+- Load hidden host build previews only when needed, and use the build revision to confirm actions without rescanning the complete factory.
+- Bundle normal vacuum right-click output aimed at 4-, 6- and 8-port mergers/splitters into small hay tufts. Preserve the native pouring rate, remaining inventory and needles.
+- Stop querying detached merger/splitter hint geometry after removal.
+- Give power commands, their acknowledgements and power snapshots a dedicated reliable channel. Skip redundant building/economy snapshots after power actions, while retaining authoritative power updates.
+- Allow longer ENet acknowledgements during loaded-world traffic bursts and reserve the fifth channel in Steam peers.
+
 ## 0.19.6-xRangerDE.77 — 19.10.2026
 
 - Route machine animation, flags, effects and arm cargo only to guests whose player position or overhead view is inside the machine interest range. Keep a separate interest cache per guest so a newly approaching player receives the full current state immediately.
@@ -16,7 +25,7 @@
 - Reduce machine pose serialization frequency slightly while retaining periodic full correction frames.
 - Keep the existing host-authoritative simulation and transport validation unchanged.
 
-## 0.19.6-xRangerDE.74
+## 0.19.6-xRangerDE.74 — 19.10.2026
 
 - Add a held-R green rotation preview for existing empty machines, including the feed-disc press. Left click confirms, right click or Escape cancels, and the authoritative host validates the target and synchronizes the new yaw.
 - Stop complete conveyor lines for every player, including hay, riders and surface motion. Persist line switches and restore them on load; new prestige maps start with no stopped lines.
@@ -36,7 +45,7 @@
 - Prevent hidden authoritative build helpers from consuming the local player's parallel-mode and rotation input.
 - Add Parallel conveyor mode to the native Controls menu, with saved bindings, conflict handling, translated labels and matching in-game hints.
 
-## 0.19.6-xRangerDE.73
+## 0.19.6-xRangerDE.73 — 18.10.2026
 
 - Keep name, IP and port field borders inside their bounds so the scroll container does not clip the focused edges.
 - Show players in aligned rows with one host label, a separate localized status and ellipsis for long names. Reuse rows until player data or language changes.

@@ -1,0 +1,20 @@
+Find The Needle Co-op – Paket mit Zusatzmods
+
+Dieses Paket enthält Multiplayer, Production Speed, Tool Upgrades und Autonomous Mice.
+Alle Teilnehmer brauchen dieselbe Mod-Version und dieselbe unterstützte Spielversion.
+
+1. Spiel beenden. Vorhandene Mods, override.cfg und Spielstände sichern.
+2. Den enthaltenen mods-Ordner neben FindTheNeedle.exe kopieren.
+3. Die Einträge aus override.example.cfg unter [autoload] in die vorhandene override.cfg übernehmen.
+   Vorhandene andere Einstellungen beibehalten. Die Beispieldatei enthält keine Grafikeinstellungen.
+4. Über Steam starten. Der Host öffnet Mehrspieler, erstellt die Sitzung und lädt den Spielstand.
+   Freunde nehmen seine Steam-Einladung an.
+
+Alle acht Teilnehmer verwenden ihre eigene mp_settings.cfg. Keine Spielstände, persönlichen
+Einstellungen oder Diagnoseprotokolle als Installationsdateien weitergeben.
+
+Bedienung und Upgrade-Preise: mods/multiplayer/ANLEITUNG-DE.txt.
+Änderungen mit Veröffentlichungsdatum: CHANGELOG.md.
+
+Die Tests laufen mit isolierten nativen Spielprozessen ohne Grafikfenster. Ein Zwei-PC-Test
+über Steam/Internet und eine gerenderte Leistungsmessung bleiben offen.
