@@ -433,7 +433,7 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 		return _failure("purchase_declined")
 	if action == "demolish_tile" and not (args.get("tile") is Rect2):
 		return _failure("purchase_declined")
-	var actor := _actor(peer, args, action in ["place", "demolish", "demolish_tile", "reverse"])
+	var actor := _actor(peer, args, action in ["place", "demolish", "demolish_tile", "reverse", "rotate_existing"])
 	if actor == null:
 		return _failure("purchase_declined")
 	match action:
@@ -455,6 +455,8 @@ func _execute(peer: int, action: String, args: Dictionary) -> Dictionary:
 			return _configure_t(args)
 		"place":
 			return _build(actor, action, args)
+		"rotate_existing":
+			return _rotate_existing(actor, args)
 		"demolish", "demolish_tile", "reverse":
 			return _edit(actor, action, args)
 	return _failure("purchase_declined")
@@ -657,9 +659,13 @@ func _rotate_existing(actor: Player, args: Dictionary) -> Dictionary:
 		if field in target and int(target.get(field)) > 0:
 			return _failure("building_invalid")
 	var before: Dictionary = world_sync._scan_builds()
-	target.global_rotation.y = wrapf(float(args.yaw), -PI, PI)
+	var yaw := wrapf(float(args.yaw), -PI, PI)
+	target.rotation.y = yaw
+	target.global_rotation.y = yaw
 	world_sync.builds.rebuild_junctions()
 	world_sync.builds.rebuild_water_joints()
+	target.rotation.y = yaw
+	target.global_rotation.y = yaw
 	world_sync.builds.changed.emit()
 	var changed: bool = before != world_sync._scan_builds()
 	return {"ok": changed, "message": "" if changed else mp.t("building_invalid"), "yaw": target.global_rotation.y}

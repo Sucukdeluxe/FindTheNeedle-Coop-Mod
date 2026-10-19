@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.19.6-xRangerDE.75 (unreleased)
+## 0.19.6-xRangerDE.76 — 19.10.2026
+
+- Keep existing machine rotation authoritative in multiplayer: the host validates the same snapshot used by the guest preview, applies the yaw once and broadcasts the changed building state.
+- Skip unchanged player pose packets and send a 0.5-second keepalive. Idle players no longer add a continuous broadcast stream while movement, tool state and build-camera interest still update immediately.
+
+## 0.19.6-xRangerDE.75 — 19.10.2026
 
 - Reduce loaded-world multiplayer stalls during heavy production. Belt snapshots send nearby moving cargo at a higher cadence and full-world corrections periodically; guests apply partial snapshots without rebuilding distant belts.
 - Reduce machine pose serialization frequency slightly while retaining periodic full correction frames.

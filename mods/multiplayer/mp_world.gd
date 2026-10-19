@@ -17,6 +17,7 @@ var _mission_reported_index := 0
 var player: Node
 
 const POSE_HZ := 20.0
+const POSE_KEEPALIVE := 0.5
 const HAY_TICK := 0.12
 const HAY_FULL_SCAN := 3.0
 const HAY_EPS := 0.002
@@ -85,6 +86,17 @@ var boards_sync: Node  # what is drawn on the paint boards
 var mice_sync: Node
 var scanner_sync: Node
 var _pose_t := 0.0
+var _pose_age := POSE_KEEPALIVE
+var _pose_valid := false
+var _pose_position := Vector3.ZERO
+var _pose_yaw := 0.0
+var _pose_pitch := 0.0
+var _pose_crouch := 0.0
+var _pose_moving := 0.0
+var _pose_tool := -1
+var _pose_hands := 0
+var _pose_fill := 0.0
+var _pose_view := Vector4.ZERO
 
 var _hay_base := PackedFloat32Array()
 var _hay_cand := {}
@@ -303,6 +315,9 @@ func rebaseline() -> void:
 	_holder.clear()
 	for idx in _needle_bodies():
 		_needles[idx] = "free"
+	_pose_t = 0.0
+	_pose_age = POSE_KEEPALIVE
+	_pose_valid = false
 	_frozen = false
 
 
@@ -372,6 +387,7 @@ func _process(delta: float) -> void:
 	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
 		return
 	_pose_t += delta
+	_pose_age += delta
 	if _pose_t >= 1.0 / POSE_HZ:
 		_pose_t = 0.0
 		_send_pose()
@@ -428,8 +444,34 @@ func _send_pose() -> void:
 	if player.has_method("crouch_amount"):
 		crouch = float(player.crouch_amount())
 	var moving: float = (player.velocity * Vector3(1, 0, 1)).length() if "velocity" in player else 0.0
+	var hands := _hands()
+	var tool_fill := _tool_fill()
+	var build_view := preload("res://mods/multiplayer/mp_view_interest.gd").capture(build_camera)
+	var unchanged := _pose_valid \
+		and _pose_position.distance_squared_to(player.global_position) <= 0.0001 \
+		and absf(wrapf(_pose_yaw - player.rotation.y, -PI, PI)) <= 0.001 \
+		and absf(_pose_pitch - pitch) <= 0.001 \
+		and absf(_pose_crouch - crouch) <= 0.001 \
+		and absf(_pose_moving - moving) <= 0.01 \
+		and _pose_tool == int(player.get("current_tool")) \
+		and _pose_hands == hands \
+		and absf(_pose_fill - tool_fill) <= 0.001 \
+		and _pose_view == build_view
+	if unchanged and _pose_age < POSE_KEEPALIVE:
+		return
+	_pose_valid = true
+	_pose_age = 0.0
+	_pose_position = player.global_position
+	_pose_yaw = player.rotation.y
+	_pose_pitch = pitch
+	_pose_crouch = crouch
+	_pose_moving = moving
+	_pose_tool = int(player.get("current_tool"))
+	_pose_hands = hands
+	_pose_fill = tool_fill
+	_pose_view = build_view
 	mp._rx_pose.rpc(player.global_position, player.rotation.y, pitch,
-		int(player.get("current_tool")), crouch, moving, _hands(), _tool_fill(), mp._outgoing_world_seed(), preload("res://mods/multiplayer/mp_view_interest.gd").capture(build_camera))
+		_pose_tool, crouch, moving, hands, tool_fill, mp._outgoing_world_seed(), build_view)
 
 
 # What is in our bare hands, in one number: how many straws in the low four
