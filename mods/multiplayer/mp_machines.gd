@@ -423,6 +423,7 @@ func _pose_audience() -> Dictionary:
 
 
 func _send_poses() -> void:
+	var transport_checks := {}
 	var audience := _pose_audience()
 	var wanted := {}
 	var refresh := {}
@@ -462,7 +463,7 @@ func _send_poses() -> void:
 		var rows := PackedFloat32Array()
 		for i in parts.size():
 			var part: Variant = parts[i]
-			if not _live_part(key, part):
+			if not _part_attached(key, part) or _is_transport_part(part, transport_checks):
 				continue
 			var node := part as Node3D
 			flags[i] = _flags_of(node)
@@ -1611,30 +1612,49 @@ func _refresh_processor_belt(node: Node) -> void:
 
 
 func _live_part(key: String, part: Variant) -> bool:
+	return _part_attached(key, part) and not _is_transport_part(part)
+
+func _part_attached(key: String, part: Variant) -> bool:
 	var machine: Variant = _nodes.get(key)
 	return is_instance_valid(machine) and machine is Node3D \
 		and machine.is_inside_tree() and not machine.is_queued_for_deletion() \
 		and is_instance_valid(part) and part is Node3D \
 		and part.is_inside_tree() and not part.is_queued_for_deletion() \
-		and machine.is_ancestor_of(part) and not _is_transport_part(part)
+		and machine.is_ancestor_of(part)
 
 
-func _is_transport_part(part: Node) -> bool:
+func _is_transport_part(part: Node, checked: Variant = null) -> bool:
 	var current := part
+	var visited: Array[Node] = []
+	var found := false
 	while is_instance_valid(current):
+		if checked != null and checked.has(current):
+			found = bool(checked[current])
+			break
+		if checked != null:
+			visited.append(current)
 		if current is BeltPath or current.name == "Marker_BeltIn" or current.name == "Marker_BeltOut" or current.has_meta("mp_lift_cargo") or current.has_meta("mp_arm_visual"):
-			return true
+			found = true
+			break
 		var parent := current.get_parent()
 		if parent is RoboticArm and current == parent.get("_payload_visual"):
-			return true
+			found = true
+			break
 		if parent is HayPulper and current in parent.taps:
-			return true
+			found = true
+			break
 		if parent is HayLift or parent is HayStairs:
 			for carried in parent._carried:
 				if carried.get("draw") == current:
-					return true
+					found = true
+					break
+		if found:
+			break
 		current = parent
-	return false
+	if checked != null:
+		for node in visited:
+			checked[node] = found
+	return found
 
 
 func _observe_packet(rejected: bool) -> void:
