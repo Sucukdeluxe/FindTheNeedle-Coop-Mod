@@ -148,7 +148,7 @@ func request(action: String, args: Dictionary) -> int:
 	if mp.is_host:
 		on_request(1, epoch, _next, action, args)
 	else:
-		mp._rx_economy_request.rpc_id(1, epoch, _next, action, args, mp._outgoing_world_seed())
+		(mp._rx_vacuum_request if action.begins_with("vacuum_") else mp._rx_economy_request).rpc_id(1, epoch, _next, action, args, mp._outgoing_world_seed())
 	return _next
 
 func _execute_local(seq: int, action: String, args: Dictionary) -> void:
@@ -248,13 +248,13 @@ func _process(delta: float) -> void:
 	_retry = 0.0
 	for seq in pending:
 		var entry: Dictionary = pending[seq]
-		mp._rx_economy_request.rpc_id(1, epoch, int(seq), entry.action, entry.args, mp._outgoing_world_seed())
+		(mp._rx_vacuum_request if str(entry.action).begins_with("vacuum_") else mp._rx_economy_request).rpc_id(1, epoch, int(seq), entry.action, entry.args, mp._outgoing_world_seed())
 
 func _reply(peer: int, seq: int, result: Dictionary) -> void:
 	if peer == 1:
 		on_result(epoch, seq, result)
 	else:
-		mp._rx_economy_result.rpc_id(peer, epoch, seq, result, mp._outgoing_world_seed())
+		(mp._rx_vacuum_result if str(result.get("action", "")).begins_with("vacuum_") else mp._rx_economy_result).rpc_id(peer, epoch, seq, result, mp._outgoing_world_seed())
 
 func on_result(token: String, seq: int, result: Dictionary) -> void:
 	if token != epoch or not pending.has(seq):

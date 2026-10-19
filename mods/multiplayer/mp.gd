@@ -1721,12 +1721,24 @@ func _rx_economy_request(epoch: String, seq: int, action: String, args: Dictiona
 	if is_host and world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_request(multiplayer.get_remote_sender_id(), epoch, seq, action, args)
 
+@rpc("any_peer", "call_remote", "reliable", 3)
+func _rx_vacuum_request(epoch: String, seq: int, action: String, args: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
+	world_sync.economy.on_request(multiplayer.get_remote_sender_id(), epoch, seq, action, args)
+
 @rpc("authority", "call_remote", "reliable", 0)
 func _rx_economy_result(epoch: String, seq: int, result: Dictionary, world_seed: int = -1) -> void:
 	if not _accept_world_seed(world_seed):
 		return
 	if world_sync != null and world_sync.economy != null:
 		world_sync.economy.on_result(epoch, seq, result)
+
+@rpc("authority", "call_remote", "reliable", 3)
+func _rx_vacuum_result(epoch: String, seq: int, result: Dictionary, world_seed: int = -1) -> void:
+	if not _accept_world_seed(world_seed):
+		return
+	world_sync.economy.on_result(epoch, seq, result)
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _rx_economy_state(epoch: String, state: Dictionary, world_seed: int = -1) -> void:
