@@ -103,8 +103,15 @@ func _process(delta: float) -> void:
 func send_all(pid: int = 0) -> void:
 	var entries: Array = []
 	var index: Dictionary = _route_index.get_index(mp.world_sync, BeltPath._live)
+	var full_snapshot := pid > 0 or _since >= FULL_TICK
+	var watchers: Array = mp.world_sync.network_watchers() if not full_snapshot else []
 	for path in BeltPath._live:
-		if not is_instance_valid(path) or not path.is_inside_tree() or path.run.count() == 0:
+		if not is_instance_valid(path) or not path.is_inside_tree():
+			continue
+		if path.run.count() == 0:
+			if full_snapshot or not _path_near(path, watchers):
+				continue
+		elif not full_snapshot and not _path_near(path, watchers):
 			continue
 		var ends: PackedVector3Array = path.save_ends()
 		if ends.size() < 2:
@@ -117,7 +124,7 @@ func send_all(pid: int = 0) -> void:
 			row["state"] = state
 			rows.append(row)
 		entries.append({"a": ends[0], "b": ends[1], "line": path._line, "owner": index.owners.get(path.get_instance_id(), ""), "records": rows})
-	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync)})
+	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync), "full": full_snapshot})
 	if pid == 0:
 		var h := hash(raw)
 		if h == _last_hash and _since < FULL_TICK:
@@ -131,6 +138,19 @@ func send_all(pid: int = 0) -> void:
 		mp._rx_belts.rpc(packed, raw.size(), mp._outgoing_world_seed())
 
 
+func _path_near(path: Node, watchers: Array) -> bool:
+	if watchers.is_empty() or path._line.size() < 2:
+		return true
+	var bounds := AABB(path._line[0], Vector3.ZERO)
+	for point in path._line:
+		bounds = bounds.expand(point)
+	var expanded := bounds.grow(40.0)
+	for watcher in watchers:
+		if watcher is Vector3 and expanded.has_point(watcher):
+			return true
+	return false
+
+
 func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	if _stopped or not is_instance_valid(mp) or not mp.active() or mp.is_host:
 		return
@@ -142,10 +162,11 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	var payload: Variant = bytes_to_var(raw)
 	var entries: Variant = payload.get("paths") if payload is Dictionary else payload
 	var lifts: Variant = payload.get("lifts", []) if payload is Dictionary else []
+	var full_snapshot := bool(payload.get("full", true)) if payload is Dictionary else true
 	if not (entries is Array) or not Snapshot.valid(entries) or not LiftCargo.valid(lifts):
 		return
 	_retry_at = 0
-	_pending_snapshot = {"paths": entries, "lifts": lifts}
+	_pending_snapshot = {"paths": entries, "lifts": lifts, "full": full_snapshot}
 	_flush_pending_belts()
 
 
@@ -173,14 +194,14 @@ func _flush_pending_belts() -> void:
 	var carriers_ready: bool = _lift_cargo.ready(sync, payload.lifts)
 	if not carriers_ready and is_instance_valid(sync.diagnostics):
 		sync.diagnostics.observe("belts", true, payload.lifts.size(), 1)
-	if not carriers_ready or not _apply_belts(payload.paths):
+	if not carriers_ready or not _apply_belts(payload.paths, bool(payload.get("full", true))):
 		_retry_at = Time.get_ticks_msec() + 250
 		return
 	_pending_snapshot = null
 	_lift_cargo.apply(sync, payload.lifts)
 
 
-func _apply_belts(entries: Array) -> bool:
+func _apply_belts(entries: Array, full_snapshot: bool = true) -> bool:
 	var resolved: Dictionary = Routes.resolve(mp.world_sync, entries, BeltPath._live, _route_index.get_index(mp.world_sync, BeltPath._live))
 	if not resolved.ready:
 		if is_instance_valid(mp.world_sync.diagnostics):
@@ -190,7 +211,8 @@ func _apply_belts(entries: Array) -> bool:
 	for id in _mirror_holds.keys():
 		if not is_instance_valid(_mirror_holds[id]["path"].get_ref()):
 			_mirror_holds.erase(id)
-	for item in BeltPath._live:
+	var paths_to_clear: Array = BeltPath._live if full_snapshot else resolved.assignments.map(func(row: Array): return row[0])
+	for item in paths_to_clear:
 		if not is_instance_valid(item) or not item.is_inside_tree():
 			continue
 		item.run.clear()

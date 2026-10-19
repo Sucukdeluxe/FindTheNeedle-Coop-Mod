@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.73
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.75
 
 Das Multiplayer-Menü führt durch Sitzung, Freunde und Spielstand. Gastgeber können die native Spielstandauswahl direkt öffnen. Gäste sehen ihren Verbindungs- und Ladezustand. IP-Verbindungen sind im aufklappbaren Bereich verfügbar. Die Oberfläche und ihre Statusmeldungen unterstützen alle 17 Spielsprachen.
 

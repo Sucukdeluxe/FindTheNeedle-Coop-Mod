@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.19.6-xRangerDE.74 (unreleased)
+## 0.19.6-xRangerDE.75 (unreleased)
+
+- Reduce loaded-world multiplayer stalls during heavy production. Belt snapshots send nearby moving cargo at a higher cadence and full-world corrections periodically; guests apply partial snapshots without rebuilding distant belts.
+- Reduce machine pose serialization frequency slightly while retaining periodic full correction frames.
+- Keep the existing host-authoritative simulation and transport validation unchanged.
+
+## 0.19.6-xRangerDE.74
 
 - Add a held-R green rotation preview for existing empty machines, including the feed-disc press. Left click confirms, right click or Escape cancels, and the authoritative host validates the target and synchronizes the new yaw.
 - Stop complete conveyor lines for every player, including hay, riders and surface motion. Persist line switches and restore them on load; new prestige maps start with no stopped lines.

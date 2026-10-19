@@ -24,7 +24,7 @@ const DiagnosticState = preload("res://mods/multiplayer/mp_diagnostic_state.gd")
 #
 # Only what changed is sent, and only for machines somebody is standing near.
 
-const TICK := 0.1
+const TICK := 0.125
 const FIELD_TICK := 0.5
 const EDIT_TICK := 0.2    # how often a guest looks for a setting it changed
 const FULL_TICK := 2.0    # how often every part goes out again, packets get lost
