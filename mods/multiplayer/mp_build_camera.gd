@@ -153,6 +153,9 @@ func _process(delta: float) -> void:
 		return
 	if "_mouse_captured" in player:
 		player.set("_mouse_captured", true)
+	var panel: Variant = (get_meta("mp_device_panel") if has_meta("mp_device_panel") else null)
+	if is_instance_valid(panel) and panel.typing():
+		return
 	var direction := Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)), float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
 	pan(direction, delta, Input.is_physical_key_pressed(KEY_SHIFT))
 
@@ -217,6 +220,17 @@ func ray_length() -> float:
 	return _height - NEAR + BELOW_PLAYER
 
 func _input(event: InputEvent) -> void:
+	var panel: Variant = (get_meta("mp_device_panel") if has_meta("mp_device_panel") else null)
+	if active and is_instance_valid(panel):
+		if event is InputEventMouse and panel.contains_mouse(event.position):
+			return
+		if event is InputEventKey and panel.typing():
+			if event.pressed and (event.keycode == KEY_ESCAPE or event.physical_keycode == KEY_ESCAPE):
+				panel.release_text_focus()
+				get_viewport().set_input_as_handled()
+				return
+			if event.keycode != toggle_key and event.physical_keycode != toggle_key:
+				return
 	if event is InputEventKey and event.pressed and not event.echo and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not event.meta_pressed and (event.physical_keycode == toggle_key or event.keycode == toggle_key):
 		if _menu_up():
 			return

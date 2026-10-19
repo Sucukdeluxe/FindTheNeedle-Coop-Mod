@@ -643,6 +643,27 @@ func _upgrade_arm(args: Dictionary) -> Dictionary:
 		return {"ok": false, "message": blocked}
 	return {"ok": world_sync.builds.upgrade_arm(target)}
 
+func _rotate_existing(actor: Player, args: Dictionary) -> Dictionary:
+	if not (args.get("target") is Dictionary) or typeof(args.get("yaw")) not in [TYPE_INT, TYPE_FLOAT] or typeof(args.get("previous_yaw")) not in [TYPE_INT, TYPE_FLOAT]:
+		return _failure("purchase_declined")
+	var target: Node3D = world_sync._find_building(args.target)
+	if not is_instance_valid(target) or target is Conveyor or not is_finite(float(args.yaw)) or absf(float(args.yaw)) > PI + 0.001:
+		return _failure("building_invalid")
+	if absf(wrapf(target.global_rotation.y - float(args.previous_yaw), -PI, PI)) > 0.02:
+		return _failure("economy_expired")
+	if target.has_method("empty") and not target.empty():
+		return _failure("building_invalid")
+	for field in ["stored_strands", "stored_bricks", "stored_hay", "stored_pellets"]:
+		if field in target and int(target.get(field)) > 0:
+			return _failure("building_invalid")
+	var before: Dictionary = world_sync._scan_builds()
+	target.global_rotation.y = wrapf(float(args.yaw), -PI, PI)
+	world_sync.builds.rebuild_junctions()
+	world_sync.builds.rebuild_water_joints()
+	world_sync.builds.changed.emit()
+	var changed: bool = before != world_sync._scan_builds()
+	return {"ok": changed, "message": "" if changed else mp.t("building_invalid"), "yaw": target.global_rotation.y}
+
 func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var id := str(args.get("build_id", ""))
 	if not BuildCatalog.has_id(id):

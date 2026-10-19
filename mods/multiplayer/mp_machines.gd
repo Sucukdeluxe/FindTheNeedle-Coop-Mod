@@ -740,6 +740,28 @@ func on_fields(batch: Dictionary) -> void:
 # is something the player just did on a panel. Send it and remember it as the
 # new agreed value, so a switch does not go out again every tick while we wait
 # for the host to echo it back.
+func apply_power_switches(states: Dictionary) -> void:
+	for node in states:
+		if is_instance_valid(node) and node.has_method("set_switched_off") and bool(node.is_switched_off()) != states[node]:
+			_applying_fields = true
+			node.set_switched_off(states[node])
+			_applying_fields = false
+	for key in _nodes:
+		var node: Variant = _nodes[key]
+		if not states.has(node):
+			continue
+		var field := "_off" if _group.get(key) == "work_lamps" else "switched_off"
+		if not FIELDS.get(_group.get(key, ""), []).has(field):
+			continue
+		var known: Dictionary = _theirs.get(key, {})
+		known[field] = states[node]
+		_theirs[key] = known
+		_pending_settings.erase(key + "|" + field)
+		if _queued_settings.has(key):
+			_queued_settings[key].fields.erase(field)
+			if _queued_settings[key].fields.is_empty():
+				_queued_settings.erase(key)
+
 func _send_edits() -> void:
 	var batch := {}
 	for key in _queued_settings:

@@ -4,7 +4,10 @@ const TEXT_FIELDS := ["alert", "icon", "waiting"]
 const NUMBER_FIELDS := ["power", "line_power"]
 
 static func capture(arm: Node) -> Dictionary:
-	return {
+	var scoped := arm.has_method("mp_status_begin") and arm.has_method("mp_status_end")
+	if scoped:
+		arm.mp_status_begin()
+	var result := {
 		"alert": arm.alert_reason(), "icon": arm.alert_icon(),
 		"waiting": arm.waiting_reason(), "clear": arm.is_clear(),
 		"plate": arm.plate_status(false), "plate_sign": arm.plate_status(true),
@@ -12,6 +15,9 @@ static func capture(arm: Node) -> Dictionary:
 		"power": arm.power, "line_power": arm.line_power,
 		"blocked": arm.power_blocked, "line": arm.power_line,
 	}
+	if scoped:
+		arm.mp_status_end()
+	return result
 
 static func valid(value: Variant) -> bool:
 	if not (value is Dictionary) or value.size() != 12:

@@ -26,20 +26,29 @@ static func same_line(a: PackedVector3Array, b: PackedVector3Array) -> bool:
 	return true
 
 
-static func resolve(sync: Node, entries: Array, paths: Array) -> Dictionary:
+static func index(sync: Node, paths: Array) -> Dictionary:
 	var by_owner := {}
+	var owners := {}
 	for path in paths:
 		if not is_instance_valid(path) or not path.is_inside_tree() or path.is_queued_for_deletion() or path._line.size() < 2:
 			continue
 		var key := owner_key(sync, path)
+		owners[path.get_instance_id()] = key
 		if not by_owner.has(key):
 			by_owner[key] = []
 		by_owner[key].append(path)
+	return {"by_owner": by_owner, "owners": owners}
+
+
+static func resolve(sync: Node, entries: Array, paths: Array, cached: Dictionary = {}) -> Dictionary:
+	var by_owner: Dictionary = cached.by_owner if not cached.is_empty() else index(sync, paths).by_owner
 	var claimed := {}
 	var assignments := []
 	for entry in entries:
 		var found: Node = null
 		for path in by_owner.get(entry.owner, []):
+			if not is_instance_valid(path) or not path.is_inside_tree() or path.is_queued_for_deletion():
+				continue
 			if same_line(path._line, entry.line):
 				if found != null:
 					return {"ready": false}

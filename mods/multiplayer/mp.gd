@@ -9,7 +9,7 @@ const Progression = preload("res://mods/multiplayer/mp_progression.gd")
 const Balance = preload("res://mods/multiplayer/mp_balance.gd")
 const VacUpgrades = preload("res://mods/multiplayer/mp_vac_upgrades.gd")
 
-const VERSION := "0.19.6-xRangerDE.73"
+const VERSION := "0.19.6-xRangerDE.74"
 const DEFAULT_PORT := 7777
 const MAX_PEERS := 8  # players in a session, host included (Steam counts the same way)
 const WORLD_CHUNK := 60000
@@ -1343,7 +1343,7 @@ func _rx_prop_reset_end(world_seed: int = -1) -> void:
 		p.on_reset_end()
 
 
-@rpc("authority", "call_remote", "reliable", 0)
+@rpc("authority", "call_remote", "reliable", 1)
 func _rx_belts(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
 	if not _accept_world_seed(world_seed):
 		return
@@ -1355,7 +1355,7 @@ func _rx_belts(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> 
 
 # ---------------------------------------------------------------- machines
 
-@rpc("authority", "call_remote", "unreliable_ordered", 0)
+@rpc("authority", "call_remote", "unreliable_ordered", 2)
 func _rx_machines(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
 	if not _accept_world_seed(world_seed):
 		return
@@ -1367,7 +1367,7 @@ func _rx_machines(packed: PackedByteArray, raw_size: int, world_seed: int = -1) 
 
 # The same, for batches too big for one packet (a lost fragment would drop the
 # whole batch on the unreliable channel) and the periodic full refresh.
-@rpc("authority", "call_remote", "reliable", 0)
+@rpc("authority", "call_remote", "reliable", 2)
 func _rx_machines_big(packed: PackedByteArray, raw_size: int, world_seed: int = -1) -> void:
 	if not _accept_world_seed(world_seed):
 		return

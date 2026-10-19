@@ -6,6 +6,7 @@ var mp_prestige: Dictionary = {}
 var mp_income_rate := -1.0
 var mp_needle_committed: Dictionary = {}
 var mp_hoppers: Dictionary = {}
+var mp_belt_switches: Dictionary = {}
 var mp_sale_stations: Dictionary = {}
 var mp_supply_station: Dictionary = {}
 var mp_vacuum_transfers: Dictionary = {}
@@ -24,6 +25,7 @@ func to_dict() -> Dictionary:
 	data["mp_prestige"] = mp_prestige.duplicate(true)
 	data["mp_needle_committed"] = mp_needle_committed.duplicate()
 	data["mp_hoppers"] = mp_hoppers.duplicate(true)
+	data["mp_belt_switches"] = mp_belt_switches.duplicate()
 	data["mp_sale_stations"] = mp_sale_stations.duplicate(true)
 	data["mp_supply_station"] = mp_supply_station.duplicate(true)
 	data["mp_vacuum_transfers"] = mp_vacuum_transfers.duplicate(true)
@@ -53,6 +55,12 @@ func from_dict(data: Dictionary) -> void:
 		for key in spent:
 			if key is int and key >= 0 and key < needle_positions.size() and spent[key] in ["stored", "used"]:
 				mp_needle_committed[key] = spent[key]
+	mp_belt_switches = {}
+	var belt_switches: Variant = data.get("mp_belt_switches", {})
+	if belt_switches is Dictionary:
+		for key in belt_switches:
+			if key is String and key.length() <= 512 and belt_switches[key] == true:
+				mp_belt_switches[key] = true
 	var hoppers: Variant = data.get("mp_hoppers", {})
 	mp_hoppers = hoppers.duplicate(true) if hoppers is Dictionary else {}
 	var stations: Variant = data.get("mp_sale_stations", {})
@@ -81,6 +89,7 @@ func reset(seed_value: int, total_strands: float) -> void:
 	mp_needle_committed.clear()
 	mp_prestige.clear()
 	mp_hoppers.clear()
+	mp_belt_switches.clear()
 	mp_sale_stations.clear()
 	mp_supply_station.clear()
 	mp_vacuum_transfers.clear()

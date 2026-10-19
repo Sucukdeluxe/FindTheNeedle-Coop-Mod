@@ -71,9 +71,26 @@ static func valid_drop(path: BeltPath, at: Vector3) -> bool:
 		return path.s_at(at) <= path.s_at(owner.global_position) + 0.02
 	return owner == null
 
-static func drops(builds: Node, from: Vector3, reach: float, only: BeltPath = null) -> Array:
+static func near_machines(builds: Node, from: Vector3, reach: float) -> Array:
 	var result := []
-	var candidates := [only] if only != null else all(builds, true)
+	if not is_instance_valid(builds):
+		return result
+	for machine in builds.joiners + builds.splitters:
+		for path in paths(machine):
+			if _within_bounds(path, from, reach):
+				result.append(machine)
+				break
+	return result
+
+static func drops(builds: Node, from: Vector3, reach: float, only: BeltPath = null, nearby: Variant = null) -> Array:
+	var result := []
+	var candidates := [only] if only != null else []
+	if only == null:
+		if nearby is Array:
+			for machine in nearby:
+				candidates.append_array(paths(machine, true))
+		else:
+			candidates = all(builds, true)
 	for candidate in candidates:
 		var path: BeltPath = candidate
 		if owner_of(path) == null or not usable(path) or not _within_bounds(path, from, reach):

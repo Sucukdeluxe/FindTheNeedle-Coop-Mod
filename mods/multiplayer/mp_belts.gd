@@ -33,11 +33,14 @@ var _stopped := false
 var _retry_at := 0
 var _host_sequences := {}
 var _lift_cargo := LiftCargo.new()
+var switches := preload("res://mods/multiplayer/mp_belt_switches.gd").new()
+var _route_index := preload("res://mods/multiplayer/mp_belt_route_index.gd").new()
 
 
 func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
+	world.builds.changed.connect(_route_index.clear)
 	get_tree().node_added.connect(_protect_belt_cleanup)
 	for path in BeltPath._live:
 		_protect_belt_cleanup(path)
@@ -48,10 +51,15 @@ func start(mp_node: Node, world_node: Node) -> void:
 		_carry_script = _carry.get_script()
 		_replace_carry_script(load(mp.base_dir + "/mp_carry.gd"))
 		_carry.set("mp_belts", self)
+	switches.start(mp.world_sync)
 
 
 # Hand the belt ends back, in case the world outlives the session.
 func shutdown() -> void:
+	if is_instance_valid(world) and is_instance_valid(world.builds) and world.builds.changed.is_connected(_route_index.clear):
+		world.builds.changed.disconnect(_route_index.clear)
+	switches.clear()
+	_route_index.clear()
 	if is_inside_tree() and get_tree().node_added.is_connected(_protect_belt_cleanup):
 		get_tree().node_added.disconnect(_protect_belt_cleanup)
 	for path in BeltPath._live:
@@ -73,6 +81,7 @@ func shutdown() -> void:
 
 
 func _process(delta: float) -> void:
+	switches.step()
 	_flush_pending_belts()
 	_lift_cargo.step(delta)
 	if mp == null or not mp.is_host or not mp.active():
@@ -93,6 +102,7 @@ func _process(delta: float) -> void:
 # idle yard used to send the whole ride list four times a second.
 func send_all(pid: int = 0) -> void:
 	var entries: Array = []
+	var index: Dictionary = _route_index.get_index(mp.world_sync, BeltPath._live)
 	for path in BeltPath._live:
 		if not is_instance_valid(path) or not path.is_inside_tree() or path.run.count() == 0:
 			continue
@@ -104,9 +114,9 @@ func send_all(pid: int = 0) -> void:
 			var row: Dictionary = path.run.record(i)
 			row["gap"] = path.run.gap_of(i)
 			var state: Dictionary = row.get("state") if row.get("state") is Dictionary else {}
-			row["state"] = state.duplicate(true)
+			row["state"] = state
 			rows.append(row)
-		entries.append({"a": ends[0], "b": ends[1], "line": path._line, "owner": Routes.owner_key(mp.world_sync, path), "records": rows})
+		entries.append({"a": ends[0], "b": ends[1], "line": path._line, "owner": index.owners.get(path.get_instance_id(), ""), "records": rows})
 	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync)})
 	if pid == 0:
 		var h := hash(raw)
@@ -140,6 +150,7 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 
 
 func invalidate_builds() -> void:
+	_route_index.clear()
 	_pending_snapshot = null
 	_host_sequences.clear()
 
@@ -170,7 +181,7 @@ func _flush_pending_belts() -> void:
 
 
 func _apply_belts(entries: Array) -> bool:
-	var resolved: Dictionary = Routes.resolve(mp.world_sync, entries, BeltPath._live)
+	var resolved: Dictionary = Routes.resolve(mp.world_sync, entries, BeltPath._live, _route_index.get_index(mp.world_sync, BeltPath._live))
 	if not resolved.ready:
 		if is_instance_valid(mp.world_sync.diagnostics):
 			mp.world_sync.diagnostics.observe("belts", true, entries.size(), 1)
@@ -296,6 +307,7 @@ func _protect_belt_cleanup(node: Node) -> void:
 		var patch := GDScript.new()
 		patch.source_code = "extends %s\nvar _mp_native_end_hold := Callable()\nfunc _sync_run_links() -> void:\n\tsuper._sync_run_links()\n\t_mp_native_end_hold = run.end_held_for\n\tvar processor = get_parent()\n\tif is_instance_valid(processor) and processor.has_method(\"_mp_holds_output_kind\"):\n\t\trun.end_held_for = _mp_end_held\nfunc _mp_end_held(kind: int) -> bool:\n\tvar processor = get_parent()\n\treturn (is_instance_valid(processor) and processor.has_method(\"_mp_holds_output_kind\") and processor._mp_holds_output_kind(kind)) or (_mp_native_end_hold.is_valid() and bool(_mp_native_end_hold.call(kind)))\nfunc _shed_over_cap() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active():\n\t\tif not session.is_host or not Cfg.auto_clean:\n\t\t\treturn\n\tsuper._shed_over_cap()\nfunc _spill_records() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\trun.clear()\n\t\treturn\n\tsuper._spill_records()\nfunc _materialize_head() -> void:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and not session.is_host:\n\t\treturn\n\tsuper._materialize_head()\nfunc _keeps_at_seam(r: Rider) -> bool:\n\tvar session = get_node_or_null(\"/root/MPMod\")\n\tif is_instance_valid(session) and session.active() and is_instance_valid(downstream) and downstream.is_inside_tree() and not downstream.is_queued_for_deletion():\n\t\tvar body = r.body\n\t\tif is_instance_valid(body) and body.is_inside_tree() and not body.is_queued_for_deletion() and is_same(body.get_meta(LiveStrandManager.META_RIDER, null), self):\n\t\t\treturn true\n\treturn super._keeps_at_seam(r)\nfunc materialize_record(i: int) -> Carryable:\n\treturn preload(\"res://mods/multiplayer/mp_belt_items.gd\").materialize(self, i)\nfunc pass_record_to(seq: int, other: BeltPath) -> bool:\n\treturn preload(\"res://mods/multiplayer/mp_belt_items.gd\").transfer(self, seq, other)\n" % JSON.stringify(original.resource_path)
 		patch.source_code += "\nfunc _follow_tech() -> void:\n\tsuper._follow_tech()\n\tpreload(\"res://mods/multiplayer/mp_distributor_drive.gd\").apply(self)\n"
+		patch.source_code += preload("res://mods/multiplayer/mp_belt_switches.gd").PATCH
 		if patch.reload() != OK:
 			return
 		_cleanup_scripts[original] = patch

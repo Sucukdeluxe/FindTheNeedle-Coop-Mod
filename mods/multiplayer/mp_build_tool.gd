@@ -31,6 +31,10 @@ var _mp_rotate_pending := 0.0
 var _mp_flow_manual := false
 var _mp_parallel := false
 var _mp_preview_flow: MultiMeshInstance3D
+var _mp_existing_target: Node3D
+var _mp_existing_yaw := 0.0
+var _mp_existing_origin := 0.0
+var _mp_existing_pending := 0.0
 const FLOW_TOGGLE_KEY := KEY_F6
 const ROTATE_RADIANS_PER_PIXEL := 0.008
 const ROTATE_DRAG_THRESHOLD := 3.0
@@ -288,6 +292,42 @@ func dismantle_target() -> Node3D:
 			return lid
 	return target
 
+func _begin_existing_rotation(target: Node3D) -> void:
+	if not is_instance_valid(target) or target is Conveyor or not is_instance_valid(player):
+		return
+	_mp_existing_target = target
+	_mp_existing_origin = target.global_rotation.y
+	_mp_existing_yaw = _mp_existing_origin
+	_mp_existing_pending = 0.0
+	_mp_rotate_held = true
+	_mp_rotate_dragged = false
+	get_viewport().set_input_as_handled()
+
+func _cancel_existing_rotation() -> void:
+	if is_instance_valid(_mp_existing_target):
+		_mp_existing_target.global_rotation.y = _mp_existing_origin
+	_mp_existing_target = null
+	_mp_existing_pending = 0.0
+	_mp_rotate_held = false
+	_mp_rotate_dragged = false
+
+func _confirm_existing_rotation() -> void:
+	var target := _mp_existing_target
+	var yaw := _mp_existing_yaw
+	_mp_existing_target = null
+	_mp_rotate_held = false
+	_mp_rotate_dragged = false
+	if not is_instance_valid(target):
+		return
+	if not is_instance_valid(mp_economy) or not mp_economy.mp.active():
+		target.global_rotation.y = yaw
+		builds.rebuild_junctions()
+		builds.changed.emit()
+		return
+	var seq: int = mp_economy.request("rotate_existing", {"target": BuildSnapshot.row(target), "yaw": yaw, "previous_yaw": _mp_existing_origin, "body": player.global_transform, "camera": player.camera.global_transform})
+	if seq == 0:
+		target.global_rotation.y = _mp_existing_origin
+
 func _input(event: InputEvent) -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	if event is InputEventKey and is_instance_valid(focus) and focus.is_visible_in_tree() and (focus is LineEdit or focus is TextEdit):
@@ -297,6 +337,34 @@ func _input(event: InputEvent) -> void:
 	var panel: Variant = controller.get_meta("mp_device_panel") if is_instance_valid(controller) and controller.has_meta("mp_device_panel") else null
 	if event is InputEventMouse and is_instance_valid(panel) and panel.contains_mouse(event.position):
 		return
+	if _mp_existing_target != null:
+		if event is InputEventMouseMotion:
+			var movement: float = event.screen_relative.x if event.screen_relative != Vector2.ZERO else event.relative.x
+			_mp_existing_pending += clampf(movement, -1000.0, 1000.0)
+			if absf(_mp_existing_pending) >= ROTATE_DRAG_THRESHOLD:
+				_mp_existing_yaw = wrapf(_mp_existing_yaw + _mp_existing_pending * ROTATE_RADIANS_PER_PIXEL, -PI, PI)
+				_mp_existing_pending = 0.0
+				_mp_existing_target.global_rotation.y = _mp_existing_yaw
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("primary"):
+			_confirm_existing_rotation()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("secondary") or (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE):
+			_cancel_existing_rotation()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_released("build_rotate"):
+			_cancel_existing_rotation()
+			get_viewport().set_input_as_handled()
+			return
+	if event.is_action_pressed("build_rotate") and not event.is_echo() and is_instance_valid(player) and player.is_mouse_captured():
+		var existing_hit := _mp_target_hit(dismantle_reach())
+		var existing_target: Node3D = builds.owner_of(existing_hit.get("collider")) if not existing_hit.is_empty() else null
+		if is_instance_valid(existing_target) and not _active:
+			_begin_existing_rotation(existing_target)
+			return
 	if event.is_action_pressed("mp_parallel", false, true) and _active and _is_conveyor_mode() and is_instance_valid(player) and player.is_mouse_captured() and not player.menu_is_up():
 		_mp_parallel = not _mp_parallel
 		_pick += 1
@@ -307,7 +375,7 @@ func _input(event: InputEvent) -> void:
 		if toggle_flow():
 			get_viewport().set_input_as_handled()
 		return
-	if _mp_rotate_held and event.is_action_released("build_rotate"):
+	if _mp_rotate_held and _mp_existing_target == null and event.is_action_released("build_rotate"):
 		_end_rotation(_rotation_available())
 		get_viewport().set_input_as_handled()
 		return

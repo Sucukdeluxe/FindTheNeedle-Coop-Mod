@@ -8,6 +8,9 @@ var _mp_status := {}
 var mp_transport: Node
 var _mp_searching := false
 var _mp_snapshot_depth := 0
+var _mp_near_router_key: Array = []
+var _mp_near_routers: Array = []
+var _mp_status_belts := -1
 
 func mp_snapshot_begin() -> void:
 	_mp_snapshot_depth += 1
@@ -84,6 +87,29 @@ func _belt_load_under_claw(run: BeltPath) -> Carryable:
 func _mp_remote() -> bool:
 	return is_instance_valid(mp_transport) and is_instance_valid(mp_transport.mp) and mp_transport.mp.active() and not mp_transport.mp.is_host
 
+func mp_status_begin() -> void:
+	_mp_status_belts = belts_in_reach()
+
+func mp_status_end() -> void:
+	_mp_status_belts = -1
+
+func _mp_router_drops(only: BeltPath = null) -> Array:
+	if only != null or not is_instance_valid(builds):
+		return ArmRoutes.drops(builds, _shoulder_world(), work_reach(), only)
+	var shoulder := _shoulder_world()
+	var reach := work_reach()
+	var key := [YardPorts.epoch, builds.joiners.size(), builds.splitters.size(), shoulder, reach]
+	var stale := key != _mp_near_router_key
+	if not stale:
+		for machine in _mp_near_routers:
+			if not is_instance_valid(machine) or machine.is_queued_for_deletion():
+				stale = true
+				break
+	if stale:
+		_mp_near_router_key = key
+		_mp_near_routers = ArmRoutes.near_machines(builds, shoulder, reach)
+	return ArmRoutes.drops(builds, shoulder, reach, null, _mp_near_routers)
+
 func mp_status_snapshot() -> Dictionary:
 	return _mp_status.duplicate(true) if _mp_remote() else ArmState.capture(self)
 
@@ -129,7 +155,11 @@ func hay_per_minute() -> int:
 	return int(_mp_status.get("rate", 0)) if _mp_remote() else super.hay_per_minute()
 
 func belts_in_reach() -> int:
-	return int(_mp_status.get("belts", 0)) if _mp_remote() else super.belts_in_reach() + ArmRoutes.drops(builds, _shoulder_world(), work_reach()).size()
+	if _mp_remote():
+		return int(_mp_status.get("belts", 0))
+	if _mp_status_belts >= 0:
+		return _mp_status_belts
+	return super.belts_in_reach() + _mp_router_drops().size()
 
 func _mp_pending_text() -> String:
 	return "Roboterstatus wird synchronisiert." if TranslationServer.get_locale().begins_with("de") else "Synchronizing robot arm status."
@@ -162,7 +192,7 @@ func _mp_choose_drop(count: int, prop: Carryable, only: BeltPath, require_room: 
 	var native := super._choose_drop(count, prop, only, require_room, skip, ahead, empty_only)
 	if not native.is_empty():
 		return native
-	for candidate in ArmRoutes.drops(builds, _shoulder_world(), work_reach(), only):
+	for candidate in _mp_router_drops(only):
 		var path: BeltPath = candidate.conveyor
 		if path == skip or not _may_put_on(path) or (empty_only and not _carries_nothing(path)):
 			continue

@@ -352,6 +352,7 @@ func _finish_prepare() -> void:
 	state.money_peak = maxf(float(state.get("money_peak", 0)), state.money)
 	state.mp_hoppers = preload("res://mods/multiplayer/mp_hopper_state.gd").empty()
 	state.mp_sale_stations = {}
+	state.mp_belt_switches = {}
 	state.mp_needle_committed = {}
 	state.mp_vacuum_transfers = {}
 	state.erase("mp_vacuum_checkpoint")

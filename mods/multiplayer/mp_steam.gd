@@ -238,4 +238,5 @@ func _on_lobby_chat_update(_id: int, _changed: int, _making: int, _state: int) -
 func make_peer() -> MultiplayerPeer:
 	if not ClassDB.class_exists("SteamMultiplayerPeer"):
 		return null
+	ProjectSettings.set_setting("steam/multiplayer_peer/max_channels", maxi(4, int(ProjectSettings.get_setting("steam/multiplayer_peer/max_channels", 4))))
 	return ClassDB.instantiate("SteamMultiplayerPeer")
