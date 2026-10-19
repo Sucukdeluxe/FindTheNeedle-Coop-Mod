@@ -742,7 +742,7 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 func _build_tool(actor: Player) -> Node:
 	var tool: Node = actor.build
 	if not is_instance_valid(tool):
-		tool = load(mp.base_dir + "/mp_build_tool.gd").new()
+		tool = load(mp.base_dir + "/mp_build_actor_tool.gd").new()
 		tool.player = actor
 		tool.builds = world_sync.builds
 		actor.build = tool
