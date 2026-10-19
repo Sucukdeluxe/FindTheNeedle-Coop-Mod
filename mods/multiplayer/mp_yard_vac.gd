@@ -8,6 +8,7 @@ var _mp_dump_wait := 0.0
 var _mp_flights := {}
 var _mp_belt_flight: WeakRef
 var _mp_belt_launched := 0
+var _mp_router_pour_wait := 0.0
 
 func mp_cancel_dump() -> void:
 	if not mp_dump_all:
@@ -44,6 +45,9 @@ func _pour(delta: float) -> void:
 
 func _pour_straw(delta: float) -> void:
 	if not mp_dump_all:
+		if _mp_pour_router(delta):
+			return
+		_mp_router_pour_wait = 0.0
 		super._pour_straw(delta)
 		return
 	if is_instance_valid(mp_tools) and is_instance_valid(mp_tools.mp.world_sync.vacuum_transfer):
@@ -81,6 +85,48 @@ func _pour_straw(delta: float) -> void:
 			_mp_belt_launched = Time.get_ticks_msec()
 			break
 	_draw_fill()
+
+func _mp_router_target() -> Node3D:
+	if not is_instance_valid(player) or not is_instance_valid(player.camera) or not is_inside_tree():
+		return null
+	var camera: Camera3D = player.camera
+	var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_basis.z * Cfg.VAC_POUR_REACH, Cfg.L_BUILD | Cfg.L_WORLD | Cfg.L_PILE)
+	query.exclude = [player.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var node := hit.get("collider") as Node
+	while is_instance_valid(node):
+		if node is ConveyorSplitter or node is ConveyorJoiner:
+			if not node.placement_preview and "port_count" in node and int(node.get("port_count")) in [4, 6, 8]:
+				return node as Node3D
+			return null
+		node = node.get_parent()
+	return null
+
+func _mp_pour_router(delta: float) -> bool:
+	if not is_instance_valid(_mp_router_target()):
+		return false
+	_pour_owed = minf(_pour_owed + Cfg.VAC_POUR_RATE * delta, float(_fill))
+	_mp_router_pour_wait = maxf(0.0, _mp_router_pour_wait - delta)
+	if _mp_router_pour_wait > 0.0 or not is_instance_valid(live) or not is_instance_valid(live.props):
+		return true
+	var count := mini(mini(_fill, int(_pour_owed)), Cfg.TUFT_MAX)
+	if count <= 0:
+		return true
+	var mouth := mouth_position()
+	var pose := Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), mouth)
+	var tuft := live.props.spawn("hay_tuft", pose, {"strands": count}) as HayTuft
+	if not is_instance_valid(tuft):
+		return true
+	if tuft.strands != count:
+		live.props.remove(tuft)
+		return true
+	tuft.linear_velocity = _pour_launch(mouth)
+	tuft.sleeping = false
+	_fill -= count
+	_pour_owed -= count
+	_mp_router_pour_wait = MP_DUMP_INTERVAL
+	_draw_fill()
+	return true
 
 func _mp_waiting_for_belt() -> bool:
 	if _mp_belt_flight == null:
