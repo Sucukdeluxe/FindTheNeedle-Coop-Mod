@@ -718,15 +718,27 @@ func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 					Vector3(rows[r + 6], rows[r + 7], rows[r + 8]),
 					Vector3(rows[r + 9], rows[r + 10], rows[r + 11])),
 				Vector3(rows[r], rows[r + 1], rows[r + 2]))
-			# walk from where the part is now to where it has got to, over the
+			var part_id: int = moved[j]
+			var at: int = int(slot[part_id])
+			if at < 0 or at >= parts.size() or not _live_part(key, parts[at]):
+				want.erase(part_id)
+				continue
+			var part := parts[at] as Node3D
+			var from: Transform3D = part.transform
+			if from.is_equal_approx(to):
+				want.erase(part_id)
+				continue
+			var current: Variant = want.get(part_id)
+			if current is Array and current.size() == 4 and (current[1] as Transform3D).is_equal_approx(to) and is_same(current[3].get_ref(), part):
+				continue
+			# Walk from where the part is now to where it has got to, over the
 			# gap between packets. Chasing the newest pose with a fixed pull
 			# made every arm and grabber move in steps.
-			var at: int = int(slot[moved[j]])
-			if at < 0 or at >= parts.size() or not _live_part(key, parts[at]):
-				continue
-			var from: Transform3D = (parts[at] as Node3D).transform
-			want[moved[j]] = [from, to, 0.0, weakref(parts[at])]
-		_goal[key] = want
+			want[part_id] = [from, to, 0.0, weakref(part)]
+		if want.is_empty():
+			_goal.erase(key)
+		else:
+			_goal[key] = want
 
 
 func _set_flags(n: Node3D, f: int) -> void:
@@ -1240,6 +1252,7 @@ func _ease(delta: float) -> void:
 	if _goal.is_empty():
 		return
 	var step_t := delta / TICK
+	var empty_keys: Array = []
 	for key in _goal:
 		var parts := _parts_of(key)
 		var slot := _slot_of(key)
@@ -1273,6 +1286,10 @@ func _ease(delta: float) -> void:
 				done.append(part_id)
 		for gone in done:
 			want.erase(gone)
+		if want.is_empty():
+			empty_keys.append(key)
+	for key in empty_keys:
+		_goal.erase(key)
 
 
 # A client just arrived: forget what we think it knows, so the next ticks
