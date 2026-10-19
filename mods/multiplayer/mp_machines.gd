@@ -109,6 +109,7 @@ var _parts := {}    # key -> Array[Node3D] in walk order
 var _ids := {}      # key -> PackedInt32Array, each part named by its path
 var _slot := {}     # key -> {part id: index into _parts}
 var _sent := {}     # key -> {part id: last transform broadcast}
+var _pose_interest := {}
 var _full := false  # this tick, send every part again
 var _refresh_t := 0.0
 var _log := OS.get_environment("MP_DEBUG_PROPS") != ""
@@ -180,6 +181,7 @@ func shutdown() -> void:
 	_ids.clear()
 	_slot.clear()
 	_sent.clear()
+	_pose_interest.clear()
 	_flags.clear()
 	_vals.clear()
 	_goal.clear()
@@ -392,9 +394,46 @@ func _near(at: Vector3, watchers: Array) -> bool:
 	return preload("res://mods/multiplayer/mp_view_interest.gd").near(at, watchers, RANGE)
 
 
+func _connected_peers() -> PackedInt32Array:
+	return multiplayer.get_peers()
+
+
+func _pose_audience() -> Dictionary:
+	var audience := {}
+	var ws: Node = mp.world_sync
+	if not is_instance_valid(ws):
+		return audience
+	for peer_id in _connected_peers():
+		if peer_id == 1 or not mp.players.has(peer_id) or mp.players[peer_id].get("state") != "world":
+			continue
+		var watchers: Array = []
+		var avatar: Variant = ws.avatars.get(peer_id)
+		if is_instance_valid(avatar) and avatar.is_inside_tree():
+			watchers.append(avatar.global_position)
+		if ws._build_views.has(peer_id):
+			watchers.append(ws._build_views[peer_id])
+		var keys := {}
+		for key in _nodes:
+			var node: Variant = _nodes[key]
+			if is_instance_valid(node) and node.is_inside_tree() and not node.is_queued_for_deletion() \
+					and not SETTINGS_ONLY.has(_group.get(key, "")) and _near(node.global_position, watchers):
+				keys[key] = node.get_instance_id()
+		audience[peer_id] = keys
+	return audience
+
+
 func _send_poses() -> void:
-	var watchers := _watchers()
-	if watchers.is_empty():
+	var audience := _pose_audience()
+	var wanted := {}
+	var refresh := {}
+	for peer_id in audience:
+		var before: Dictionary = _pose_interest.get(peer_id, {})
+		for key in audience[peer_id]:
+			wanted[key] = true
+			if before.get(key) != audience[peer_id][key]:
+				refresh[key] = true
+	_pose_interest = audience
+	if wanted.is_empty():
 		return
 	var batch := {}
 	for key in _nodes:
@@ -403,8 +442,9 @@ func _send_poses() -> void:
 		var n: Variant = _nodes[key]
 		if n == null or not is_instance_valid(n) or not (n as Node3D).is_inside_tree():
 			continue
-		if not _near((n as Node3D).global_position, watchers):
+		if not wanted.has(key):
 			continue
+		var full := _full or refresh.has(key)
 		var parts := _parts_of(key)
 		if parts.is_empty():
 			continue
@@ -413,7 +453,7 @@ func _send_poses() -> void:
 		# would stay wrong on the other screen for good if that packet was
 		# lost. It also puts right anything that started out differently.
 		var last: Dictionary = _sent.get(key, {})
-		if _full:
+		if full:
 			last = {}
 		var part_ids := _ids_of(key)
 		var flags := PackedByteArray()
@@ -442,13 +482,13 @@ func _send_poses() -> void:
 		_sent[key] = last
 		var entry := {}
 		if n is RoboticArm:
-			var visual := _arm_visual.capture(key, n, _full)
+			var visual := _arm_visual.capture(key, n, full)
 			if not visual.is_empty():
 				entry["a"] = visual
 		if moved.size() > 0:
 			entry["i"] = moved
 			entry["t"] = rows
-		if _full or _flags.get(key, PackedByteArray()) != flags:
+		if full or _flags.get(key, PackedByteArray()) != flags:
 			_flags[key] = flags
 			var fl := PackedInt32Array()
 			for i in parts.size():
@@ -457,7 +497,7 @@ func _send_poses() -> void:
 			entry["f"] = fl
 		var fx_ids := PackedInt32Array()
 		var fx_vals := PackedFloat32Array()
-		_read_fx(key, fx_ids, fx_vals)
+		_read_fx(key, fx_ids, fx_vals, full)
 		if fx_vals.size() > 0:
 			entry["xi"] = fx_ids
 			entry["xv"] = fx_vals
@@ -472,18 +512,29 @@ func _send_poses() -> void:
 				(e.get("i", PackedInt32Array()) as PackedInt32Array).size(),
 				(e.get("f", PackedInt32Array()) as PackedInt32Array).size() / 2,
 				(e.get("xv", PackedFloat32Array()) as PackedFloat32Array).size()])
-	if mp.over_steam:
-		_send_small(batch)
-		return
-	var raw := var_to_bytes(batch)
-	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
-	# One machine's full pose is already bigger than a packet. Sent unreliably,
-	# losing any fragment lost the whole batch, so big batches and the
-	# periodic full refresh go on the reliable channel instead.
-	if _full or packed.size() > BIG_PACKET or _has_arm_geometry(batch):
-		mp._rx_machines_big.rpc(packed, raw.size(), mp._outgoing_world_seed())
-	else:
-		mp._rx_machines.rpc(packed, raw.size(), mp._outgoing_world_seed())
+	var groups := {}
+	for peer_id in audience:
+		var keys := PackedStringArray()
+		for key in audience[peer_id]:
+			if batch.has(key):
+				keys.append(key)
+		if keys.is_empty():
+			continue
+		keys.sort()
+		var signature := "\n".join(keys)
+		if not groups.has(signature):
+			var selected := {}
+			var reliable := _full
+			for key in keys:
+				selected[key] = batch[key]
+				reliable = reliable or refresh.has(key)
+			groups[signature] = {"batch": selected, "peers": [], "reliable": reliable}
+		groups[signature].peers.append(peer_id)
+	for group in groups.values():
+		if mp.over_steam:
+			_send_small(group.batch, group.peers, group.reliable)
+		else:
+			_send_one(group.batch, group.peers, group.reliable)
 
 
 # Over Steam, in small pieces. Every guest crash over Steam came right after a
@@ -495,7 +546,7 @@ const PIECE_PARTS := 10
 const PIECE_PAIRS := 40
 const SMALL_PACKET := 900
 
-func _send_small(batch: Dictionary) -> void:
+func _send_small(batch: Dictionary, peers: Array, force_reliable: bool = false) -> void:
 	var pieces: Array = []  # [key, sub entry]
 	for key in batch:
 		var e: Dictionary = batch[key]
@@ -522,25 +573,30 @@ func _send_small(batch: Dictionary) -> void:
 	for p in pieces:
 		var key: String = p[0]
 		if out.has(key):
-			_send_one(out)
+			_send_one(out, peers, force_reliable)
 			out = {}
 		out[key] = p[1]
 		if var_to_bytes(out).size() > SMALL_PACKET * 3:
 			# ~3:1 compression on these; keep what is sent near a kilobyte
-			_send_one(out)
+			_send_one(out, peers, force_reliable)
 			out = {}
 	if not out.is_empty():
-		_send_one(out)
+		_send_one(out, peers, force_reliable)
 
 
-func _send_one(batch: Dictionary) -> void:
+func _send_one(batch: Dictionary, peers: Array, force_reliable: bool = false) -> void:
 	var raw := var_to_bytes(batch)
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	# the periodic full refresh has to arrive; the moves in between may drop
-	if _full or _has_arm_geometry(batch):
-		mp._rx_machines_big.rpc(packed, raw.size(), mp._outgoing_world_seed())
-	else:
-		mp._rx_machines.rpc(packed, raw.size(), mp._outgoing_world_seed())
+	var reliable: bool = _full or force_reliable or _has_arm_geometry(batch) or (not mp.over_steam and packed.size() > BIG_PACKET)
+	var connected := _connected_peers()
+	for peer_id in peers:
+		if not connected.has(peer_id):
+			continue
+		if reliable:
+			mp._rx_machines_big.rpc_id(peer_id, packed, raw.size(), mp._outgoing_world_seed())
+		else:
+			mp._rx_machines.rpc_id(peer_id, packed, raw.size(), mp._outgoing_world_seed())
 
 
 func _has_arm_geometry(batch: Dictionary) -> bool:
@@ -1221,10 +1277,12 @@ func _ease(delta: float) -> void:
 
 # A client just arrived: forget what we think it knows, so the next ticks
 # send every pose, flag and setting again.
-func send_all(_pid: int) -> void:
+func send_all(pid: int) -> void:
 	_rescan()
-	_sent.clear()
-	_flags.clear()
+	if pid > 0:
+		_pose_interest.erase(pid)
+	else:
+		_pose_interest.clear()
 	_vals.clear()
 
 
@@ -1292,11 +1350,11 @@ func _is_build_glow(mat: Variant) -> bool:
 
 
 # -1 as the slot means the light's strength, 0 and up are shader values
-func _read_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array) -> void:
+func _read_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array, force_full: bool = false) -> void:
 	var fx := _fx_of(key)
 	var part_ids := _ids_of(key)
 	var was: Dictionary = _fx_sent.get(key, {})
-	if _full:
+	if _full or force_full:
 		was = {}
 	for i in fx.size():
 		var entry: Variant = fx[i]

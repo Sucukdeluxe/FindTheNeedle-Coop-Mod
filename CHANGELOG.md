@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.19.6-xRangerDE.77 — 19.10.2026
+
+- Route machine animation, flags, effects and arm cargo only to guests whose player position or overhead view is inside the machine interest range. Keep a separate interest cache per guest so a newly approaching player receives the full current state immediately.
+- Group equal guest payloads into one serialized packet and send directly to connected peers. Ignore stale peer IDs during disconnects and preserve Steam chunking and reliable full refreshes.
+
 ## 0.19.6-xRangerDE.76 — 19.10.2026
 
 - Keep existing machine rotation authoritative in multiplayer: the host validates the same snapshot used by the guest preview, applies the yaw once and broadcasts the changed building state.
