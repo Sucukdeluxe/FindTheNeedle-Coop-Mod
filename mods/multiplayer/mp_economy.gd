@@ -722,14 +722,14 @@ func _build(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	if not status.get("ok", false) and not status.get("done", false):
 		actor.hide()
 		return {"ok": false, "message": str(status.get("reason", mp.t("purchase_declined")))}
-	var before: Dictionary = world_sync._scan_builds()
+	var before: int = world_sync._build_revision
 	var old_inputs: Dictionary = tool.capture_inputs()
 	var counters := {}
 	for key in tool.COUNTER_FIELDS:
 		counters[key] = int(tool.get(key))
 	tool.execute_native(action, null, args)
 	actor.hide()
-	var after: Dictionary = world_sync._scan_builds()
+	var after: int = world_sync._build_revision
 	var new_inputs: Dictionary = tool.capture_inputs()
 	var changed := before != after or var_to_bytes(old_inputs) != var_to_bytes(new_inputs)
 	for key in counters:
@@ -792,9 +792,9 @@ func _edit(actor: Player, action: String, args: Dictionary) -> Dictionary:
 	var counters := {}
 	for key in tool.COUNTER_FIELDS:
 		counters[key] = int(tool.get(key))
-	var before: Dictionary = world_sync._scan_builds()
+	var before: int = world_sync._build_revision
 	tool.execute_native(action, target, args)
-	var changed: bool = before != world_sync._scan_builds()
+	var changed: bool = before != world_sync._build_revision
 	for key in counters:
 		counters[key] = maxi(0, int(tool.get(key)) - int(counters[key]))
 	var result := {"ok": changed, "counters": counters,
