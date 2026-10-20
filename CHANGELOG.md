@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Keep full conveyor synchronization on its two-second schedule while nearby belts change continuously. Partial updates and initial synchronization for a joining player no longer postpone corrections for distant belts.
+
 ## 0.19.6-xRangerDE.78 — 19.10.2026
 
 - Skip stationary machine-part interpolation and reuse transport ancestry checks within each outgoing packet. Preserve full corrections when a part or observer changes.

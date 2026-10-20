@@ -130,7 +130,8 @@ func send_all(pid: int = 0) -> void:
 		if h == _last_hash and _since < FULL_TICK:
 			return
 		_last_hash = h
-		_since = 0.0
+		if full_snapshot:
+			_since = 0.0
 	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
 	if pid > 0:
 		mp._rx_belts.rpc_id(pid, packed, raw.size(), mp._outgoing_world_seed())
