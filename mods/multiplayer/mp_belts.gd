@@ -32,6 +32,8 @@ var _pending_snapshot: Variant = null
 var _stopped := false
 var _retry_at := 0
 var _host_sequences := {}
+var _received_sequences := {}
+var _sent_paths := {}
 var _lift_cargo := LiftCargo.new()
 var switches := preload("res://mods/multiplayer/mp_belt_switches.gd").new()
 var _route_index := preload("res://mods/multiplayer/mp_belt_route_index.gd").new()
@@ -40,7 +42,7 @@ var _route_index := preload("res://mods/multiplayer/mp_belt_route_index.gd").new
 func start(mp_node: Node, world_node: Node) -> void:
 	mp = mp_node
 	world = world_node
-	world.builds.changed.connect(_route_index.clear)
+	world.builds.changed.connect(_invalidate_routes)
 	get_tree().node_added.connect(_protect_belt_cleanup)
 	for path in BeltPath._live:
 		_protect_belt_cleanup(path)
@@ -56,8 +58,8 @@ func start(mp_node: Node, world_node: Node) -> void:
 
 # Hand the belt ends back, in case the world outlives the session.
 func shutdown() -> void:
-	if is_instance_valid(world) and is_instance_valid(world.builds) and world.builds.changed.is_connected(_route_index.clear):
-		world.builds.changed.disconnect(_route_index.clear)
+	if is_instance_valid(world) and is_instance_valid(world.builds) and world.builds.changed.is_connected(_invalidate_routes):
+		world.builds.changed.disconnect(_invalidate_routes)
 	switches.clear()
 	_route_index.clear()
 	if is_inside_tree() and get_tree().node_added.is_connected(_protect_belt_cleanup):
@@ -76,6 +78,8 @@ func shutdown() -> void:
 	_lift_cargo.clear()
 	_pending_snapshot = null
 	_host_sequences.clear()
+	_received_sequences.clear()
+	_sent_paths.clear()
 	_stopped = true
 	set_process(false)
 
@@ -102,12 +106,15 @@ func _process(delta: float) -> void:
 # idle yard used to send the whole ride list four times a second.
 func send_all(pid: int = 0) -> void:
 	var entries: Array = []
+	var live_paths := {}
 	var index: Dictionary = _route_index.get_index(mp.world_sync, BeltPath._live)
 	var full_snapshot := pid > 0 or _since >= FULL_TICK
 	var watchers: Array = mp.world_sync.network_watchers() if not full_snapshot else []
 	for path in BeltPath._live:
 		if not is_instance_valid(path) or not path.is_inside_tree():
 			continue
+		var path_id: int = path.get_instance_id()
+		live_paths[path_id] = true
 		if path.run.count() == 0:
 			if full_snapshot or not _path_near(path, watchers):
 				continue
@@ -123,7 +130,18 @@ func send_all(pid: int = 0) -> void:
 			var state: Dictionary = row.get("state") if row.get("state") is Dictionary else {}
 			row["state"] = state
 			rows.append(row)
-		entries.append({"a": ends[0], "b": ends[1], "line": path._line, "owner": index.owners.get(path.get_instance_id(), ""), "records": rows})
+		var entry := {"a": ends[0], "b": ends[1], "line": path._line, "owner": index.owners.get(path_id, ""), "records": rows}
+		if pid == 0:
+			var encoded := var_to_bytes(entry)
+			var unchanged: bool = _sent_paths.get(path_id) == encoded
+			_sent_paths[path_id] = encoded
+			if not full_snapshot and unchanged:
+				continue
+		entries.append(entry)
+	if pid == 0 and full_snapshot:
+		for path_id in _sent_paths.keys():
+			if not live_paths.has(path_id):
+				_sent_paths.erase(path_id)
 	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync), "full": full_snapshot})
 	if pid == 0:
 		var h := hash(raw)
@@ -167,14 +185,31 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 	if not (entries is Array) or not Snapshot.valid(entries) or not LiftCargo.valid(lifts):
 		return
 	_retry_at = 0
-	_pending_snapshot = {"paths": entries, "lifts": lifts, "full": full_snapshot}
+	_queue_belts(entries, lifts, full_snapshot)
 	_flush_pending_belts()
+
+
+func _queue_belts(entries: Array, lifts: Array, full_snapshot: bool) -> void:
+	if _pending_snapshot != null and not full_snapshot:
+		var combined := {}
+		for entry in _pending_snapshot.paths + entries:
+			combined[[entry.owner, entry.line]] = entry
+		entries = combined.values()
+		full_snapshot = bool(_pending_snapshot.full)
+	_pending_snapshot = {"paths": entries, "lifts": lifts, "full": full_snapshot}
+
+
+func _invalidate_routes() -> void:
+	_route_index.clear()
+	_sent_paths.clear()
 
 
 func invalidate_builds() -> void:
 	_route_index.clear()
 	_pending_snapshot = null
 	_host_sequences.clear()
+	_received_sequences.clear()
+	_sent_paths.clear()
 
 
 func _flush_pending_belts() -> void:
@@ -218,12 +253,21 @@ func _apply_belts(entries: Array, full_snapshot: bool = true) -> bool:
 			continue
 		item.run.clear()
 		_hold_mirrored_path(item)
-	_host_sequences.clear()
+	if full_snapshot:
+		_host_sequences.clear()
+		_received_sequences.clear()
+	else:
+		for assignment in resolved.assignments:
+			for seq in _received_sequences.get(assignment[0].get_instance_id(), []):
+				_host_sequences.erase(seq)
 	var restored := 0
 	for assignment in resolved.assignments:
 		Routes.restore(assignment[0], assignment[1])
+		var sequences := []
 		for row in assignment[1]:
 			_host_sequences[row.seq] = true
+			sequences.append(row.seq)
+		_received_sequences[assignment[0].get_instance_id()] = sequences
 		restored += assignment[1].size()
 	var got := {"boarded": restored, "lost": 0}
 	mp.trace.note("belts end: %d restored, %d unmatched" % [int(got.get("boarded", 0)), int(got.get("lost", 0))])

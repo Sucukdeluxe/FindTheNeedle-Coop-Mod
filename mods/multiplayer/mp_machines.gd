@@ -1426,17 +1426,23 @@ func on_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array) -> void
 		var which: int = ids[k + 1]
 		var v: float = vals[k / 2]
 		k += 2
-		if not is_finite(v) or at < 0 or at >= fx.size() or fx[at] == null or at >= parts.size() or not _live_part(key, parts[at]):
+		if not is_finite(v) or at < 0 or at >= fx.size() or fx[at] == null or at >= parts.size():
 			continue
 		var d: Dictionary = fx[at]
 		if which < 0:
-			if d.has("light") and is_instance_valid(d["light"]):
+			if d.has("light") and is_instance_valid(d["light"]) and (d["light"] as Light3D).light_energy != v \
+					and _live_part(key, parts[at]):
 				(d["light"] as Light3D).light_energy = v
 			continue
 		if not d.has("mat") or not is_instance_valid(d["mat"]):
 			continue
 		var names: PackedStringArray = d["names"]
 		if which < names.size():
+			var existing: ShaderMaterial = d["mat"]
+			if existing.has_meta("mp_own") and existing.get_shader_parameter(names[which]) == v:
+				continue
+			if not _live_part(key, parts[at]):
+				continue
 			var material := _own_material(key, at, d)
 			if material != null:
 				material.set_shader_parameter(names[which], v)

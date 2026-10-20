@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Send only changed nearby conveyor paths between full corrections. Preserve cargo selection on unchanged paths and merge queued partial updates during building changes.
+- Avoid reapplying unchanged light and owned shader values while preserving material isolation and validation of actual changes.
 - Skip redundant ancestry checks for unchanged incoming machine poses and visibility, while retaining validation for actual changes.
 - Limit conveyor diagnostics to the paths included in partial snapshots, avoiding false missing-cargo warnings and scans of unrelated belts.
 - Reduce repeated machine validity and stationary-transform checks when preparing pose updates, preserving update frequency and movement thresholds.
