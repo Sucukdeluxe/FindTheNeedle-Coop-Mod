@@ -163,7 +163,7 @@ func shutdown() -> void:
 	for saved in _processor_hooks.values():
 		var node: Variant = saved["node"].get_ref()
 		if is_instance_valid(node) and node.get_script() == saved["replacement"]:
-			_replace_processor_script(node, saved["original"])
+			_replace_processor_script(node, load(mp.base_dir + "/mp_arm_exit.gd") if node is RoboticArm else saved["original"])
 			if node is HayLift or node is HayStairs:
 				node._follow_tech()
 			_refresh_processor_belt(node)
@@ -1557,7 +1557,7 @@ func _protect_processor(node: Node) -> void:
 		replacement = load(mp.base_dir + "/mp_hay_stairs.gd")
 	elif original.resource_path == "res://scripts/build/hay_lift.gd":
 		replacement = load(mp.base_dir + "/mp_hay_lift.gd")
-	elif original.resource_path == "res://scripts/build/robotic_arm.gd":
+	elif original.resource_path in ["res://scripts/build/robotic_arm.gd", "res://mods/multiplayer/mp_arm_exit.gd"]:
 		replacement = load(mp.base_dir + "/mp_robotic_arm.gd")
 	elif original.resource_path == "res://scripts/build/haystack_scanner.gd":
 		replacement = load(mp.base_dir + "/mp_haystack_scanner.gd")

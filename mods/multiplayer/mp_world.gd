@@ -811,6 +811,7 @@ func on_builds(adds: Array, removes: Array) -> void:
 	if _builds_dirty:
 		_flush_builds()
 	_applying_builds = true
+	builds.begin_sweep()
 	adds = adds.duplicate()
 	removes = removes.duplicate()
 	if builds.has_method("_clear_mirrored_records"):
@@ -825,6 +826,7 @@ func on_builds(adds: Array, removes: Array) -> void:
 	if not adds.is_empty():
 		await _add_buildings(adds)
 	builds.rebuild_junctions()
+	builds.end_sweep()
 	builds.rebuild_water_joints()
 	builds.fit_posts_to_decks()
 	builds.share_joints()

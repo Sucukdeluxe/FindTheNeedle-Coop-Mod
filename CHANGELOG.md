@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Apply incoming building changes inside one native update batch, avoiding repeated conveyor-junction rebuilds for the same packet.
+- Keep robot-arm teardown safe when its carried prop has already left the scene, without refunding the same hay twice or skipping normal live-payload release.
+
 - Avoid redundant physics writes for stationary remote props; index locally owned props and tool bodies so large piles do not slow unrelated synchronization checks. Preserve ownership transfers and container claims.
 - Reuse transport ancestry results during each machine scan, and send pending machine poses on the frame after a full scan to avoid stacking both tasks.
 - Use existing native detail models according to overhead-camera zoom; restore the original visibility ranges when leaving overhead view.

@@ -1,4 +1,4 @@
-extends RoboticArm
+extends "res://mods/multiplayer/mp_arm_exit.gd"
 
 const ArmState = preload("res://mods/multiplayer/mp_arm_state.gd")
 const ArmRoutes = preload("res://mods/multiplayer/mp_arm_routes.gd")
