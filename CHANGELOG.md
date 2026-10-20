@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Skip redundant ancestry checks for unchanged incoming machine poses and visibility, while retaining validation for actual changes.
+- Limit conveyor diagnostics to the paths included in partial snapshots, avoiding false missing-cargo warnings and scans of unrelated belts.
 - Reduce repeated machine validity and stationary-transform checks when preparing pose updates, preserving update frequency and movement thresholds.
 - Keep full conveyor synchronization on its two-second schedule while nearby belts change continuously. Partial updates and initial synchronization for a joining player no longer postpone corrections for distant belts.
 

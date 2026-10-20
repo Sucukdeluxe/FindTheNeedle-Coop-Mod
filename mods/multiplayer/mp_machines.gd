@@ -695,7 +695,7 @@ func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 				var at: int = int(slot.get(flags[k], -1))
 				if at >= 0 and at < parts.size():
 					var part: Variant = parts[at]
-					if _live_part(key, part):
+					if is_instance_valid(part) and part is Node3D and (_flags_of(part) == flags[k + 1] or _live_part(key, part)):
 						_set_flags(part as Node3D, flags[k + 1])
 						hit += 1
 				else:
@@ -724,12 +724,15 @@ func on_poses(packed: PackedByteArray, raw_size: int) -> void:
 				Vector3(rows[r], rows[r + 1], rows[r + 2]))
 			var part_id: int = moved[j]
 			var at: int = int(slot[part_id])
-			if at < 0 or at >= parts.size() or not _live_part(key, parts[at]):
+			if at < 0 or at >= parts.size() or not is_instance_valid(parts[at]) or not (parts[at] is Node3D):
 				want.erase(part_id)
 				continue
 			var part := parts[at] as Node3D
 			var from: Transform3D = part.transform
 			if from.is_equal_approx(to):
+				want.erase(part_id)
+				continue
+			if not _live_part(key, part):
 				want.erase(part_id)
 				continue
 			var current: Variant = want.get(part_id)

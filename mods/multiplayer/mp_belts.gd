@@ -229,7 +229,7 @@ func _apply_belts(entries: Array, full_snapshot: bool = true) -> bool:
 	mp.trace.note("belts end: %d restored, %d unmatched" % [int(got.get("boarded", 0)), int(got.get("lost", 0))])
 	if is_instance_valid(mp.world_sync) and is_instance_valid(mp.world_sync.diagnostics):
 		mp.world_sync.diagnostics.observe("belts", false, 0, 1)
-		mp.world_sync.diagnostics.check_belts(entries)
+		mp.world_sync.diagnostics.check_belts(entries, paths_to_clear)
 	if OS.get_environment("MP_DEBUG_PROPS") != "":
 		var rows := 0
 		for entry in entries:

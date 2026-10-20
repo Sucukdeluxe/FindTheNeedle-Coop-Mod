@@ -105,7 +105,7 @@ func _exit_tree() -> void:
 		_write({"event": "session_end"})
 		_file.close()
 
-func check_belts(entries: Array) -> void:
+func check_belts(entries: Array, paths: Variant = null) -> void:
 	var now := Time.get_ticks_msec()
 	if not _running or not _available() or now < _ready_at or now - int(_observed_at.get("belts:0", -2000)) < 2000:
 		return
@@ -113,7 +113,7 @@ func check_belts(entries: Array) -> void:
 	for entry in entries:
 		expected.append_array(entry.get("records", []))
 	var actual: Array = []
-	for belt in BeltPath._live:
+	for belt in (BeltPath._live if paths == null else paths):
 		if not is_instance_valid(belt) or not belt.is_inside_tree():
 			continue
 		for i in range(belt.run.first(), belt.run.first() + belt.run.count()):
