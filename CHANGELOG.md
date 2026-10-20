@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.19.6-xRangerDE.79 — 20.10.2026
+
+- Stagger full machine-state refreshes across the two-second reliability window so large factories no longer create one synchronized synchronization burst.
+- Queue rapid reconnects while the host retires the previous connection, preventing stale player identities from blocking a returning guest.
+- Cache shader uniform names and reduce repeated machine, hopper and conveyor synchronization work without changing gameplay cadence.
+
 - Stagger full machine-state refreshes across the two-second reliability window so large factories no longer create one synchronized synchronization burst.
 - Queue a rapid reconnect while the host is still retiring the previous connection for the same player. Keep active duplicate identities blocked and remove abandoned or expired pending joins.
 - Reuse shader parameter names across machine parts with the same shader, refreshing the cache with machine metadata and clearing it at shutdown.
