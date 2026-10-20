@@ -441,7 +441,7 @@ func _send_poses() -> void:
 		if SETTINGS_ONLY.has(_group.get(key, "")):
 			continue
 		var n: Variant = _nodes[key]
-		if n == null or not is_instance_valid(n) or not (n as Node3D).is_inside_tree():
+		if n == null or not is_instance_valid(n) or not (n as Node3D).is_inside_tree() or n.is_queued_for_deletion():
 			continue
 		if not wanted.has(key):
 			continue
@@ -463,7 +463,8 @@ func _send_poses() -> void:
 		var rows := PackedFloat32Array()
 		for i in parts.size():
 			var part: Variant = parts[i]
-			if not _part_attached(key, part) or _is_transport_part(part, transport_checks):
+			if not is_instance_valid(part) or not (part is Node3D) or not part.is_inside_tree() \
+					or part.is_queued_for_deletion() or not n.is_ancestor_of(part) or _is_transport_part(part, transport_checks):
 				continue
 			var node := part as Node3D
 			flags[i] = _flags_of(node)
@@ -618,6 +619,8 @@ func _flags_of(n: Node3D) -> int:
 
 
 func _same(a: Transform3D, b: Transform3D) -> bool:
+	if a == b:
+		return true
 	if a.origin.distance_squared_to(b.origin) > MOVE_EPS * MOVE_EPS:
 		return false
 	return a.basis.x.distance_squared_to(b.basis.x) < ANG_EPS * ANG_EPS \
