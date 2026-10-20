@@ -1,5 +1,6 @@
 extends Node
 
+const Intake = preload("res://mods/multiplayer/mp_hopper_intake.gd")
 const Store = preload("res://mods/multiplayer/mp_hopper_state.gd")
 const Model = preload("res://mods/multiplayer/mp_hopper_model.gd")
 const BuildCamera = preload("res://mods/multiplayer/mp_build_camera.gd")
@@ -37,6 +38,7 @@ var _mode := ""
 var _panel: CanvasLayer
 var _intake_clock := 0.0
 var _tracked := {}
+var _intake_outside := {}
 var _build_yaw := 0.0
 var _build_yaw_set := false
 var _inlets := {}
@@ -184,6 +186,7 @@ func restore(value: Dictionary) -> bool:
 	return true
 
 func invalidate_connections() -> void:
+	_intake_outside.clear()
 	_refresh = 0.0
 	_connections.clear()
 
@@ -328,6 +331,8 @@ func _row(id: int) -> Dictionary:
 func _connected_path(row: Dictionary) -> Node:
 	if _connections.has(row.id):
 		var cached: Variant = _connections[row.id]
+		if cached == null:
+			return null
 		if is_instance_valid(cached) and cached.is_inside_tree() and not cached.is_queued_for_deletion():
 			return cached
 	var basis := Basis(Vector3.UP, float(row.yaw))
@@ -343,6 +348,7 @@ func _connected_path(row: Dictionary) -> Node:
 			continue
 		_connections[row.id] = path
 		return path
+	_connections[row.id] = null
 	return null
 
 func candidate(camera: Transform3D, reach: float, free_yaw: float = NAN, overhead: bool = false) -> Dictionary:
@@ -966,6 +972,7 @@ func _intake() -> void:
 	if _state.rows.is_empty() or not is_instance_valid(world_sync.world.props):
 		return
 	var alive := {}
+	var intakes := Intake.index(Intake.prepare(_state.rows))
 	for item in world_sync.world.props.items.duplicate():
 		if not is_instance_valid(item) or not item.is_inside_tree() or item.is_queued_for_deletion() or not item is HayWad:
 			continue
@@ -974,16 +981,20 @@ func _intake() -> void:
 		var now: Vector3 = item.global_position
 		var previous: Vector3 = _tracked.get(id, now)
 		_tracked[id] = now
+		if _intake_outside.get(id) == now:
+			continue
+		_intake_outside.erase(id)
+		var candidates := Intake.candidates(intakes, previous, now)
+		if candidates.is_empty():
+			_intake_outside[id] = now
+			continue
 		var claimed: bool = item.has_meta(PropManager.META_CLAIM) and int(item.get_meta(PropManager.META_CLAIM)) != world_sync.props_sync.get_instance_id()
 		if item.is_held() or BeltPath.is_rider(item) or claimed:
 			continue
-		for row in _state.rows:
-			var inverse := Transform3D(Basis(Vector3.UP, row.yaw), row.position).affine_inverse()
-			var a: Vector3 = inverse * previous
-			var b: Vector3 = inverse * now
-			var mouth := AABB(Vector3(-0.86, 1.3, -0.88), Vector3(1.72, 0.95, 1.4))
-			if not mouth.has_point(b) and mouth.intersects_segment(a, b) == null:
+		for entry in candidates:
+			if not Intake.intersects(entry, previous, now):
 				continue
+			var row: Dictionary = entry.row
 			if maxi(int(row.stored), 0) >= Store.capacity(row):
 				continue
 			var sync: Node = world_sync.props_sync
@@ -1006,6 +1017,7 @@ func _intake() -> void:
 	for id in _tracked.keys():
 		if not alive.has(id):
 			_tracked.erase(id)
+			_intake_outside.erase(id)
 	for row in _state.rows:
 		var model: Node = _models.get(row.id)
 		if not is_instance_valid(model) or not is_instance_valid(model.intake):

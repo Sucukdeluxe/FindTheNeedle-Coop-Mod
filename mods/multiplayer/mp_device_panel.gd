@@ -188,11 +188,17 @@ func _refresh() -> void:
 	var live := {}
 	var names: Array = []
 	var grouped := {}
+	var grouped_lines := {}
 	for machine in power._candidates():
 		if not power._switchable(machine) or grouped.has(machine.get_instance_id()):
 			continue
 		var belt: bool = machine.has_method("mp_belt_switch_targets")
-		if belt:
+		if belt and machine is Conveyor:
+			if machine.line_id != 0:
+				if grouped_lines.has(machine.line_id):
+					continue
+				grouped_lines[machine.line_id] = true
+		elif belt:
 			for part in power._switch_targets(machine):
 				grouped[part.get_instance_id()] = true
 		var id: int = machine.get_instance_id()

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Index hopper intake volumes by spatial cell and reuse their transforms during each scan. Skip unchanged distant cargo and cache missing outlet connections until refresh or building changes, while preserving swept-path collection, capacity limits and needle handling.
+- Group conveyor entries in the overhead device panel by their native line IDs, avoiding a repeated full conveyor scan for each displayed line.
+
 - Group conveyor wake-up checks by occupied cells for dense prop populations, while retaining native checks for sparse layouts and restoring the original factory clock when the session ends.
 - Initialize the world script on the main thread before background scene loading, preventing the two unreferenced objects left by its worker-thread initialization.
 
