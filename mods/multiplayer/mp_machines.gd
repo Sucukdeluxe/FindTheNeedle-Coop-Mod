@@ -329,13 +329,15 @@ func _slot_of(key: String) -> Dictionary:
 	return _slot.get(key, {})
 
 
-func _walk(n: Node, out: Array) -> void:
+func _walk(n: Node, out: Array, checked: Variant = null) -> void:
+	if checked == null:
+		checked = {}
 	for child in n.get_children():
 		if out.size() >= MAX_PARTS:
 			return
-		if child is Node3D and not child.is_queued_for_deletion() and not _is_transport_part(child):
+		if child is Node3D and not child.is_queued_for_deletion() and not _is_transport_part(child, checked):
 			out.append(child)
-			_walk(child, out)
+			_walk(child, out, checked)
 
 
 # ------------------------------------------------------------------ ticks
@@ -363,11 +365,13 @@ func _process(delta: float) -> void:
 	if mp.players.size() < 2:
 		return
 	_scan_t += delta
+	var rescanned := false
 	if _scan_t >= 2.0:
 		_scan_t = 0.0
 		_rescan()
+		rescanned = true
 	_t += delta
-	if _t >= TICK:
+	if _t >= TICK and not rescanned:
 		_t = 0.0
 		_refresh_t += TICK
 		_full = _refresh_t >= FULL_TICK

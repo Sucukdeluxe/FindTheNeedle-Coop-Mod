@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Avoid redundant physics writes for stationary remote props; index locally owned props and tool bodies so large piles do not slow unrelated synchronization checks. Preserve ownership transfers and container claims.
+- Reuse transport ancestry results during each machine scan, and send pending machine poses on the frame after a full scan to avoid stacking both tasks.
+- Use existing native detail models according to overhead-camera zoom; restore the original visibility ranges when leaving overhead view.
+
 - Send only changed nearby conveyor paths between full corrections. Preserve cargo selection on unchanged paths and merge queued partial updates during building changes.
 - Avoid reapplying unchanged light and owned shader values while preserving material isolation and validation of actual changes.
 - Skip redundant ancestry checks for unchanged incoming machine poses and visibility, while retaining validation for actual changes.

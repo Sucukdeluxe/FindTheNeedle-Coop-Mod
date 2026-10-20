@@ -11,6 +11,7 @@ var _inside_layer := 0
 var _geometry := {}
 var _cameras := {}
 var _interiors := {}
+var _lod := preload("res://mods/multiplayer/mp_build_lod.gd").new()
 
 func begin(world: Node, camera: Camera3D) -> bool:
 	finish()
@@ -41,12 +42,14 @@ func begin(world: Node, camera: Camera3D) -> bool:
 	active = true
 	for node in scan:
 		_consider(node)
+	_lod.update(camera.size)
 	_track_camera(camera)
 	get_tree().node_added.connect(_node_added)
 	set_process(true)
 	return true
 
 func finish() -> void:
+	_lod.finish()
 	active = false
 	set_process(false)
 	if is_inside_tree() and get_tree().node_added.is_connected(_node_added):
@@ -78,6 +81,7 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(_world) or not is_instance_valid(_camera):
 		finish()
 		return
+	_lod.update(_camera.size)
 	for node in _geometry.keys():
 		if is_instance_valid(node):
 			node.layers = _roof_layer
@@ -107,6 +111,7 @@ func _consider(node: Node) -> void:
 		return
 	if not node is GeometryInstance3D or _geometry.has(node):
 		return
+	_lod.track(node)
 	var parent := node.get_parent()
 	if _script_class(parent, "Warehouse") and node is MeshInstance3D:
 		var box: AABB = node.transform * node.get_aabb()

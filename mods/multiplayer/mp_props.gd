@@ -30,6 +30,8 @@ var mp: Node
 var world: Node
 var props: Node
 
+var _owned := {}
+var _tool_ids := {}
 var _by_id := {}     # mp id -> Carryable
 var _owner := {}     # mp id -> peer id
 var _sent := {}      # mp id -> last transform we broadcast
@@ -120,6 +122,8 @@ func shutdown() -> void:
 	_hidden.clear()
 	_by_id.clear()
 	_owner.clear()
+	_owned.clear()
+	_tool_ids.clear()
 	_goal.clear()
 	_settling.clear()
 	_move_order.clear()
@@ -166,7 +170,11 @@ func _adopt(item: Node, id: int, owner: int) -> void:
 			item.set("mp_props", self)
 	item.set_meta("mp_id", id)
 	_by_id[id] = item
-	_owner[id] = owner
+	if TOOL_ITEMS.has(String(item.item_id)):
+		_tool_ids[id] = true
+	else:
+		_tool_ids.erase(id)
+	_set_owner(id, owner)
 	_want.erase(id)
 	_deleted.erase(id)
 	if owner == _me():
@@ -175,7 +183,17 @@ func _adopt(item: Node, id: int, owner: int) -> void:
 		_puppet(item)
 
 
+func _set_owner(id: int, owner: int) -> void:
+	_owner[id] = owner
+	if owner == _me() and _by_id.has(id):
+		_owned[id] = true
+	else:
+		_owned.erase(id)
+
+
 func _forget(id: int, deleted: bool = true) -> void:
+	_owned.erase(id)
+	_tool_ids.erase(id)
 	_original_tools.erase(_by_id.get(id))
 	_hidden.erase(id)
 	_held.erase(id)
@@ -360,7 +378,7 @@ func _hand_rider(rb: Node) -> void:
 	var xf: Transform3D = _boarded.get(id, (rb as Node3D).global_transform)
 	_boarded.erase(id)
 	BeltPath.release(rb as RigidBody3D)
-	_owner[id] = 1
+	_set_owner(id, 1)
 	_goal.erase(id)
 	_hash.erase(id)
 	_puppet(rb)
@@ -471,7 +489,7 @@ func _process(delta: float) -> void:
 func _hide_held_tools() -> void:
 	var ws: Variant = mp.world_sync if mp != null else null
 	var avatars: Dictionary = ws.avatars if ws != null and is_instance_valid(ws) else {}
-	for id in _by_id:
+	for id in _tool_ids:
 		var it: Variant = _by_id[id]
 		if it == null or not is_instance_valid(it) or not it.is_inside_tree():
 			continue
@@ -556,6 +574,9 @@ func _smooth(delta: float) -> void:
 			# a farmer is holding it, the goal waits for them to let go
 			continue
 		var want: Transform3D = _goal[id]
+		if it.global_transform == want:
+			done.append(id)
+			continue
 		var step: Transform3D = it.global_transform.interpolate_with(want, f)
 		_place(it, step)
 		if step.origin.distance_to(want.origin) < 0.002:
@@ -572,7 +593,7 @@ func _move_tick() -> void:
 	var resting := PackedInt64Array()
 	var rest_xfs: Array = []
 	var rest_epochs := PackedInt64Array()
-	var keys := _by_id.keys()
+	var keys := _owned.keys()
 	var start := _move_cursor
 	for offset in keys.size():
 		var index := (start + offset) % keys.size()
@@ -613,6 +634,8 @@ func _move_tick() -> void:
 
 
 func _same(a: Transform3D, b: Transform3D) -> bool:
+	if a == b:
+		return true
 	if a.origin.distance_squared_to(b.origin) > MOVE_EPS * MOVE_EPS:
 		return false
 	return a.basis.x.distance_squared_to(b.basis.x) < BASIS_EPS * BASIS_EPS \
@@ -630,6 +653,8 @@ func _state_tick() -> void:
 		_state_cursor = (index + 1) % keys.size()
 		var it: Variant = _by_id[id]
 		if it == null or not is_instance_valid(it):
+			continue
+		if not _mine(id) and not (mp.is_host and it.has_method("put_in") and it.has_method("take_out")):
 			continue
 		var st := _state_of(it)
 		var h := st.hash()
@@ -804,7 +829,7 @@ func on_owner(id: int, owner: int, epoch: int, holding: bool) -> void:
 	if owner == 0:
 		return
 	var it: Variant = _by_id.get(id)
-	_owner[id] = owner
+	_set_owner(id, owner)
 	_held.erase(id)
 	if holding:
 		_held[id] = true
@@ -908,6 +933,8 @@ func on_reset(first: bool, ids: PackedInt64Array, owners: PackedInt32Array, entr
 			_busy = false
 			_by_id.clear()
 			_owner.clear()
+			_owned.clear()
+			_tool_ids.clear()
 			_epoch.clear()
 			_deleted.clear()
 			_sent.clear()
@@ -969,7 +996,7 @@ func peer_gone(pid: int) -> void:
 		_move_order.erase(id)
 		_settling.erase(id)
 		_hash.erase(id)
-		_owner[id] = 1
+		_set_owner(id, 1)
 		_held.erase(id)
 		var it: Variant = _by_id.get(id)
 		if it == null or not is_instance_valid(it):
@@ -991,7 +1018,7 @@ func _replace_script(item: Node, script: Script) -> void:
 
 
 func _feed_containers() -> void:
-	for id in _by_id.keys():
+	for id in _owned.keys():
 		var container: Variant = _by_id.get(id)
 		if not _mine(id) or not is_instance_valid(container) or not container.is_inside_tree():
 			continue
