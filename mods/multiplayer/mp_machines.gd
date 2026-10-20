@@ -112,6 +112,7 @@ var _slot := {}     # key -> {part id: index into _parts}
 var _sent := {}     # key -> {part id: last transform broadcast}
 var _pose_interest := {}
 var _full := false  # this tick, send every part again
+var _full_due_at := {}
 var _refresh_t := 0.0
 var _log := OS.get_environment("MP_DEBUG_PROPS") != ""
 var _fx := {}       # key -> per part: its light and its shader values
@@ -382,6 +383,7 @@ func _process(delta: float) -> void:
 		if _full:
 			_refresh_t = 0.0
 			_vals.clear()
+			_schedule_full_refresh()
 		_send_poses()
 	_field_t += delta
 	if _field_t >= FIELD_TICK:
@@ -430,9 +432,20 @@ func _pose_audience() -> Dictionary:
 	return audience
 
 
+func _schedule_full_refresh() -> void:
+	var now_msec := Time.get_ticks_msec()
+	var span := maxi(1, int(FULL_TICK * 1000.0) - int(TICK * 1000.0))
+	for key in _nodes:
+		_full_due_at[key] = now_msec + posmod(abs(String(key).hash()), span)
+	for key in _full_due_at.keys():
+		if not _nodes.has(key):
+			_full_due_at.erase(key)
+
+
 func _send_poses() -> void:
 	var transport_checks := {}
 	var audience := _pose_audience()
+	var now_msec := Time.get_ticks_msec()
 	var wanted := {}
 	var refresh := {}
 	for peer_id in audience:
@@ -453,7 +466,11 @@ func _send_poses() -> void:
 			continue
 		if not wanted.has(key):
 			continue
-		var full := _full or refresh.has(key)
+		var full := refresh.has(key)
+		if not full and _full_due_at.has(key) and now_msec >= int(_full_due_at[key]):
+			full = true
+			refresh[key] = true
+			_full_due_at[key] = now_msec + int(FULL_TICK * 1000.0)
 		var parts := _parts_of(key)
 		if parts.is_empty():
 			continue
@@ -1383,7 +1400,7 @@ func _read_fx(key: String, ids: PackedInt32Array, vals: PackedFloat32Array, forc
 	var fx := _fx_of(key)
 	var part_ids := _ids_of(key)
 	var was: Dictionary = _fx_sent.get(key, {})
-	if _full or force_full:
+	if force_full:
 		was = {}
 	for i in fx.size():
 		var entry: Variant = fx[i]
