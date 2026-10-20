@@ -35,6 +35,8 @@ var phase: int = Phase.OFFLINE
 var is_host := false
 var players := {}  # peer id -> {name, color, state}
 var _players_broadcast_pending := false
+var _join_queue := preload("res://mods/multiplayer/mp_join_queue.gd").new()
+var _join_poll := 0.0
 var my_name := "Player"  # replaced by the Steam name or the saved one
 var last_ip := "127.0.0.1"
 var last_port := DEFAULT_PORT
@@ -341,6 +343,7 @@ func t(key: String) -> String:
 
 
 func _process(_delta: float) -> void:
+	_poll_join_queue(_delta)
 	_vac_upgrades.ensure_cards()
 	_progression.ensure_cards()
 	Balance.ensure_cards()
@@ -687,6 +690,7 @@ func leave(reason: String = "") -> void:
 	phase = Phase.OFFLINE
 	is_host = false
 	players.clear()
+	_join_queue.clear()
 	_world_rx.clear()
 	_pending_world = null
 	_sent_world_generation.clear()
@@ -807,6 +811,7 @@ func _on_peer_disconnected(id: int) -> void:
 		_queue_player_broadcast()
 		if world_sync != null:
 			world_sync.forget_peer(id)
+	_join_queue.remove(id)
 	ui.refresh()
 
 
@@ -893,8 +898,30 @@ func _rx_hello(pname: String, ver: String, profile: String) -> void:
 			identity = "steam:" + str(steam_id)
 	for connected in _tool_identities:
 		if connected != id and players.has(connected) and _tool_identities[connected] == identity:
-			_rx_kick.rpc_id(id, t("connect_failed"))
+			if not _join_queue.pending.has(id):
+				trace.note("peer %d waiting for previous session" % id)
+			_join_queue.add(id, pname, identity, Time.get_ticks_msec())
 			return
+	_accept_hello(id, pname, identity)
+
+func _poll_join_queue(delta: float) -> void:
+	if not is_host or _join_queue.pending.is_empty():
+		return
+	_join_poll += delta
+	if _join_poll < 0.1:
+		return
+	_join_poll = 0.0
+	var result: Dictionary = _join_queue.poll(players, _tool_identities, multiplayer.get_peers(), Time.get_ticks_msec())
+	for entry in result.ready:
+		_accept_hello(int(entry.peer), String(entry.name), String(entry.identity))
+	for peer in result.expired:
+		_rx_kick.rpc_id(int(peer), t("connect_failed"))
+
+
+func _accept_hello(id: int, pname: String, identity: String) -> void:
+	if not is_host or not multiplayer.get_peers().has(id):
+		return
+	_join_queue.remove(id)
 	_tool_identities[id] = identity
 	var used := {}
 	for p in players.values():

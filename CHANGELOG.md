@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Queue a rapid reconnect while the host is still retiring the previous connection for the same player. Keep active duplicate identities blocked and remove abandoned or expired pending joins.
+- Reuse shader parameter names across machine parts with the same shader, refreshing the cache with machine metadata and clearing it at shutdown.
+
 - Index hopper intake volumes by spatial cell and reuse their transforms during each scan. Skip unchanged distant cargo and cache missing outlet connections until refresh or building changes, while preserving swept-path collection, capacity limits and needle handling.
 - Group conveyor entries in the overhead device panel by their native line IDs, avoiding a repeated full conveyor scan for each displayed line.
 

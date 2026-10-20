@@ -3,6 +3,7 @@ extends Node
 const ArmState = preload("res://mods/multiplayer/mp_arm_state.gd")
 const ArmVisual = preload("res://mods/multiplayer/mp_arm_visual.gd")
 
+var _shader_fields := preload("res://mods/multiplayer/mp_shader_fields.gd").new()
 var _arm_visual := ArmVisual.new()
 
 const DroneState = preload("res://mods/multiplayer/mp_drone_state.gd")
@@ -178,6 +179,7 @@ func shutdown() -> void:
 	_parts.clear()
 	_part_shapes.clear()
 	_fx.clear()
+	_shader_fields.clear()
 	_ids.clear()
 	_slot.clear()
 	_sent.clear()
@@ -189,6 +191,7 @@ func shutdown() -> void:
 	# walk the models again: the game adds and drops nodes as it runs
 	_parts.clear()
 	_fx.clear()
+	_shader_fields.clear()
 	_ids.clear()
 	_slot.clear()
 	_group.clear()
@@ -218,6 +221,7 @@ func _rescan() -> void:
 	_nodes.clear()
 	# walk the models again: the game adds and drops nodes as it runs
 	_fx.clear()
+	_shader_fields.clear()
 	_group.clear()
 	for group in groups + SETTINGS_ONLY:
 		var arr: Variant = builds.get(group)
@@ -1334,10 +1338,7 @@ func _fx_of(key: String) -> Array:
 			entry["light"] = node
 		var mat: Variant = _shader_of(node)
 		if mat != null:
-			var names := PackedStringArray()
-			for u in (mat as ShaderMaterial).shader.get_shader_uniform_list():
-				if int(u.get("type", -1)) == TYPE_FLOAT:
-					names.append(String(u.get("name", "")))
+			var names: PackedStringArray = _shader_fields.names((mat as ShaderMaterial).shader)
 			if names.size() > 0:
 				entry["mat"] = mat
 				entry["names"] = names
