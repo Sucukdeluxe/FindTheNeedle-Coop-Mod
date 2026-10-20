@@ -48,6 +48,7 @@ var economy_sequence := 0
 var tools_sequence := 0
 var tool_profile := ""
 var _tool_identities := {}
+var _world_script: Script
 var _belt_visuals: Script
 var _vac_upgrades := VacUpgrades.new()
 var _progression := Progression.new()
@@ -240,6 +241,7 @@ func _ready() -> void:
 		var s: Script = load(base_dir + "/" + f)
 		if s == null or not s.can_instantiate():
 			push_error("[MPMod] %s failed to compile" % f)
+	_world_script = load("res://scripts/world/world.gd")
 	print("[MPMod] v%s loaded from %s" % [VERSION, base_dir])
 
 

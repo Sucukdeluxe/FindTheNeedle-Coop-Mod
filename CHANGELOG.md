@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Group conveyor wake-up checks by occupied cells for dense prop populations, while retaining native checks for sparse layouts and restoring the original factory clock when the session ends.
+- Initialize the world script on the main thread before background scene loading, preventing the two unreferenced objects left by its worker-thread initialization.
+
 - Apply incoming building changes inside one native update batch, avoiding repeated conveyor-junction rebuilds for the same packet.
 - Keep robot-arm teardown safe when its carried prop has already left the scene, without refunding the same hay twice or skipping normal live-payload release.
 

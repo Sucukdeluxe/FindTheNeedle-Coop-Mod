@@ -19,6 +19,8 @@ const LiftCargo = preload("res://mods/multiplayer/mp_lift_cargo.gd")
 
 var mp: Node
 var world: Node
+var _clock: Node
+var _clock_script: Script
 var _t := 0.0
 var _since := 0.0
 var _last_hash := 0
@@ -54,10 +56,20 @@ func start(mp_node: Node, world_node: Node) -> void:
 		_replace_carry_script(load(mp.base_dir + "/mp_carry.gd"))
 		_carry.set("mp_belts", self)
 	switches.start(mp.world_sync)
+	_clock = world.get_node_or_null("FactoryClock")
+	if is_instance_valid(_clock) and _clock.get_script().resource_path == "res://scripts/build/factory_clock.gd":
+		_clock_script = _clock.get_script()
+		_replace_belt_script(_clock, load(mp.base_dir + "/mp_factory_clock.gd"))
+		_clock.mp_watch_start(world.props)
 
 
 # Hand the belt ends back, in case the world outlives the session.
 func shutdown() -> void:
+	if is_instance_valid(_clock) and _clock_script != null:
+		_clock.mp_watch_stop()
+		_replace_belt_script(_clock, _clock_script)
+	_clock = null
+	_clock_script = null
 	if is_instance_valid(world) and is_instance_valid(world.builds) and world.builds.changed.is_connected(_invalidate_routes):
 		world.builds.changed.disconnect(_invalidate_routes)
 	switches.clear()
