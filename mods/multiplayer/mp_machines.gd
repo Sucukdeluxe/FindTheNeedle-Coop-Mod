@@ -9,6 +9,7 @@ var _arm_visual := ArmVisual.new()
 const DroneState = preload("res://mods/multiplayer/mp_drone_state.gd")
 const MachinePacket = preload("res://mods/multiplayer/mp_machine_packet.gd")
 const DiagnosticState = preload("res://mods/multiplayer/mp_diagnostic_state.gd")
+const FrameSlots = preload("res://mods/multiplayer/mp_frame_slots.gd")
 
 # Machines.
 #
@@ -123,7 +124,10 @@ var _goal := {}     # key -> {part index: Transform3D}
 var _nodes := {}    # key -> machine node
 var _group := {}    # key -> which build array it came from
 var _scan_t := 0.0
+var _scan_slot := FrameSlots.new()
 var _t := 0.0
+var _pose_slot := FrameSlots.new()
+var _second_half_due := false
 var _field_t := 0.0
 var _edit_t := 0.0
 var _mouth_t := 0.0
@@ -185,6 +189,7 @@ func shutdown() -> void:
 	_slot.clear()
 	_sent.clear()
 	_pose_interest.clear()
+	_second_half_due = false
 	_flags.clear()
 	_vals.clear()
 	_goal.clear()
@@ -359,7 +364,7 @@ func _process(delta: float) -> void:
 		# a guest works the panels on its own copy, which the machine itself
 		# ignores, so watch for what the player changed and hand it to the host
 		_scan_t += delta
-		if _scan_t >= 2.0:
+		if _scan_t >= 2.0 and _scan_slot.take():
 			_scan_t = 0.0
 			_rescan()
 		_edit_t += delta
@@ -371,12 +376,16 @@ func _process(delta: float) -> void:
 		return
 	_scan_t += delta
 	var rescanned := false
-	if _scan_t >= 2.0:
+	if _scan_t >= 2.0 and _scan_slot.take():
 		_scan_t = 0.0
 		_rescan()
 		rescanned = true
 	_t += delta
-	if _t >= TICK and not rescanned:
+	if _second_half_due:
+		if not rescanned and _pose_slot.take():
+			_second_half_due = false
+			_send_poses(1)
+	elif _t >= TICK and not rescanned and _pose_slot.take():
 		_t = 0.0
 		_refresh_t += TICK
 		_full = _refresh_t >= FULL_TICK
@@ -384,7 +393,8 @@ func _process(delta: float) -> void:
 			_refresh_t = 0.0
 			_vals.clear()
 			_schedule_full_refresh()
-		_send_poses()
+		_send_poses(0)
+		_second_half_due = true
 	_field_t += delta
 	if _field_t >= FIELD_TICK:
 		_field_t = 0.0
@@ -442,7 +452,28 @@ func _schedule_full_refresh() -> void:
 			_full_due_at.erase(key)
 
 
-func _send_poses() -> void:
+func _in_half(key: String, half: int) -> bool:
+	return half < 0 or (key.hash() & 1) == half
+
+
+func _merge_interest(audience: Dictionary, half: int) -> Dictionary:
+	if half < 0:
+		return audience
+	var merged := {}
+	for peer_id in audience:
+		var keys := {}
+		var before: Dictionary = _pose_interest.get(peer_id, {})
+		for key in before:
+			if not _in_half(key, half):
+				keys[key] = before[key]
+		for key in audience[peer_id]:
+			if _in_half(key, half):
+				keys[key] = audience[peer_id][key]
+		merged[peer_id] = keys
+	return merged
+
+
+func _send_poses(half: int = -1) -> void:
 	var transport_checks := {}
 	var audience := _pose_audience()
 	var now_msec := Time.get_ticks_msec()
@@ -451,10 +482,12 @@ func _send_poses() -> void:
 	for peer_id in audience:
 		var before: Dictionary = _pose_interest.get(peer_id, {})
 		for key in audience[peer_id]:
+			if not _in_half(key, half):
+				continue
 			wanted[key] = true
 			if before.get(key) != audience[peer_id][key]:
 				refresh[key] = true
-	_pose_interest = audience
+	_pose_interest = _merge_interest(audience, half)
 	if wanted.is_empty():
 		return
 	var batch := {}

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Run at most one heavy periodic synchronization task per frame. Conveyor snapshots, machine poses, machine rescans, power state, building checksums and the overhead device list wait up to three frames instead of landing in the same frame.
+- Split the host's conveyor snapshot into capture and send frames, machine poses into two halves, power publishing into building flush and state capture, and building checksums into building and conveyor parts. Joining guests still receive complete snapshots immediately.
+- Apply received conveyor snapshots and building checksums on guests during the frame instead of inside network message handling.
+
 ## 0.19.6-xRangerDE.79 — 20.10.2026
 
 - Stagger full machine-state refreshes across the two-second reliability window so large factories no longer create one synchronized synchronization burst.

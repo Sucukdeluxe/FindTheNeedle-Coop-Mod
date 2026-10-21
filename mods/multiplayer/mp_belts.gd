@@ -16,6 +16,7 @@ const MAX_RAW := 8 << 20
 const Snapshot = preload("res://mods/multiplayer/mp_belt_snapshot.gd")
 const Routes = preload("res://mods/multiplayer/mp_belt_routes.gd")
 const LiftCargo = preload("res://mods/multiplayer/mp_lift_cargo.gd")
+const FrameSlots = preload("res://mods/multiplayer/mp_frame_slots.gd")
 
 var mp: Node
 var world: Node
@@ -33,6 +34,9 @@ var _mirror_holds := {}
 var _pending_snapshot: Variant = null
 var _stopped := false
 var _retry_at := 0
+var _send_slot := FrameSlots.new()
+var _flush_slot := FrameSlots.new()
+var _staged := {}
 var _host_sequences := {}
 var _received_sequences := {}
 var _sent_paths := {}
@@ -92,6 +96,7 @@ func shutdown() -> void:
 	_host_sequences.clear()
 	_received_sequences.clear()
 	_sent_paths.clear()
+	_staged = {}
 	_stopped = true
 	set_process(false)
 
@@ -105,19 +110,39 @@ func _process(delta: float) -> void:
 	if multiplayer.multiplayer_peer == null:
 		return
 	if mp.players.size() < 2:
+		_staged = {}
 		return
 	_t += delta
 	_since += delta
+	if not _staged.is_empty():
+		if _send_slot.take():
+			_advance_staged()
+		return
 	if _t < TICK:
 		return
+	if not _send_slot.take():
+		return
 	_t = 0.0
-	send_all()
+	_staged = _capture(0)
 
 
 # Everyone, or one guest that just came in. Unchanged lists are skipped: an
 # idle yard used to send the whole ride list four times a second.
 func send_all(pid: int = 0) -> void:
-	var entries: Array = []
+	var snapshot := _capture(pid)
+	_select(snapshot)
+	_transmit(snapshot)
+
+
+func _advance_staged() -> void:
+	var snapshot := _staged
+	_staged = {}
+	_select(snapshot)
+	_transmit(snapshot)
+
+
+func _capture(pid: int) -> Dictionary:
+	var paths: Array = []
 	var live_paths := {}
 	var index: Dictionary = _route_index.get_index(mp.world_sync, BeltPath._live)
 	var full_snapshot := pid > 0 or _since >= FULL_TICK
@@ -142,7 +167,17 @@ func send_all(pid: int = 0) -> void:
 			var state: Dictionary = row.get("state") if row.get("state") is Dictionary else {}
 			row["state"] = state
 			rows.append(row)
-		var entry := {"a": ends[0], "b": ends[1], "line": path._line, "owner": index.owners.get(path_id, ""), "records": rows}
+		paths.append([path_id, {"a": ends[0], "b": ends[1], "line": path._line, "owner": index.owners.get(path_id, ""), "records": rows}])
+	return {"pid": pid, "full": full_snapshot, "paths": paths, "live": live_paths, "lifts": LiftCargo.capture(mp.world_sync)}
+
+
+func _select(snapshot: Dictionary) -> void:
+	var pid: int = snapshot.pid
+	var full_snapshot: bool = snapshot.full
+	var entries: Array = []
+	for item in snapshot.paths:
+		var path_id: int = item[0]
+		var entry: Dictionary = item[1]
 		if pid == 0:
 			var encoded := var_to_bytes(entry)
 			var unchanged: bool = _sent_paths.get(path_id) == encoded
@@ -152,9 +187,16 @@ func send_all(pid: int = 0) -> void:
 		entries.append(entry)
 	if pid == 0 and full_snapshot:
 		for path_id in _sent_paths.keys():
-			if not live_paths.has(path_id):
+			if not snapshot.live.has(path_id):
 				_sent_paths.erase(path_id)
-	var raw := var_to_bytes({"paths": entries, "lifts": LiftCargo.capture(mp.world_sync), "full": full_snapshot})
+	snapshot.erase("paths")
+	snapshot["entries"] = entries
+
+
+func _transmit(snapshot: Dictionary) -> void:
+	var pid: int = snapshot.pid
+	var full_snapshot: bool = snapshot.full
+	var raw := var_to_bytes({"paths": snapshot.entries, "lifts": snapshot.lifts, "full": full_snapshot})
 	if pid == 0:
 		var h := hash(raw)
 		if h == _last_hash and _since < FULL_TICK:
@@ -198,7 +240,6 @@ func on_belts(packed: PackedByteArray, raw_size: int) -> void:
 		return
 	_retry_at = 0
 	_queue_belts(entries, lifts, full_snapshot)
-	_flush_pending_belts()
 
 
 func _queue_belts(entries: Array, lifts: Array, full_snapshot: bool) -> void:
@@ -214,10 +255,12 @@ func _queue_belts(entries: Array, lifts: Array, full_snapshot: bool) -> void:
 func _invalidate_routes() -> void:
 	_route_index.clear()
 	_sent_paths.clear()
+	_staged = {}
 
 
 func invalidate_builds() -> void:
 	_route_index.clear()
+	_staged = {}
 	_pending_snapshot = null
 	_host_sequences.clear()
 	_received_sequences.clear()
@@ -237,6 +280,8 @@ func _flush_pending_belts() -> void:
 	if mp.phase != mp.Phase.IN_WORLD or sync._frozen or sync._applying_builds or sync._builds_dirty:
 		return
 	if Time.get_ticks_msec() < _retry_at:
+		return
+	if not _flush_slot.take():
 		return
 	var payload: Dictionary = _pending_snapshot
 	var carriers_ready: bool = _lift_cargo.ready(sync, payload.lifts)

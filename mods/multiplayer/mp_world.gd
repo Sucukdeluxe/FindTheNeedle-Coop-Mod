@@ -6,6 +6,7 @@ extends Node
 
 const DiagnosticState = preload("res://mods/multiplayer/mp_diagnostic_state.gd")
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+const FrameSlots = preload("res://mods/multiplayer/mp_frame_slots.gd")
 
 var mp: Node
 var world: Node
@@ -108,6 +109,9 @@ var _builds_dirty := false
 var _build_t := 0.0
 var _applying_builds := false
 var _reconcile_t := 0.0
+var _reconcile_slot := FrameSlots.new()
+var _pending_digest: Variant = null
+var _digest_buildings: Variant = null
 var _build_revision := 0
 var _last_build_change := 0
 var _mismatch_count := 0
@@ -246,6 +250,8 @@ func _ready() -> void:
 
 
 func shutdown() -> void:
+	_pending_digest = null
+	_digest_buildings = null
 	if is_instance_valid(prestige):
 		prestige.shutdown()
 	if is_instance_valid(sweep_sync):
@@ -393,6 +399,15 @@ func _process(delta: float) -> void:
 		_send_pose()
 	if _frozen:
 		return
+	if _pending_digest != null and _reconcile_slot.take():
+		if _digest_buildings == null:
+			_digest_buildings = _digest_building_rows()
+		else:
+			var local := _digest_of(_digest_buildings)
+			_digest_buildings = null
+			var digest: int = _pending_digest
+			_pending_digest = null
+			_check_build_digest(digest, local)
 	if not _tech_queue.is_empty():
 		_flush_tech()
 	_hay_t += delta
@@ -404,13 +419,13 @@ func _process(delta: float) -> void:
 			_hay_scan_t = 0.0
 		_hay_tick(full)
 	_reconcile_t += delta
-	if _reconcile_t >= RECONCILE_TICK:
+	if mp.is_host and _digest_buildings != null:
+		if _reconcile_slot.take():
+			_send_build_digest()
+	elif _reconcile_t >= RECONCILE_TICK and _reconcile_slot.take():
 		_reconcile_t = 0.0
 		if mp.is_host and not _applying_builds and not _builds_dirty:
-			var digest := _build_digest()
-			for peer_id in mp.players:
-				if peer_id != 1 and mp.players[peer_id].get("state") == "world":
-					mp._rx_build_digest.rpc_id(peer_id, digest, mp._outgoing_world_seed())
+			_digest_buildings = _digest_building_rows()
 	_build_t += delta
 	if _build_t >= BUILD_TICK:
 		_build_t = 0.0
@@ -907,16 +922,40 @@ func _apply_reversals(adds: Array, removes: Array) -> void:
 			break
 
 
-func _build_digest() -> int:
-	return hash(_build_digest_rows())
+func _send_build_digest() -> void:
+	var digest := _digest_of(_digest_buildings)
+	_digest_buildings = null
+	if _applying_builds or _builds_dirty:
+		return
+	for peer_id in mp.players:
+		if peer_id != 1 and mp.players[peer_id].get("state") == "world":
+			mp._rx_build_digest.rpc_id(peer_id, digest, mp._outgoing_world_seed())
 
-func _build_digest_rows() -> PackedStringArray:
-	var owner_cache := {}
+
+func _build_digest() -> int:
+	return _digest_of(_digest_building_rows())
+
+
+func _digest_building_rows() -> PackedStringArray:
 	var rows := PackedStringArray()
 	if not is_instance_valid(builds):
 		return rows
 	for data in BuildSnapshot.buildings(builds):
 		rows.append(_bkey(data))
+	return rows
+
+
+func _digest_of(building_rows: PackedStringArray) -> int:
+	var rows := building_rows.duplicate()
+	if is_instance_valid(builds):
+		rows.append_array(_digest_path_rows())
+	rows.sort()
+	return hash(rows)
+
+
+func _digest_path_rows() -> PackedStringArray:
+	var owner_cache := {}
+	var rows := PackedStringArray()
 	var keys := {}
 	for path in BeltPath._live:
 		if _diagnostic_path_live(path):
@@ -972,9 +1011,14 @@ func _diagnostic_path_key(path: BeltPath, owner_cache: Dictionary = {}) -> Strin
 	return build_key + ":" + ";".join(points)
 
 func on_build_digest(digest: int) -> void:
+	if _is_client():
+		_pending_digest = digest
+
+
+func _check_build_digest(digest: int, local: int) -> void:
 	if not _is_client() or _frozen or _applying_builds or _builds_dirty:
 		return
-	var matches := digest == _build_digest()
+	var matches := digest == local
 	if is_instance_valid(diagnostics):
 		diagnostics.observe("buildings", not matches, 0 if matches else 1)
 	if matches:

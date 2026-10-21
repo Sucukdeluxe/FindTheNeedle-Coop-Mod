@@ -28,6 +28,7 @@ var _empty: Label
 var _rows := {}
 var _pending := {}
 var _elapsed := 0.0
+var _slot := preload("res://mods/multiplayer/mp_frame_slots.gd").new()
 var _locale := ""
 var _collapsed := false
 
@@ -158,7 +159,7 @@ func _process(delta: float) -> void:
 		return
 	_panel.visible = not power.world_sync.player.menu_is_up()
 	_elapsed += delta
-	if _elapsed >= 0.35:
+	if _elapsed >= 0.35 and _slot.take():
 		_elapsed = 0.0
 		_refresh()
 

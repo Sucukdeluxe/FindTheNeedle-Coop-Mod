@@ -1,6 +1,7 @@
 extends Node
 
 const BuildSnapshot = preload("res://mods/multiplayer/mp_build_snapshot.gd")
+const FrameSlots = preload("res://mods/multiplayer/mp_frame_slots.gd")
 
 
 signal completed(seq: int, result: Dictionary)
@@ -27,6 +28,8 @@ var _client_nodes := {}
 var _client_ids := {}
 var _clock := 0.0
 var _full_clock := 0.0
+var _slot := FrameSlots.new()
+var _builds_flushed := false
 var _sent_revision := 0
 var _client_epoch := ""
 var _applied_revision := 0
@@ -104,12 +107,17 @@ func _process(delta: float) -> void:
 		return
 	_clock += delta
 	_full_clock += delta
-	if _clock < TICK or not _ready_for_state():
+	if _clock < TICK or not _ready_for_state() or not _slot.take():
 		return
+	if mp.is_host and not _builds_flushed:
+		world_sync._flush_builds()
+		_builds_flushed = true
+		return
+	_builds_flushed = false
 	_clock = 0.0
 	_hook_controls()
 	if mp.is_host:
-		publish(0, _full_clock >= FULL_TICK)
+		publish(0, _full_clock >= FULL_TICK, false)
 	else:
 		_apply_pending()
 	if _full_clock >= FULL_TICK:
@@ -210,10 +218,11 @@ func _flatten(state: Dictionary) -> Dictionary:
 		flat["priority:%d" % tag] = state.priority[tag]
 	return flat
 
-func publish(pid: int = 0, force: bool = false) -> void:
+func publish(pid: int = 0, force: bool = false, flush: bool = true) -> void:
 	if not mp.is_host or not _ready_for_state():
 		return
-	world_sync._flush_builds()
+	if flush:
+		world_sync._flush_builds()
 	_capture()
 	if _packet.is_empty() or not _valid_state(_packet):
 		_observe(true)
