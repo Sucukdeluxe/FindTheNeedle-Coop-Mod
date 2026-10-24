@@ -106,16 +106,41 @@ func routes() -> Array[BeltPath]:
 		if is_instance_valid(path):result.append(path)
 	return result
 
+func _exit_tree() -> void:
+	if is_instance_valid(_feeder):
+		_feeder.set_outlet_held(false)
+	super._exit_tree()
+
+func set_feeder(run: BeltPath) -> void:
+	if is_instance_valid(_feeder) and _feeder != run:
+		_feeder.set_outlet_held(false)
+	_feeder = run
+	_apply_catching()
+
+func _target_accepts(target: BeltPath, extra_margin: float = 0.0) -> bool:
+	if not is_instance_valid(target):return false
+	if (target._blocked and not target._queues_while_shut() and target.holds(null)) or not target._catching:
+		return false
+	if not target.record_only and extra_margin <= 0.0:
+		return target.accepts_handover(0.25)
+	return target._clear_within(0.0, maxf(0.25, Cfg.BELT_RIDE_SPACING) + extra_margin)
+
+func _route_open(path: BeltPath) -> bool:
+	if not is_instance_valid(path) or path._end_shut or path._occupied(0.0, 0.0, 0.25):
+		return false
+	if (path.run.count() > 0 and path.run.speed_of(path.run.first()) == 0.0) or path.has_rider_waiting():
+		return false
+	var target := path.downstream if is_instance_valid(path.downstream) else path.end_deck
+	var in_flight := path.run.count() + path._riders.size()
+	var margin := float(in_flight) * maxf(0.45, Cfg.BELT_RIDE_SPACING * 1.5)
+	return _target_accepts(target, margin)
+
 func _open_side() -> int:
 	var sides := output_sides()
 	var start := maxi(0, sides.find(next_side))
 	for offset in sides.size():
 		var side: int = sides[(start + offset) % sides.size()]
-		var path := route(side)
-		if not is_instance_valid(path):continue
-		var target := path.downstream if is_instance_valid(path.downstream) else path.end_deck
-		var connected := is_instance_valid(target) and target.accepts_handover(0.25)
-		if connected and not path._occupied(0.0, 0.0, 0.25):return side
+		if _route_open(route(side)):return side
 	return -1
 
 func _apply_catching() -> void:
@@ -125,6 +150,8 @@ func _apply_catching() -> void:
 		if not is_instance_valid(path):continue
 		path.set_catching(side == open)
 		path.set_outlet_held(not is_instance_valid(path.downstream) and not is_instance_valid(path.end_deck))
+		if side == open:
+			path.wake()
 	_sync_feeder(open)
 
 func _sync_feeder(open: int = -2) -> void:
@@ -132,6 +159,8 @@ func _sync_feeder(open: int = -2) -> void:
 	if open == -2:open = _open_side()
 	_feeder.downstream = route(open if open >= 0 else output_sides()[0])
 	_feeder.set_outlet_held(open < 0)
+	if open >= 0:
+		_feeder.wake()
 
 func _on_caught(_body: RigidBody3D, side: int) -> void:
 	_advance(side)

@@ -29,13 +29,137 @@ func port_bearing_at(point: Vector3) -> Vector3:
 		var station: Node3D = service.port_at(point)
 		if is_instance_valid(station):
 			return station.intake_forward()
+	for joiner in joiners:
+		if not is_instance_valid(joiner) or not joiner.has_method("inlet_sides"):
+			continue
+		if PointIndex.joins(joiner.port_out(), point):
+			return joiner.forward()
+		for side: int in joiner.inlet_sides():
+			if PointIndex.joins(joiner.port(side), point):
+				return joiner.arm_travel(side)
 	return super.port_bearing_at(point)
 
 func intake_at(point: Vector3) -> bool:
 	var hopper := _mp_hoppers()
 	if is_instance_valid(hopper) and not hopper.input_at(point).is_empty():return true
 	var service := _mp_sale_stations()
-	return (is_instance_valid(service) and is_instance_valid(service.port_at(point))) or super.intake_at(point)
+	if is_instance_valid(service) and is_instance_valid(service.port_at(point)):
+		return true
+	for joiner in joiners:
+		if not is_instance_valid(joiner) or not joiner.has_method("inlet_sides"):
+			continue
+		if PointIndex.joins(joiner.port_out(), point):
+			return false
+		for side: int in joiner.inlet_sides():
+			if PointIndex.joins(joiner.port(side), point):
+				return true
+	return super.intake_at(point)
+
+func _ports_now() -> YardPorts:
+	if not ghost_reading or not port_index_enabled:
+		return null
+	var custom_joiners: Array[ConveyorJoiner] = []
+	for joiner in joiners:
+		if is_instance_valid(joiner) and joiner.has_method("inlet_sides"):
+			custom_joiners.append(joiner)
+	if custom_joiners.is_empty():
+		return super._ports_now()
+	var sizes := PackedInt32Array([conveyors.size(), splitters.size(), joiners.size(),
+		scanners.size(), compressors.size(), pulpers.size(), papers.size(),
+		briquette_presses.size(), hay_lifts.size(), wrappers.size(), silos.size(),
+		pelletizers.size(), generators.size(), tube_launchers.size(), hay_stairs.size()])
+	if _yard_ports == null or _yard_ports_epoch != YardPorts.epoch or sizes != _yard_ports_sizes:
+		var saved_joiners := joiners.duplicate()
+		var base_joiners: Array[ConveyorJoiner] = []
+		for joiner in saved_joiners:
+			if not is_instance_valid(joiner) or not joiner.has_method("inlet_sides"):
+				base_joiners.append(joiner)
+		joiners = base_joiners
+		var yp := YardPorts.new(self)
+		joiners = saved_joiners
+		var r := 100000
+		for joiner in custom_joiners:
+			yp.joiner_ports.append([joiner, joiner.ports()])
+			var out_idx := yp.mouths.size()
+			yp.mouths.append({"point": joiner.port_out(), "forward": joiner.forward(), "start": false})
+			yp._mouth.add(joiner.port_out(), true, out_idx)
+			yp._bearing.add(joiner.port_out(), joiner.forward(), r)
+			r += 1
+			for side: int in joiner.inlet_sides():
+				var in_idx := yp.mouths.size()
+				yp.mouths.append({"point": joiner.port(side), "forward": joiner.arm_travel(side), "start": true})
+				yp._mouth.add(joiner.port(side), true, in_idx)
+				yp._bearing.add(joiner.port(side), joiner.arm_travel(side), r)
+				yp._intake.add(joiner.port(side), true, 0)
+				r += 1
+		_yard_ports = yp
+		_yard_ports_epoch = YardPorts.epoch
+		_yard_ports_sizes = sizes
+	return _yard_ports
+
+func _wye_mouths() -> Array[Dictionary]:
+	var yp := _ports_now()
+	if yp != null:
+		return yp.mouths
+	var out: Array[Dictionary] = []
+	for splitter in splitters:
+		if not is_instance_valid(splitter):
+			continue
+		out.append({"point": splitter.port_in(), "forward": splitter.forward(), "start": true})
+		for side in splitter.output_sides():
+			out.append({"point": splitter.port(side), "forward": splitter.arm_travel(side), "start": false})
+	for joiner in joiners:
+		if not is_instance_valid(joiner):
+			continue
+		out.append({"point": joiner.port_out(), "forward": joiner.forward(), "start": false})
+		var sides: Array = joiner.inlet_sides() if joiner.has_method("inlet_sides") else ConveyorJoiner.SIDES
+		for side: int in sides:
+			out.append({"point": joiner.port(side), "forward": joiner.arm_travel(side), "start": true})
+	return out
+
+func _wye_inlet_at(point: Vector3) -> BeltPath:
+	for joiner in joiners:
+		if not is_instance_valid(joiner) or not joiner.has_method("inlet_sides"):
+			continue
+		for side: int in joiner.inlet_sides():
+			if PointIndex.joins(joiner.port(side), point):
+				return joiner.arm(side)
+	return super._wye_inlet_at(point)
+
+func _inlet_of_another(asker: Node, point: Vector3, intakes: PointIndex) -> bool:
+	for joiner in joiners:
+		if joiner == asker or not is_instance_valid(joiner) or not joiner.has_method("inlet_sides"):
+			continue
+		for side: int in joiner.inlet_sides():
+			if PointIndex.joins(joiner.port(side), point):
+				return true
+	return super._inlet_of_another(asker, point, intakes)
+
+func _successor_index(near: Array[AABB] = [], asked: PointIndex = null) -> Array[PointIndex]:
+	var custom_joiners: Array[ConveyorJoiner] = []
+	for joiner in joiners:
+		if is_instance_valid(joiner) and joiner.has_method("inlet_sides"):
+			custom_joiners.append(joiner)
+	if custom_joiners.is_empty():
+		return super._successor_index(near, asked)
+	var saved_joiners := joiners.duplicate()
+	var base_joiners: Array[ConveyorJoiner] = []
+	for joiner in saved_joiners:
+		if not is_instance_valid(joiner) or not joiner.has_method("inlet_sides"):
+			base_joiners.append(joiner)
+	joiners = base_joiners
+	var indices := super._successor_index(near, asked)
+	joiners = saved_joiners
+	var all := near.is_empty()
+	var near_m := _jx_grown(near, JX_MACHINE_REACH)
+	var by_nominal: PointIndex = indices[1]
+	var rank := 100000
+	for joiner in custom_joiners:
+		for side: int in joiner.inlet_sides():
+			if all or _jx_near(joiner.global_position, near_m, asked, JX_MACHINE_REACH):
+				by_nominal.add(joiner.port(side), joiner.arm(side), rank)
+			rank += 1
+	return indices
 
 func outfeed_owner_at(point: Vector3) -> Node3D:
 	var hopper := _mp_hoppers()
@@ -223,6 +347,7 @@ func _mp_pipe_ends_at(point: Vector3) -> bool:
 	return false
 
 func add_receiver(at: Vector3, yaw: float, count: int, output: int = 0) -> ConveyorJoiner:
+	_jx_arm()
 	var receiver := preload("res://mods/multiplayer/mp_receiver.gd").new()
 	receiver.name = _free_name("Receiver", joiners.size())
 	receiver.port_count = count
@@ -232,12 +357,14 @@ func add_receiver(at: Vector3, yaw: float, count: int, output: int = 0) -> Conve
 	joiners.append(receiver)
 	add_child(receiver)
 	rebuild_junctions()
+	receiver._serve()
 	_refresh_wye_supports_at(receiver.ports())
 	refit_runs_at(receiver.ports())
 	changed.emit()
 	return receiver
 
 func add_multi_splitter(at: Vector3, yaw: float, count: int, input: int = -1) -> ConveyorSplitter:
+	_jx_arm()
 	var splitter := preload("res://mods/multiplayer/mp_multi_splitter.gd").new()
 	splitter.name = _free_name("MultiSplitter", splitters.size())
 	splitter.port_count = count
@@ -247,6 +374,7 @@ func add_multi_splitter(at: Vector3, yaw: float, count: int, input: int = -1) ->
 	splitters.append(splitter)
 	add_child(splitter)
 	rebuild_junctions()
+	splitter._apply_catching()
 	_refresh_wye_supports_at(splitter.ports())
 	refit_runs_at(splitter.ports())
 	changed.emit()
@@ -361,6 +489,10 @@ func from_array(data: Array) -> void:
 			if wall.a == row.get("a") and wall.b == row.get("b"):
 				WallPalette.apply(wall, color)
 				break
+	if receiver_rows.is_empty():
+		return
+	var restored: Array[Dictionary] = []
+	begin_sweep()
 	for row in receiver_rows:
 		var count := RouterCatalog.count_for(row.type)
 		var distributor := RouterCatalog.is_distributor(row.type)
@@ -375,6 +507,16 @@ func from_array(data: Array) -> void:
 		var sides: Array = receiver.output_sides() if distributor else receiver.inlet_sides()
 		receiver.next_side = side if side in sides else sides[0]
 		receiver.set_covered(row.get("covered", false) if row.get("covered", false) is bool else false)
+		restored.append({"node": receiver, "distributor": distributor})
+	end_sweep()
+	for entry in restored:
+		var receiver: Node3D = entry.node
+		if not is_instance_valid(receiver):
+			continue
+		if bool(entry.distributor):
+			receiver._apply_catching()
+		else:
+			receiver._serve()
 
 func add_wall(from: Vector3, to: Vector3, kind: YardWall.Bay) -> YardWall:
 	var wall := super.add_wall(from, to, kind)

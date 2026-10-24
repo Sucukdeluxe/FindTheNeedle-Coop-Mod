@@ -56,6 +56,7 @@ var _vac_upgrades := VacUpgrades.new()
 var _progression := Progression.new()
 var vacuum_transfer_local: Dictionary = {}
 var vacuum_checkpoint: Node
+var addon_bridge: Node = null
 var _last_scene: Node = null
 var _menu_button: WeakRef
 var _menu_retry := 0.0
@@ -86,6 +87,10 @@ func _ready() -> void:
 	vacuum_checkpoint = load(base_dir + "/mp_vacuum_checkpoint.gd").new()
 	add_child(vacuum_checkpoint)
 	vacuum_checkpoint.start(self)
+	addon_bridge = load(base_dir + "/mp_addon_bridge.gd").new()
+	addon_bridge.name = "MPAddonBridge"
+	add_child(addon_bridge)
+	addon_bridge.start(self)
 	_install_vacuum_tech()
 	get_tree().node_added.connect(_guard_build_manager)
 	get_tree().node_added.connect(_guard_sale_stand)
@@ -123,6 +128,7 @@ func _ready() -> void:
 			test.mp = self
 			add_child(test)
 	for f in [
+		"mp_addon_bridge.gd",
 		"mp_balance.gd",
 		"mp_arm_state.gd",
 		"mp_arm_upgrades.gd",

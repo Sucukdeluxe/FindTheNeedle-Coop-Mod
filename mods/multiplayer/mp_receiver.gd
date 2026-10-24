@@ -68,16 +68,58 @@ func to_dict() -> Dictionary:
 	return {"type": "mp_receiver%d" % port_count, "position": global_position,
 		"yaw": global_rotation.y, "receiver_output": output_port, "next_side": next_side, "covered": covered}
 
+func _make_sweep() -> Area3D:
+	return WyeSweep.make_area(radius())
+
 func empty() -> bool:
 	for path in paths():
 		if path.run.count() > 0 or not path._riders.is_empty():
 			return false
 	return true
 
+func paths() -> Array[BeltPath]:
+	var out: Array[BeltPath] = []
+	for side in inlet_sides():
+		var branch := _arms.get(side) as BeltPath
+		if is_instance_valid(branch):
+			out.append(branch)
+	if is_instance_valid(_out):
+		out.append(_out)
+	return out
+
 func _build_paths() -> void:
-	super._build_paths()
+	_out = BeltPath.new()
+	_out.name = "Out"
+	_out.records_props = true
+	_out.record_boost = arm_boost
+	add_child(_out)
+	_out.build_path(PackedVector3Array([global_position, port_out()]), Cfg.BELT_JOINT_OVERLAP)
+	_hide_sections(_out)
+	_out.gathers_straw = true
+	for side in inlet_sides():
+		var branch := BeltPath.new()
+		branch.name = "Arm%s" % _arm_name(side)
+		branch.records_props = true
+		branch.record_boost = arm_boost
+		add_child(branch)
+		branch.build_path(_arm_points(side), Cfg.BELT_JOINT_OVERLAP)
+		_hide_sections(branch)
+		branch.gathers_straw = true
+		branch.bundles_straw = true
+		branch.bundles_upstream = true
+		branch.downstream = _out
+		branch.set_catch_dead_zone(Cfg.JOINER_ARM_DEAD_ZONE)
+		branch.set_hold_back(Cfg.JOINER_ARM_DEAD_ZONE)
+		branch.handed_on.connect(_on_arm_gave.bind(side))
+		branch.handed_on_record.connect(_on_arm_gave_record.bind(side))
+		_arms[side] = branch
+	var all := paths()
+	if _out != null:
+		_out.shared_at_end = false
+	for path in all:
+		path.share_deck(all)
 	var inner := Model.core_radius(port_count, 0.421) * cos(PI / float(port_count))
-	for path in paths():
+	for path in all:
 		var outward := -1.0 if path != _out else 1.0
 		for span in path._spans:
 			var deck: StaticBody3D = span.body
@@ -100,6 +142,190 @@ func _build_paths() -> void:
 				box.size.z = outer - inner
 				collision.shape = box
 				collision.position.z += outward * (old_length - box.size.z) * 0.5
+	_serve()
+
+func full_rate() -> bool:
+	if _offer != null or (_sweep != null and _sweep.has_overlapping_bodies()):
+		return true
+	if old_machines:
+		for path in paths():
+			if path.is_busy():
+				return true
+		return false
+	var quick := BeltPath.rate_direct
+	for side in inlet_sides():
+		var branch := _arms.get(side) as BeltPath
+		if branch != null and not (quick and branch._calm) and branch.is_busy():
+			return true
+	return _out != null and not (quick and _out._calm) and _out.is_busy()
+
+func factory_tick(_delta: float) -> void:
+	if _jam_step():
+		return
+	_serve()
+	_refresh_held()
+	if _sweep != null and _sweep.has_overlapping_bodies():
+		WyeSweep.run(_sweep, self, _sweep_lanes(), Cfg.BELT_SPEED, _exit_local())
+
+func _any_awake() -> bool:
+	for side in inlet_sides():
+		var branch = _arms.get(side)
+		if branch != null and is_instance_valid(branch) and not (branch as BeltPath)._asleep:
+			return true
+	return _out != null and is_instance_valid(_out) and not _out._asleep
+
+func _serve() -> void:
+	if _jam.suspended():
+		return
+	var sides := inlet_sides()
+	if sides.is_empty():
+		return
+	if _crossing():
+		for s in sides:
+			var held := _arms.get(s) as BeltPath
+			if held != null:
+				held.set_outlet_held(true)
+		return
+	var side := next_side if next_side in sides else int(sides[0])
+	var due_next := -1 if _due(side) else _first_due_after(side)
+	if due_next >= 0:
+		side = due_next
+	elif _turn_to_nearer() and not _due(side):
+		var nearer := _nearest_after(side)
+		if _to_door(nearer) < _to_door(side):
+			side = nearer
+	var n := sides.size()
+	var at := sides.find(_serving)
+	if at < 0:
+		_serving = side
+		at = maxi(0, sides.find(_serving))
+	var deepest := _committed_by(_serving)
+	var deep_side := _serving
+	for k in range(1, n):
+		var s: int = sides[(at + k) % n]
+		var by := _committed_by(s)
+		if by > deepest:
+			deepest = by
+			deep_side = s
+	if deepest > 0.0:
+		side = deep_side
+	side = _doorway(side)
+	_serving = side
+	for s in sides:
+		var branch := _arms.get(s) as BeltPath
+		if branch != null:
+			branch.set_outlet_held(s != side)
+	_park_behind_front(side)
+
+func _doorway(side: int) -> int:
+	if _out == null or not is_instance_valid(_out):
+		return side
+	if old_join_mouth:
+		_out.set_gate_pass(null)
+		return side
+	var sides := inlet_sides()
+	var n := sides.size()
+	var at := maxi(0, sides.find(side))
+	var count := 0
+	var first := -1
+	var side_in := false
+	for k in range(n):
+		var s: int = sides[(at + k) % n]
+		if _in_mouth(s):
+			count += 1
+			if first < 0:
+				first = s
+			if s == side:
+				side_in = true
+	if count == 1 or (count > 1 and not side_in):
+		side = first
+	var branch := _arms.get(side) as BeltPath
+	if _out.set_gate_pass(branch if count > 1 else null) and branch != null:
+		branch.wake()
+	return side
+
+func _jam_paths() -> Array:
+	var out: Array = []
+	for side in inlet_sides():
+		var branch := _arms.get(side) as BeltPath
+		if branch != null:
+			out.append(branch)
+	if _out != null and is_instance_valid(_out) and not _out._outlet_held:
+		out.append(_out)
+	return out
+
+func _break_jam(stuck: BeltPath) -> void:
+	var side := -1
+	for s in inlet_sides():
+		if _arms.get(s) == stuck:
+			side = s
+	if side < 0:
+		stuck.wake()
+		return
+	_serving = side
+	for s in inlet_sides():
+		var branch := _arms.get(s) as BeltPath
+		if branch != null:
+			branch.set_outlet_held(s != side)
+			branch.hold_before(-1.0)
+			branch.wake()
+	if _out != null and is_instance_valid(_out):
+		_out.set_gate_pass(stuck)
+		_out.wake()
+
+func _on_arm_gave(body: RigidBody3D, side: int) -> void:
+	next_side = _next_after(side)
+	_offer = body
+	_flight = Engine.get_physics_frames()
+	_hold_arm(side)
+
+func _on_arm_gave_record(_seq: int, _kind: int, _strands: int, side: int) -> void:
+	next_side = _next_after(side)
+	_offer = null
+	_flight = Engine.get_physics_frames()
+	_jam.release()
+	if old_merge:
+		_hold_arm(side)
+	else:
+		_serve()
+
+func _park_behind_front(served: int) -> void:
+	for s in inlet_sides():
+		var branch := _arms.get(s) as BeltPath
+		if branch == null:
+			continue
+		var on: bool = BeltPath.old_wye or not _turn_to_nearer() or s != served or _first_due_after(s) >= 0
+		if branch.run.wye != on:
+			branch.run.wye = on
+			branch.wake()
+
+func _next_after(side: int) -> int:
+	var sides := inlet_sides()
+	return int(sides[(maxi(0, sides.find(side)) + 1) % sides.size()])
+
+func _first_due_after(side: int) -> int:
+	var sides := inlet_sides()
+	var n := sides.size()
+	var at := maxi(0, sides.find(side))
+	for k in range(1, n):
+		var s: int = sides[(at + k) % n]
+		if _due(s):
+			return s
+	return -1
+
+func _nearest_after(side: int) -> int:
+	var sides := inlet_sides()
+	var n := sides.size()
+	var at := maxi(0, sides.find(side))
+	var best: int = sides[(at + 1) % n]
+	var best_d := _to_door(best)
+	for k in range(2, n):
+		var s: int = sides[(at + k) % n]
+		var d := _to_door(s)
+		if d < best_d:
+			best = s
+			best_d = d
+	return best
 
 func _build_model() -> void:
 	var meshes := Model.build(self)

@@ -24,6 +24,9 @@ func distributor_speed_scale() -> float:
 func from_dict(data: Dictionary, refund_v5_truncation: bool = false) -> void:
 	VacUpgrades.new().ensure_cards()
 	Progression.new().ensure_cards()
+	var mp := get_node_or_null("/root/MPMod")
+	if is_instance_valid(mp) and "addon_bridge" in mp and is_instance_valid(mp.addon_bridge):
+		mp.addon_bridge.ensure_tech_extensions()
 	for name in ["FTNProductionSpeed", "FTNToolUpgrades"]:
 		var addon := get_node_or_null("/root/" + name)
 		if is_instance_valid(addon) and addon.has_method("ensure_extensions"):
