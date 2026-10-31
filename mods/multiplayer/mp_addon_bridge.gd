@@ -43,6 +43,9 @@ func _ensure_addons() -> void:
 	var root := get_tree().root
 	if root == null:
 		return
+	if not root.is_node_ready():
+		_ensure_addons.call_deferred()
+		return
 	for entry in ADDONS:
 		var addon_name: String = entry.name
 		var path: String = entry.path

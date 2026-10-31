@@ -1,10 +1,10 @@
 # Find The Needle co-op mod
 
-Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.79`, based on upstream 0.19.5. This build targets the Windows Steam demo and was checked with game build **25963876**.
+Maintained by **xRangerDE**. Community maintenance fork of [AleDev11’s co-op mod](https://github.com/AleDev11/FindTheNeedle-Coop-Mod), version `0.19.6-xRangerDE.80`, based on upstream 0.19.5. This build targets the Windows Steam demo. The add-on and router regression checks cover game builds **25963876** and **26260645**.
 
 The multiplayer menu follows three steps: create a session, invite friends, then select a save. Hosts can open the native save selector directly; guests see their actual connection and loading status. Direct IP connections remain available in the expandable advanced section.
 
-Sessions support up to **eight players in total: one host and seven guests**. Upgrades and the account are shared; carried equipment remains personal. Every player needs the game and the same mod version. Use the Multiplayer Addons ZIP if you also use the packaged Production Speed, Tool Upgrades and Autonomous Mice add-ons. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
+Sessions support up to **eight players in total: one host and seven guests**. Upgrades and the account are shared; carried equipment remains personal. Every player needs the game and the same mod version. Optional Production Speed, Tool Upgrades and Autonomous Mice add-ons are installed separately; they are not included in the main ZIP. Never share your personal `mp_settings.cfg`, saves or diagnostic logs as part of an installation package.
 
 ## Balanced prices and legacy credit
 
@@ -19,10 +19,16 @@ When loading an older save, recorded overpayments for the repriced ranks are cre
 
 1. Close the game and keep a backup of the existing mod and saves.
 2. Copy the ZIP’s `mods` folder beside `FindTheNeedle.exe`.
-3. Keep your existing `override.cfg` settings. Under `[autoload]`, ensure `MPMod="*mods/multiplayer/mp.gd"` is present. The add-on package includes its own installation notes for its additional autoloads.
+3. Keep your existing `override.cfg` settings. Under `[autoload]`, ensure `MPMod="*mods/multiplayer/mp.gd"` is present. Keep any other add-on autoload entries.
 4. Start through Steam. The host opens a lobby and loads the existing save; friends join through Steam invitations.
 
 The base ZIP does not replace `override.cfg`. See [German instructions](mods/multiplayer/ANLEITUNG-DE.txt) for detailed controls.
+
+## Other mods and removal
+
+The compatibility bridge supports the checked versions of Production Speed (0.3.19), Collection Tool Upgrades (0.1.0) and Autonomous Mice (0.1.6). It adapts their scripts in memory and leaves their files unchanged. Production Speed can still report capped scanner-speed ranks when Multiplayer Enhanced loads first or loads the add-ons automatically; this update does not remove that limit.
+
+To remove Multiplayer Enhanced, close the game, remove only the `MPMod` entry from `override.cfg`, and remove only `mods/multiplayer`. Keep the other mod folders and their autoload entries. If an older installation replaced your configuration, restore the missing entries from your backup or the affected mods’ installation instructions. Removing a folder cannot restore overwritten configuration. The bridge is no longer active after removal; each remaining add-on must support your game version independently. Mod-specific data already saved in a world is not reverted by uninstalling.
 
 ## Language support
 

@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.79
+FIND THE NEEDLE CO-OP – 0.19.6-xRangerDE.80
 
 Das Multiplayer-Menü führt durch Sitzung, Freunde und Spielstand. Gastgeber können die native Spielstandauswahl direkt öffnen. Gäste sehen ihren Verbindungs- und Ladezustand. IP-Verbindungen sind im aufklappbaren Bereich verfügbar. Die Oberfläche und ihre Statusmeldungen unterstützen alle 17 Spielsprachen.
 
@@ -366,3 +366,16 @@ Sammler mit vier/acht Anschlüssen: drei/sieben Eingänge, ein nummerierter Ausg
 
 Supply Co: Den Laden ansehen und N für die Vorschau zum Versetzen drücken. Linksklick platziert, Rechtsklick bricht ab. Der Host speichert und synchronisiert Position und Drehung.
 Bis zu acht Spieler insgesamt (Gastgeber + sieben Gäste). Gemeinsame Upgrades gelten für alle. Jede Vogelperspektive synchronisiert die darin sichtbaren Maschinen und losen Halme unabhängig vom Standort der Spielfigur.
+
+
+ANDERE MODS UND DEINSTALLATION (.80)
+Die Kompatibilitätsbrücke wurde mit Production Speed 0.3.19, Collection Tool
+Upgrades 0.1.0 und Autonomous Mice 0.1.6 geprüft. Anpassungen erfolgen nur im
+Arbeitsspeicher; die Dateien der Zusatzmods bleiben unverändert.
+Zum Entfernen das Spiel beenden, nur den MPMod-Eintrag aus override.cfg
+und nur den Ordner mods/multiplayer entfernen. Andere Mod-Ordner und deren
+Autoload-Einträge behalten. Falls eine frühere Installation override.cfg
+überschrieben hat, fehlende Einträge aus einem Backup oder nach der Anleitung
+der jeweiligen Mod wiederherstellen. Nach der Deinstallation ist die Brücke
+nicht mehr aktiv; die übrigen Mods müssen die Spielversion selbst unterstützen.
+Bereits gespeicherte modbezogene Spielstandsdaten werden nicht zurückgesetzt.

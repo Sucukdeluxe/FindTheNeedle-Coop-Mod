@@ -1,6 +1,6 @@
 [b]Expanded co-op for Find The Needle Demo[/b]
 
-Build and expand a shared factory with additional transport machines, overhead building controls, revised progression and targeted synchronization fixes. Current release: 0.19.6-xRangerDE.79, checked against Steam demo build 25963876. All participants must install the same mod and game versions.
+Build and expand a shared factory with additional transport machines, overhead building controls, revised progression and targeted synchronization fixes. Current release: 0.19.6-xRangerDE.80, with add-on and router checks on Steam demo builds 25963876 and 26260645. All participants must install the same mod and game versions.
 
 [b]Included features[/b]
 [list]
@@ -78,6 +78,11 @@ These are summaries of existing maintenance revisions, not additional downloads 
 Overhead camera and validated building actions across the playable map; N for direct sale-station relocation with the active key shown in the native HUD; cancel/finish behaviour; wider translation coverage and recipient-language system notifications.
 
 [b]Compatibility and testing limits[/b]
-Targets the Windows Steam demo; release 0.19.6-xRangerDE.79 was checked against Steam build 25963876. The core additions work in single-player as well as co-op where applicable. Native local headless tests cover host/guest transactions, packet loss/duplication, save state, mixed cargo and blocked-output recovery. These checks do not establish a two-PC Internet/Steam result, GPU frame rates, compatibility with every mod, or freedom from all bugs. The reported overhead-camera slowdown was not reproduced as a sustained CPU regression in headless profiling; GPU performance remains unverified. The native game and mods can change; back up saves before updating.
+Targets the Windows Steam demo; targeted add-on and router checks for 0.19.6-xRangerDE.80 passed on Steam build 26260645, with earlier regression checks on build 25963876. The core additions work in single-player as well as co-op where applicable. Native local headless tests cover host/guest transactions, packet loss/duplication, save state, mixed cargo and blocked-output recovery. These checks do not establish a two-PC Internet/Steam result, GPU frame rates, compatibility with every mod, or freedom from all bugs. The reported overhead-camera slowdown was not reproduced as a sustained CPU regression in headless profiling; GPU performance remains unverified. The native game and mods can change; back up saves before updating.
 
 For a report, include the game/mod versions, host or guest role, steps to reproduce, and the relevant local diagnostic excerpt with personal data removed. The full per-version history is in CHANGELOG.md inside the ZIP and on GitHub.
+
+
+[b]Compatibility and uninstalling[/b]
+The bridge supports the checked versions of Production Speed (0.3.19), Collection Tool Upgrades (0.1.0) and Autonomous Mice (0.1.6). It adapts scripts in memory without changing their files. Production Speed can still report capped scanner-speed ranks when Multiplayer Enhanced loads first or loads the add-ons automatically; this update does not remove that limit.
+To uninstall, close the game, remove only the MPMod line from override.cfg and remove only mods/multiplayer. Keep other mods and their autoload entries. Restore missing entries from a backup or the affected mods’ instructions if an older installation replaced the configuration. Remaining add-ons must support your game version independently after the bridge is removed. Saved mod-specific world data is not reverted.

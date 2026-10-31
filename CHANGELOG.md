@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.19.6-xRangerDE.80 — 31.10.2026
 
+- Defer add-on replacement until the scene tree is ready, preventing a startup crash when BadHippo add-ons are already registered in `override.cfg`.
+- Clarify installation and removal: preserve other autoload entries and remove only the `MPMod` entry and `mods/multiplayer` folder.
 - Fix 4-, 6- and 8-port splitters and mergers with enclosed conveyors and after save/load: wire all merger inlet ports (`2..7`) in `mp_builds.gd`, wake open splitter routes and feeders when resuming parked belt records, and check per-route in-flight margin on record-only output belts so blocked outputs are skipped without stalling open routes.
 - Bridge external addon mods (`FTNProductionSpeed`, `FTNToolUpgrades`, `FTNMice`) automatically in memory (`mp_addon_bridge.gd`) without modifying addon files on disk, keeping scanner/processor script replacements and co-op host sessions compatible out of the box.
 - Run at most one heavy periodic synchronization task per frame. Conveyor snapshots, machine poses, machine rescans, power state, building checksums and the overhead device list wait up to three frames instead of landing in the same frame.

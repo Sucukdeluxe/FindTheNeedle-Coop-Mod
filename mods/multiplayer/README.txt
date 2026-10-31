@@ -1,4 +1,4 @@
-FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.79
+FIND THE NEEDLE CO-OP MOD  v0.19.6-xRangerDE.80
 ==================================
 
 Unofficial mod. Every player needs the game (the free Steam demo) and this
@@ -24,7 +24,11 @@ MPMod="*mods/multiplayer/mp.gd"
 3. Start the game FROM STEAM. The main menu now has MULTIPLAYER.
 
 To uninstall: delete the MPMod line from override.cfg, and delete the mods/multiplayer
-folder. Personal inventory metadata remains in the host save.
+folder. Keep all other mod folders and their autoload entries. If an older
+installation overwrote override.cfg, restore the other entries from a backup
+or those mods’ instructions. Personal inventory metadata remains in the host save.
+The compatibility bridge changes add-on scripts only in memory. After removal,
+each remaining add-on needs to support the game version on its own.
 
 Game updates replace override.cfg, so add the two lines again after each one.
 
