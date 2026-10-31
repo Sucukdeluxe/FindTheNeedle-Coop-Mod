@@ -16,7 +16,12 @@ Build and expand a shared factory with additional transport machines, overhead b
 [*]Host-confirmed needle/scanner transfers, machine-setting synchronization, arm-load and income display replication, and targeted press, wrapper, lift, water-connection and tool-drop fixes.[/*]
 [*]Guest vacuum recovery for a process crash and rejoin to the same host world, using a private local journal. Earlier host-save rollback and unsaved host progress are not recoverable by this feature.[/*]
 [/list]
-[b]Latest update: revisions 74–79 — 19.10.2026[/b]
+[b]Latest update: revision 80 — 31.10.2026[/b]
+Compatibility fixes for the checked BadHippo add-ons, including safe startup with existing autoload entries. The bridge adapts scripts in memory without rewriting their files. Closed-conveyor routing and save/load recovery are fixed for 4/6/8-port devices, and heavy synchronization work is spread across frames.
+
+66 native headless checks passed on Steam build 26260645; all three add-ons also started after removing Multiplayer Enhanced. Scanner-speed caps remain unchanged. See the compatibility and uninstalling notes below.
+
+[b]Previous updates: revisions 74–79[/b]
 Independent, rebindable F9 parallel placement; held-R rotation of existing empty machines; shared conveyor-line stops; an overhead device panel; 0.5-second Mk II scanner cycles; and optional 4/6/8-port router enclosures.
 
 Large-factory updates reduce machine, build and network work. Normal vacuum output onto multi-port routers uses small hay tufts. Power commands use a dedicated reliable channel and avoid redundant full snapshots. In the final isolated eight-process test, 112 checks passed; the 95th-percentile power acknowledgement fell from 5.27 to 1.52 seconds. This is a local CPU/network result, not a rendered frame-rate or two-PC Steam/WAN measurement.
